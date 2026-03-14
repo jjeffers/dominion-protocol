@@ -105,7 +105,8 @@ func _draw_path(angle: float) -> void:
 	
 	# ~1 tile width = 0.006 world units
 	var path_width = 0.006
-	var path_elevation = 1.03 # Float above the terrain peaks
+	# Float above the terrain peaks (1.01), but below the Unit Sprite (1.02)
+	var path_elevation = 1.015
 	
 	# Calculate arrowhead proportion (fixed world unit length, converted to percentage of path)
 	var arrow_length_units = 0.02
