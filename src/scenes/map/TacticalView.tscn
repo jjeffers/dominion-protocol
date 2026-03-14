@@ -2,9 +2,14 @@
 
 [ext_resource type="Script" path="res://src/scripts/map/TacticalView.gd" id="1_tacticalview"]
 
-[node name="TacticalView" type="Node2D"]
+[node name="TacticalView" type="Node3D"]
 script = ExtResource("1_tacticalview")
 
-[node name="MapLayer" type="Node2D" parent="."]
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
 
-[node name="Camera2D" type="Camera2D" parent="."]
+[node name="CameraPivot" type="Node3D" parent="."]
+
+[node name="Camera3D" type="Camera3D" parent="CameraPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.25)
+projection = 1
+size = 0.5

@@ -28,7 +28,7 @@ anchors_preset = 11
 anchor_left = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -1600.0
+offset_left = -2000.0
 grow_horizontal = 0
 grow_vertical = 2
 stretch = true
@@ -36,7 +36,7 @@ stretch = true
 [node name="SubViewport" type="SubViewport" parent="GlobeContainer"]
 transparent_bg = true
 handle_input_locally = false
-size = Vector2i(1600, 1600)
+size = Vector2i(2000, 2000)
 render_target_update_mode = 4
 
 [node name="GlobeView" parent="GlobeContainer/SubViewport" instance=ExtResource("2_globe")]
@@ -48,8 +48,8 @@ anchors_preset = 2
 anchor_top = 1.0
 anchor_bottom = 1.0
 offset_left = 20.0
-offset_top = -1220.0
-offset_right = 1850.0
+offset_top = -920.0
+offset_right = 1392.0
 offset_bottom = -20.0
 grow_vertical = 0
 
@@ -69,7 +69,7 @@ stretch = true
 [node name="SubViewport" type="SubViewport" parent="TacticalPanel/TacticalContainer"]
 transparent_bg = true
 handle_input_locally = false
-size = Vector2i(1814, 1184)
+size = Vector2i(1364, 892)
 render_target_update_mode = 4
 
 [node name="TacticalView" parent="TacticalPanel/TacticalContainer/SubViewport" instance=ExtResource("3_tactical")]

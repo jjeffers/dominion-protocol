@@ -8,7 +8,7 @@ signal focus_changed(longitude: float, latitude: float)
 
 var map_data: MapData
 
-var radius: float = 1.5
+var radius: float = 1.0
 var current_longitude: float = 0.0
 var current_latitude: float = 0.0
 
@@ -23,8 +23,7 @@ var outline_immediate_mesh: ImmediateMesh
 func _ready() -> void:
 	if not map_data:
 		# Create a dummy map for testing if none provided
-		map_data = MapData.new(64, 32)
-		map_data.generate_prototype_continents()
+		map_data = MapData.new()
 		
 	_generate_mesh()
 	_update_camera()
@@ -44,66 +43,17 @@ func _ready() -> void:
 
 
 func _generate_mesh() -> void:
-	var segments_w = 120
-	var segments_h = 60
-	var surface_array = []
-	surface_array.resize(Mesh.ARRAY_MAX)
-	
-	var verts = PackedVector3Array()
-	var uvs = PackedVector2Array()
-	var normals = PackedVector3Array()
-	var indices = PackedInt32Array()
-	
-	# Generate vertices
-	for y in range(segments_h + 1):
-		# Cylindrical Equal Area: Map rows to sine ranges [-1.0, 1.0]
-		var l_sin = clamp(1.0 - 2.0 * (y / float(segments_h)), -1.0, 1.0)
-		var lat = asin(l_sin)
-		var cos_lat = cos(lat)
-		var sin_lat = sin(lat)
+	var mesh = ResourceLoader.load("res://src/data/quadsphere_globe.res")
+	if not mesh:
+		push_error("GlobeView: Failed to load Quad-Sphere Mesh!")
+		return
 		
-		for x in range(segments_w + 1):
-			var lon = -PI + (2.0 * PI * x / float(segments_w))
-			
-			var nx = cos_lat * sin(lon)
-			var ny = sin_lat
-			var nz = cos_lat * cos(lon)
-			
-			verts.append(Vector3(nx, ny, nz) * radius)
-			normals.append(Vector3(nx, ny, nz))
-			uvs.append(Vector2(x / float(segments_w), y / float(segments_h)))
-
-	# Generate indices (Quads -> Triangles)
-	for y in range(segments_h):
-		for x in range(segments_w):
-			var i = y * (segments_w + 1) + x
-			
-			# Triangle 1
-			indices.append(i)
-			indices.append(i + 1)
-			indices.append(i + segments_w + 1)
-			
-			# Triangle 2
-			indices.append(i + 1)
-			indices.append(i + segments_w + 2)
-			indices.append(i + segments_w + 1)
-
-	surface_array[Mesh.ARRAY_VERTEX] = verts
-	surface_array[Mesh.ARRAY_TEX_UV] = uvs
-	surface_array[Mesh.ARRAY_NORMAL] = normals
-	surface_array[Mesh.ARRAY_INDEX] = indices
-
-	var mesh = ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, surface_array)
-	
 	mesh_instance.mesh = mesh
 	
-	# Create material that uses the high resolution map texture
 	var mat = StandardMaterial3D.new()
-	var img = Image.new()
-	img.load("res://src/assets/map_half.png")
-	mat.albedo_texture = ImageTexture.create_from_image(img)
+	mat.vertex_color_use_as_albedo = true
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED # Render both sides to avoid backface hollow bowl illusion
 	mesh_instance.material_override = mat
 
 func _process(delta: float) -> void:
@@ -144,9 +94,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		_update_camera()
 
 func _update_camera() -> void:
-	# Rotate the pivot to match the current lat/lon focus
-	# Use -current_latitude so positive latitude aims Camera at Northern Hemisphere
-	camera_pivot.rotation = Vector3(-current_latitude, current_longitude, 0)
+	var t = Transform3D.IDENTITY
+	t = t.rotated(Vector3.UP, current_longitude)
+	t = t.rotated(t.basis.x, -current_latitude)
+	camera_pivot.transform = t
 	
 	focus_changed.emit(current_longitude, current_latitude)
 

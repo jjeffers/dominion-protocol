@@ -8,12 +8,7 @@ var map_data: MapData
 
 func _ready() -> void:
 	# 1. Initialize Canonical Data
-	map_data = MapData.new(0, 0)
-	var loaded = map_data.load_from_image("res://src/assets/map_half.png")
-	if not loaded:
-		print("Fallback to procedural continents")
-		map_data = MapData.new(64, 32)
-		map_data.generate_prototype_continents()
+	map_data = MapData.new()
 	
 	# 2. Inject Data into Views
 	tactical_view.map_data = map_data
