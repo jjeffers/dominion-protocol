@@ -10,8 +10,8 @@ signal focus_changed(longitude: float, latitude: float)
 var map_data: MapData
 
 var radius: float = 1.0
-var current_longitude: float = 0.0
-var current_latitude: float = 0.0
+var current_longitude: float = -1.3788
+var current_latitude: float = 0.6196
 
 var target_zoom: float = 3.0
 var min_zoom: float = 1.5
