@@ -242,9 +242,12 @@ func _load_cities() -> void:
 		
 	for city_name in cities_dict:
 		var data = cities_dict[city_name]
-		var vec = data.get("vector3", {})
-		if vec.has("x") and vec.has("y") and vec.has("z"):
-			var pos = Vector3(vec["x"], vec["y"], vec["z"])
+		var lat_deg = data.get("latitude")
+		var lon_deg = data.get("longitude")
+		
+		if lat_deg != null and lon_deg != null:
+			# Radius 1.02 perfectly aligns the sprite on the unit layer hovering over the peaks
+			var pos = _lat_lon_to_vector3(deg_to_rad(lat_deg), deg_to_rad(lon_deg), radius * 1.02)
 			
 			var city_node = Node3D.new()
 			add_child(city_node)
