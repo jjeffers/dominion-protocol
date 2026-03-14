@@ -16,6 +16,9 @@ var target_position: Vector3
 # 1 tile roughly equals 0.006 units
 var speed_units_per_sec: float = 0.006
 
+var path_mesh_instance: MeshInstance3D
+var path_immediate_mesh: ImmediateMesh
+
 func _init() -> void:
 	# Setup Sprite
 	sprite = Sprite3D.new()
@@ -39,6 +42,26 @@ func _init() -> void:
 	collision_shape.shape = shape
 	click_area.add_child(collision_shape)
 	add_child(click_area)
+
+	# Setup Path Drawing
+	path_mesh_instance = MeshInstance3D.new()
+	path_immediate_mesh = ImmediateMesh.new()
+	path_mesh_instance.mesh = path_immediate_mesh
+	
+	var path_mat = StandardMaterial3D.new()
+	# Faded translucent white/gray
+	path_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	path_mat.albedo_color = Color(1.0, 1.0, 1.0, 0.4)
+	path_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	path_mat.use_point_size = true
+	path_mesh_instance.material_override = path_mat
+	
+	# Add the path mesh as a sibling to the unit so it doesn't rotate relative to the unit's local transform
+	# But wait, GlobeUnit IS a Node3D. If we add it as a child, its global position tracks the unit.
+	# We want the path to be drawn in global space so it stays fixed relative to the globe.
+	# The easiest way is to add it as a top-level child so it ignores the parent's transform:
+	path_mesh_instance.top_level = true
+	add_child(path_mesh_instance)
 
 func spawn(pos: Vector3) -> void:
 	current_position = pos.normalized() * radius
@@ -65,3 +88,25 @@ func _process(delta: float) -> void:
 		global_position = current_position
 		
 		look_at(Vector3.ZERO, Vector3.UP)
+		
+		_draw_path(angle)
+	else:
+		# Arrived or stationary: clear path
+		path_immediate_mesh.clear_surfaces()
+
+func _draw_path(angle: float) -> void:
+	path_immediate_mesh.clear_surfaces()
+	# Draw line strip connecting current to target
+	path_immediate_mesh.surface_begin(Mesh.PRIMITIVE_LINE_STRIP)
+	
+	# Calculate number of segments based on angular distance, min 4, max 32
+	var segments = clampi(int(angle * 30.0), 4, 32)
+	
+	for i in range(segments + 1):
+		var w = i / float(segments)
+		var p = current_position.slerp(target_position, w).normalized() * radius
+		
+		# Elevate slightly to prevent z-fighting with the globe surface
+		path_immediate_mesh.surface_add_vertex(p * 1.002)
+		
+	path_immediate_mesh.surface_end()

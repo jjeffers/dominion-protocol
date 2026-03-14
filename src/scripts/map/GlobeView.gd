@@ -268,6 +268,10 @@ func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
 				var hit_point = result.position
 				test_unit.set_target(hit_point)
 				
+				# Deselect unit instantly per user request
+				test_unit.is_selected = false
+				target_bracket.visible = false
+				
 				# Debug Log Tile Hit
 				var tile_id = _get_tile_from_vector3(hit_point)
 				print("Unit Ordered To Compute Travel to Tile: ", tile_id)
