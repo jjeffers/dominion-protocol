@@ -3,11 +3,11 @@ extends SceneTree
 const RESOLUTION = 181
 const RADIUS = 1.0
 
-const TOPOGRAPHY_IMAGE_PATH = "/home/jdjeffers/Documents/Topography.jpg"
-const LANDMASK_IMAGE_PATH = "/home/jdjeffers/Documents/etopo-landmask.png"
-const NDVI_IMAGE_PATH = "/home/jdjeffers/Documents/NDVI_84.bw.png"
-const OUT_MESH_PATH = "/home/jdjeffers/.gemini/antigravity/playground/glowing-prominence/src/data/quadsphere_globe.res"
-const OUT_JSON_PATH = "/home/jdjeffers/.gemini/antigravity/playground/glowing-prominence/src/data/quad_data.json"
+const TOPOGRAPHY_IMAGE_PATH = "res://src/assets/Topography.jpg"
+const LANDMASK_IMAGE_PATH = "res://src/assets/etopo-landmask.png"
+const NDVI_IMAGE_PATH = "res://src/assets/NDVI_84.bw.png"
+const OUT_MESH_PATH = "res://src/data/quadsphere_globe.res"
+const OUT_JSON_PATH = "res://src/data/quad_data.json"
 
 enum Face { FRONT, BACK, LEFT, RIGHT, TOP, BOTTOM }
 
@@ -70,8 +70,10 @@ func _bake() -> void:
 				var centroid = _get_sphere_point(face, cx, cy).normalized() * RADIUS
 				
 				# Sample Terrain
-				var terrain = _sample_terrain(centroid, img, img_w, img_h, mask_img, mask_img.get_width(), mask_img.get_height(), ndvi_img, ndvi_img.get_width(), ndvi_img.get_height(), noise)
-				var tile_color = _get_terrain_debug_color(terrain)
+				var terrain_data = _sample_terrain(centroid, img, img_w, img_h, mask_img, mask_img.get_width(), mask_img.get_height(), ndvi_img, ndvi_img.get_width(), ndvi_img.get_height(), noise)
+				var terrain = terrain_data[0]
+				var veg = terrain_data[1]
+				var tile_color = _get_terrain_debug_color(terrain, veg)
 				
 				# Build Tile Dictionary Data
 				# We store coordinates as "FACE_X_Y" string ID
@@ -216,59 +218,58 @@ func _get_edge_neighbor(face: int, x: int, y: int, dir: String) -> String:
 	return "%s_%d_%d" % [f_name, nx, ny]
 
 
-func _sample_terrain(centroid: Vector3, img: Image, img_w: int, img_h: int, mask: Image, mask_w: int, mask_h: int, ndvi: Image, ndvi_w: int, ndvi_h: int, noise: FastNoiseLite) -> String:
+func _sample_terrain(centroid: Vector3, img: Image, img_w: int, img_h: int, mask: Image, mask_w: int, mask_h: int, ndvi: Image, ndvi_w: int, ndvi_h: int, noise: FastNoiseLite) -> Array:
 	# Convert 3D Centroid to Lat/Lon Radians
 	var lat = asin(centroid.y) 
 	var lon = atan2(centroid.z, centroid.x) 
 	
-	var u_base = (lon + PI) / (2.0 * PI)
-	var u_flipped = 1.0 - u_base # Flip U to correct East/West mirroring for ETOPO/Topography
-	
+	# Godot 3D orientation needs a U-flip for standard projection images
+	var u_base = 1.0 - ((lon + PI) / (2.0 * PI))
 	var v_base = (lat + (PI / 2.0)) / PI
 	
-	var v_etopo = v_base       # ETOPO is South-Up
-	var v_north = 1.0 - v_base # Topo and NDVI are North-Up
+	# All maps are North-Up
+	var v_north = 1.0 - v_base
 	
 	# Sample Landmask First
-	var mask_px = clamp(int(u_flipped * mask_w), 0, mask_w - 1)
-	var mask_py = clamp(int(v_etopo * mask_h), 0, mask_h - 1)
+	var mask_px = clamp(int(u_base * mask_w), 0, mask_w - 1)
+	var mask_py = clamp(int(v_north * mask_h), 0, mask_h - 1)
 	var is_land = mask.get_pixel(mask_px, mask_py).v > 0.5
 	
 	if not is_land:
-		return "OCEAN"
+		return ["OCEAN", 0.0]
 	
 	# Sample Topography if Land
-	var px = clamp(int(u_flipped * img_w), 0, img_w - 1)
+	var px = clamp(int(u_base * img_w), 0, img_w - 1)
 	var py = clamp(int(v_north * img_h), 0, img_h - 1)
 	var topo_color = img.get_pixel(px, py)
 	var elevation = topo_color.v
 	
 	if elevation >= 0.75: 
-		return "MOUNTAINS"
+		return ["MOUNTAINS", 0.0]
 		
 	# Sample Vegetation
-	# The NDVI image is cropped (scaled 76% vertically, offset 14% from poles) and shifted East 1%.
-	# NDVI correctly maps East/West so we use the un-flipped u_base.
-	var ndvi_u = fmod(u_base + 0.01, 1.0)
-	var ndvi_v = (v_base * 0.76) + 0.14
-	var ndvi_v_north = 1.0 - ndvi_v
-	
-	var ndvi_px = clamp(int(ndvi_u * ndvi_w), 0, ndvi_w - 1)
-	var ndvi_py = clamp(int(ndvi_v_north * ndvi_h), 0, ndvi_h - 1)
+	# The NDVI image matches the Topography mapping now.
+	var ndvi_px = clamp(int(u_base * ndvi_w), 0, ndvi_w - 1)
+	var ndvi_py = clamp(int(v_north * ndvi_h), 0, ndvi_h - 1)
 	var veg = ndvi.get_pixel(ndvi_px, ndvi_py).v
 	
-	if veg < 0.2: return "DESERT"
-	if veg < 0.6: return "PLAINS"
+	if veg < 0.4: 
+		if abs(lat) > 1.0: return ["POLAR", veg]
+		return ["DESERT", veg]
+	if veg < 0.8: return ["PLAINS", veg]
 	
 	var fuzzy_lat = abs(lat) + noise.get_noise_3dv(centroid) * 0.15
-	if fuzzy_lat < 0.4: return "JUNGLE"
-	return "FOREST"
+	if fuzzy_lat < 0.4: return ["JUNGLE", veg]
+	return ["FOREST", veg]
 
-func _get_terrain_debug_color(terrain: String) -> Color:
+func _get_terrain_debug_color(terrain: String, veg: float) -> Color:
 	match terrain:
 		"OCEAN": return Color("1e90ff") # Dodger Blue
-		"DESERT": return Color("f4a460") # Sandy Brown/Orange
-		"PLAINS": return Color("9acd32") # Yellow Green
+		"POLAR": return Color("f0f8ff") # Alice Blue
+		"DESERT": return Color("d2b48c") # Tan
+		"PLAINS": 
+			var t = clamp((veg - 0.4) / 0.4, 0.0, 1.0)
+			return Color("90ee90").lerp(Color("32cd32"), t) # Light green to Lime green gradient
 		"FOREST": return Color("228b22") # Forest Green
 		"JUNGLE": return Color("006400") # Dark Green
 		"MOUNTAINS": return Color("808080") # Gray
