@@ -186,18 +186,21 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
 			target_zoom = clampf(target_zoom + 0.25, min_zoom, max_zoom)
 	
-	elif event is InputEventMouseMotion and _is_dragging:
-		var delta = event.position - _drag_start_pos
-		# Sensitivity scaling
-		var lon_delta = -delta.x * 0.01
-		var lat_delta = delta.y * 0.01
-		
-		# Update coordinates
-		current_longitude = wrapf(_drag_start_lon + lon_delta, -PI, PI)
-		# Clamp latitude to avoid flipping over poles
-		current_latitude = clampf(_drag_start_lat + lat_delta, -PI/2.1, PI/2.1)
-		
-		_update_camera()
+	elif event is InputEventMouseMotion:
+		if _is_dragging:
+			var delta = event.position - _drag_start_pos
+			# Sensitivity scaling
+			var lon_delta = -delta.x * 0.01
+			var lat_delta = delta.y * 0.01
+			
+			# Update coordinates
+			current_longitude = wrapf(_drag_start_lon + lon_delta, -PI, PI)
+			# Clamp latitude to avoid flipping over poles
+			current_latitude = clampf(_drag_start_lat + lat_delta, -PI/2.1, PI/2.1)
+			
+			_update_camera()
+		elif test_unit.is_selected:
+			_handle_hover(event.position)
 
 func _update_camera() -> void:
 	var t = Transform3D.IDENTITY
@@ -256,10 +259,7 @@ func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
 			if is_left_click:
 				test_unit.is_selected = true
 				target_bracket.visible = true
-				
-				# Place bracket over unit's current targeted location
-				target_bracket.position = unit.target_position
-				target_bracket.look_at_from_position(unit.target_position, Vector3.ZERO, Vector3.UP)
+				_handle_hover(screen_pos)
 				
 		elif collider == map_collider:
 			# Clicked the globe surface!
@@ -268,13 +268,28 @@ func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
 				var hit_point = result.position
 				test_unit.set_target(hit_point)
 				
-				# Move Bracket
-				target_bracket.position = test_unit.target_position
-				target_bracket.look_at_from_position(test_unit.target_position, Vector3.ZERO, Vector3.UP)
-				
 				# Debug Log Tile Hit
 				var tile_id = _get_tile_from_vector3(hit_point)
 				print("Unit Ordered To Compute Travel to Tile: ", tile_id)
+
+func _handle_hover(screen_pos: Vector2) -> void:
+	var space_state = get_world_3d().direct_space_state
+	var ray_origin = camera.project_ray_origin(screen_pos)
+	var ray_end = ray_origin + camera.project_ray_normal(screen_pos) * 1000.0
+	
+	var query = PhysicsRayQueryParameters3D.create(ray_origin, ray_end)
+	query.collide_with_bodies = true
+	query.collide_with_areas = false
+	
+	var result = space_state.intersect_ray(query)
+	
+	if result and result.collider == map_collider:
+		# Place bracket over the globe surface where hovered
+		target_bracket.position = result.position
+		target_bracket.look_at_from_position(result.position, Vector3.ZERO, Vector3.UP)
+		target_bracket.visible = true
+	else:
+		target_bracket.visible = false
 
 func _get_tile_from_vector3(pos: Vector3) -> String:
 	# Convert a 3D coordinate point on the sphere back into the exact Face and XY coordinate it corresponds to on the underlying 181x181 matrices.
