@@ -50,10 +50,41 @@ func _generate_mesh() -> void:
 		
 	mesh_instance.mesh = mesh
 	
-	var mat = StandardMaterial3D.new()
-	mat.vertex_color_use_as_albedo = true
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED # Render both sides to avoid backface hollow bowl illusion
+	var mat = ShaderMaterial.new()
+	var shader = Shader.new()
+	shader.code = """
+shader_type spatial;
+render_mode unshaded, cull_disabled;
+
+varying vec3 v_world_pos;
+
+void vertex() {
+	v_world_pos = VERTEX;
+}
+
+// 3D hash for noise
+float hash(vec3 p) {
+	p = fract(p * 0.3183099 + .1);
+	p *= 17.0;
+	return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+}
+
+void fragment() {
+	vec3 col = COLOR.rgb;
+	
+	// Desert is tagged with Alpha < 0.9 (we use 0.5 in Baker)
+	if (COLOR.a < 0.9) {
+		float n = hash(floor(v_world_pos * 500.0));
+		if (n > 0.95) {
+			col = vec3(0.3, 0.3, 0.3); // Dark Gray speck
+		}
+	}
+	
+	ALBEDO = col;
+	ALPHA = 1.0;
+}
+"""
+	mat.shader = shader
 	mesh_instance.material_override = mat
 
 func _process(delta: float) -> void:

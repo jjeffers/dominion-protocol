@@ -253,7 +253,7 @@ func _sample_terrain(centroid: Vector3, img: Image, img_w: int, img_h: int, mask
 	var ndvi_py = clamp(int(v_north * ndvi_h), 0, ndvi_h - 1)
 	var veg = ndvi.get_pixel(ndvi_px, ndvi_py).v
 	
-	if veg < 0.4: 
+	if veg < 0.35: 
 		if abs(lat) > 1.0: return ["POLAR", veg]
 		return ["DESERT", veg]
 	if veg < 0.8: return ["PLAINS", veg]
@@ -266,9 +266,9 @@ func _get_terrain_debug_color(terrain: String, veg: float) -> Color:
 	match terrain:
 		"OCEAN": return Color("1e90ff") # Dodger Blue
 		"POLAR": return Color("f0f8ff") # Alice Blue
-		"DESERT": return Color("d2b48c") # Tan
+		"DESERT": return Color(0.902, 0.8, 0.0, 0.5) # Yellow + Alpha 0.5 Shader Tag for black noise
 		"PLAINS": 
-			var t = clamp((veg - 0.4) / 0.4, 0.0, 1.0)
+			var t = clamp((veg - 0.35) / 0.45, 0.0, 1.0)
 			return Color("90ee90").lerp(Color("32cd32"), t) # Light green to Lime green gradient
 		"FOREST": return Color("228b22") # Forest Green
 		"JUNGLE": return Color("006400") # Dark Green
