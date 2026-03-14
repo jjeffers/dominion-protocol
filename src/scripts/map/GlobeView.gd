@@ -52,15 +52,18 @@ func _ready() -> void:
 		marker.texture = ImageTexture.create_from_image(img)
 	else:
 		push_error("GlobeView: Failed to load extracted_sprite.png")
-	# 34x34 sprite with 0.001 size = 0.034 world units tall (approx 3x3 tiles area)
-	marker.pixel_size = 0.001
-	marker.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	# 34x34 sprite. 3 tiles = 0.0184 units across. 0.0184 / 34 = 0.00054 pixel_size
+	marker.pixel_size = 0.00054
+	marker.billboard = BaseMaterial3D.BILLBOARD_DISABLED
 	
 	# Lat/Lon for North Carolina is ~35.5 N, -79.0 W
 	var nc_lat = deg_to_rad(35.5)
 	var nc_lon = deg_to_rad(-79.0)
 	marker.position = _lat_lon_to_vector3(nc_lat, nc_lon, radius * 1.02)
 	add_child(marker)
+	
+	# Point -Z axis straight into the core, meaning the +Z face (sprite) aims perfectly upwards from the surface
+	marker.look_at(Vector3.ZERO, Vector3.UP)
 
 
 func _generate_mesh() -> void:
