@@ -49,11 +49,13 @@ func _init() -> void:
 	path_mesh_instance.mesh = path_immediate_mesh
 	
 	var path_mat = StandardMaterial3D.new()
-	# Faded translucent white/gray
+	# Glowing Yellow/White
 	path_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	path_mat.albedo_color = Color(1.0, 1.0, 1.0, 0.4)
+	path_mat.albedo_color = Color(1.0, 1.0, 0.5, 0.8)
 	path_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	path_mat.use_point_size = true
+	path_mat.use_point_size = false
+	
+	# To make the line visible at varying distances, we use a thicker tube-like approach if standard line width isn't supported, but since ImmediateMesh line_strip thickness is fixed at 1px on most platforms, we just ensure it exists robustly.
 	path_mesh_instance.material_override = path_mat
 	
 	# Add the path mesh as a sibling to the unit so it doesn't rotate relative to the unit's local transform
@@ -106,7 +108,8 @@ func _draw_path(angle: float) -> void:
 		var w = i / float(segments)
 		var p = current_position.slerp(target_position, w).normalized() * radius
 		
-		# Elevate slightly to prevent z-fighting with the globe surface
-		path_immediate_mesh.surface_add_vertex(p * 1.002)
+		# Elevate enough to prevent z-fighting with the globe surface topologies which oscillate between 1.00 and 1.01 radius
+		# The unit's highest radius is 1.02. We'll draw the line floating right above the unit at 1.03.
+		path_immediate_mesh.surface_add_vertex(p * 1.03)
 		
 	path_immediate_mesh.surface_end()
