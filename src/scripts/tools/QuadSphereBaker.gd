@@ -1,6 +1,6 @@
 extends SceneTree
 
-const RESOLUTION = 128
+const RESOLUTION = 181
 const RADIUS = 1.0
 
 const TOPOGRAPHY_IMAGE_PATH = "/home/jdjeffers/Documents/Topography.jpg"
