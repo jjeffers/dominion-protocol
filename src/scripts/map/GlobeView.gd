@@ -59,6 +59,8 @@ func _ready() -> void:
 	map_collider.add_child(collision_shape)
 	add_child(map_collider)
 	
+	_load_cities()
+	
 	# Instantiate targeting bracket
 	target_bracket = Sprite3D.new()
 	# Draw bracket using same spritesheet
@@ -210,6 +212,66 @@ func _update_camera() -> void:
 	camera_pivot.transform = t
 	
 	focus_changed.emit(current_longitude, current_latitude)
+
+func _load_cities() -> void:
+	var path = "res://docs/city_data.json"
+	if not FileAccess.file_exists(path):
+		push_error("GlobeView: Could not find city_data.json")
+		return
+		
+	var file = FileAccess.open(path, FileAccess.READ)
+	var json_str = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	var err = json.parse(json_str)
+	if err != OK:
+		push_error("GlobeView: Failed to parse city_data.json error " + str(err))
+		return
+		
+	var cities_dict = json.data
+	
+	# Pre-load the city sprite icon
+	var img = Image.new()
+	var tex = null
+	if img.load("res://src/assets/city_sprite.png") == OK:
+		tex = ImageTexture.create_from_image(img)
+	else:
+		push_error("GlobeView: Failed to load city_sprite.png")
+		return
+		
+	for city_name in cities_dict:
+		var data = cities_dict[city_name]
+		var vec = data.get("vector3", {})
+		if vec.has("x") and vec.has("y") and vec.has("z"):
+			var pos = Vector3(vec["x"], vec["y"], vec["z"])
+			
+			var city_node = Node3D.new()
+			add_child(city_node)
+			
+			var sprite = Sprite3D.new()
+			sprite.texture = tex
+			# 0.006 is 1 tile width. 16px * 0.000375 = 0.006 world units
+			sprite.pixel_size = 0.000375
+			sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+			# Keep city marker flat against the terrain but render over it
+			sprite.render_priority = 1
+			city_node.add_child(sprite)
+			
+			var lbl = Label3D.new()
+			lbl.text = city_name
+			lbl.pixel_size = 0.0005
+			lbl.font_size = 32
+			lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			# Float the label slightly above and screen-facing so it's readable
+			lbl.offset = Vector2(0, -24)
+			# Ensure text sorts predictably
+			lbl.render_priority = 1
+			city_node.add_child(lbl)
+			
+			# Orient the Node directly away from the core
+			city_node.global_position = pos
+			city_node.look_at(Vector3.ZERO, Vector3.UP)
 
 func update_outline(min_lon: float, max_lon: float, min_lat: float, max_lat: float) -> void:
 	outline_immediate_mesh.clear_surfaces()
