@@ -21,9 +21,14 @@ var _is_dragging: bool = false
 var _drag_start_pos: Vector2
 var _drag_start_lon: float
 var _drag_start_lat: float
+const GlobeUnitScript = preload("res://src/scripts/map/GlobeUnit.gd")
 
 var outline_mesh_instance: MeshInstance3D
 var outline_immediate_mesh: ImmediateMesh
+
+var test_unit: Node3D
+var target_bracket: Sprite3D
+var map_collider: StaticBody3D
 
 func _ready() -> void:
 	if not map_data:
@@ -45,25 +50,39 @@ func _ready() -> void:
 	
 	add_child(outline_mesh_instance)
 	
-	# Add custom sprite marker for North Carolina
-	var marker = Sprite3D.new()
-	var img = Image.new()
-	if img.load("res://src/assets/extracted_sprite.png") == OK:
-		marker.texture = ImageTexture.create_from_image(img)
-	else:
-		push_error("GlobeView: Failed to load extracted_sprite.png")
-	# 34x34 sprite. 3 tiles = 0.0184 units across. 0.0184 / 34 = 0.00054 pixel_size
-	marker.pixel_size = 0.00054
-	marker.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+	# Add physics collider matching the exact globe surface
+	map_collider = StaticBody3D.new()
+	var collision_shape = CollisionShape3D.new()
+	var sphere_shape = SphereShape3D.new()
+	sphere_shape.radius = radius 
+	collision_shape.shape = sphere_shape
+	map_collider.add_child(collision_shape)
+	add_child(map_collider)
+	
+	# Instantiate targeting bracket
+	target_bracket = Sprite3D.new()
+	# Draw bracket using same spritesheet
+	var timg = Image.new()
+	if timg.load("res://src/assets/extracted_sprite.png") == OK:
+		# Temporarily use the same sprite, tinted via modulate, scaled up by 1.2x to fit outside the unit
+		target_bracket.texture = ImageTexture.create_from_image(timg)
+		target_bracket.modulate = Color(1.0, 1.0, 0.0, 0.5) # Translucent yellow
+	target_bracket.pixel_size = 0.00065
+	target_bracket.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+	target_bracket.visible = false
+	add_child(target_bracket)
+
+	# Add custom unit for North Carolina
+	test_unit = GlobeUnitScript.new()
+	test_unit.radius = radius * 1.01
 	
 	# Lat/Lon for North Carolina is ~35.5 N, -79.0 W
 	var nc_lat = deg_to_rad(35.5)
 	var nc_lon = deg_to_rad(-79.0)
-	marker.position = _lat_lon_to_vector3(nc_lat, nc_lon, radius * 1.02)
-	add_child(marker)
+	var spawn_pos = _lat_lon_to_vector3(nc_lat, nc_lon, radius * 1.01)
 	
-	# Point -Z axis straight into the core, meaning the +Z face (sprite) aims perfectly upwards from the surface
-	marker.look_at(Vector3.ZERO, Vector3.UP)
+	add_child(test_unit)
+	test_unit.spawn(spawn_pos)
 
 
 func _generate_mesh() -> void:
@@ -141,12 +160,27 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
+				# Standard Drag Init
 				_is_dragging = true
 				_drag_start_pos = event.position
 				_drag_start_lon = current_longitude
 				_drag_start_lat = current_latitude
 			else:
+				# Drag release or Click
+				if _is_dragging and _drag_start_pos.distance_to(event.position) < 4.0:
+					# Valid Click (not a drag release)
+					_handle_click(event.position, true)
 				_is_dragging = false
+				
+		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+			# Deselect / Cancel
+			if test_unit.is_selected:
+				test_unit.is_selected = false
+				target_bracket.visible = false
+			else:
+				# Cancel any potential drag early
+				_is_dragging = false
+				
 		elif event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
 			target_zoom = clampf(target_zoom - 0.25, min_zoom, max_zoom)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
@@ -201,7 +235,100 @@ func update_outline(min_lon: float, max_lon: float, min_lat: float, max_lat: flo
 		outline_immediate_mesh.surface_add_vertex(_lat_lon_to_vector3(lat, min_lon, r))
 		
 	outline_immediate_mesh.surface_end()
+func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
+	var space_state = get_world_3d().direct_space_state
+	var ray_origin = camera.project_ray_origin(screen_pos)
+	var ray_end = ray_origin + camera.project_ray_normal(screen_pos) * 1000.0
+	
+	var query = PhysicsRayQueryParameters3D.create(ray_origin, ray_end)
+	# We want to collide with areas (units) and bodies (the globe)
+	query.collide_with_areas = true
+	query.collide_with_bodies = true
+	
+	var result = space_state.intersect_ray(query)
+	
+	if result:
+		var collider = result.collider
+		if collider is Area3D and collider.get_parent().has_method("set_target"):
+			# Clicked a Unit!
+			var unit = collider.get_parent()
+			
+			if is_left_click:
+				test_unit.is_selected = true
+				target_bracket.visible = true
+				
+				# Place bracket over unit's current targeted location
+				target_bracket.position = unit.target_position
+				target_bracket.look_at_from_position(unit.target_position, Vector3.ZERO, Vector3.UP)
+				
+		elif collider == map_collider:
+			# Clicked the globe surface!
+			if is_left_click and test_unit.is_selected:
+				# Move unit
+				var hit_point = result.position
+				test_unit.set_target(hit_point)
+				
+				# Move Bracket
+				target_bracket.position = test_unit.target_position
+				target_bracket.look_at_from_position(test_unit.target_position, Vector3.ZERO, Vector3.UP)
+				
+				# Debug Log Tile Hit
+				var tile_id = _get_tile_from_vector3(hit_point)
+				print("Unit Ordered To Compute Travel to Tile: ", tile_id)
 
+func _get_tile_from_vector3(pos: Vector3) -> String:
+	# Convert a 3D coordinate point on the sphere back into the exact Face and XY coordinate it corresponds to on the underlying 181x181 matrices.
+	var n = pos.normalized()
+	
+	# Determine principle axis (which face of the cube)
+	var ax = abs(n.x)
+	var ay = abs(n.y)
+	var az = abs(n.z)
+	
+	var face = -1
+	var max_axis = max(ax, max(ay, az))
+	
+	if max_axis == ax:
+		face = 3 if n.x > 0 else 2 # RIGHT or LEFT
+	elif max_axis == ay:
+		face = 4 if n.y > 0 else 5 # TOP or BOTTOM
+	else:
+		face = 0 if n.z > 0 else 1 # FRONT or BACK
+		
+	# Un-project from sphere onto the cube plane
+	var local_x = 0.0
+	var local_y = 0.0
+	
+	# Reverse mapping from QuadSphereBaker's _get_sphere_point
+	if face == 0: # FRONT: local_x, -local_y, 1.0
+		local_x = n.x / n.z
+		local_y = -n.y / n.z
+	elif face == 1: # BACK: -local_x, -local_y, -1.0
+		local_x = -n.x / -n.z
+		local_y = -n.y / -n.z
+	elif face == 2: # LEFT: -1.0, -local_y, local_x
+		local_x = n.z / -n.x
+		local_y = -n.y / -n.x
+	elif face == 3: # RIGHT: 1.0, -local_y, -local_x
+		local_x = -n.z / n.x
+		local_y = -n.y / n.x
+	elif face == 4: # TOP: local_x, 1.0, local_y
+		local_x = n.x / n.y
+		local_y = n.z / n.y
+	elif face == 5: # BOTTOM: local_x, -1.0, -local_y
+		local_x = n.x / -n.y
+		local_y = -n.z / -n.y
+
+	# Map cube coordinates [-1, 1] to discrete matrix indices [0, RESOLUTION-1]
+	# RESOLUTION = 181
+	var M = 181
+	
+	var x = clamp(int(((local_x + 1.0) / 2.0) * M), 0, M - 1)
+	var y = clamp(int(((local_y + 1.0) / 2.0) * M), 0, M - 1)
+	
+	# Array of names must match Face enum from Baker: FRONT, BACK, LEFT, RIGHT, TOP, BOTTOM
+	var face_names = ["FRONT", "BACK", "LEFT", "RIGHT", "TOP", "BOTTOM"]
+	return "%s_%d_%d" % [face_names[face], x, y]
 func _lat_lon_to_vector3(lat: float, lon: float, r: float) -> Vector3:
 	# Calculate standard 2D map projection U-coordinate
 	var u_base = (lon + PI) / (2.0 * PI)
