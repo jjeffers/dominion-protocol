@@ -247,8 +247,13 @@ func _sample_terrain(centroid: Vector3, img: Image, img_w: int, img_h: int, mask
 		return "MOUNTAINS"
 		
 	# Sample Vegetation
-	var ndvi_px = clamp(int(u * ndvi_w), 0, ndvi_w - 1)
-	var ndvi_py = clamp(int(v_north * ndvi_h), 0, ndvi_h - 1)
+	# The NDVI image is cropped (scaled 76% vertically, offset 14% from poles) and shifted East 1%.
+	var ndvi_u = fmod(u + 0.01, 1.0)
+	var ndvi_v = (v_base * 0.76) + 0.14
+	var ndvi_v_north = 1.0 - ndvi_v
+	
+	var ndvi_px = clamp(int(ndvi_u * ndvi_w), 0, ndvi_w - 1)
+	var ndvi_py = clamp(int(ndvi_v_north * ndvi_h), 0, ndvi_h - 1)
 	var veg = ndvi.get_pixel(ndvi_px, ndvi_py).v
 	
 	if veg < 0.2: return "DESERT"
