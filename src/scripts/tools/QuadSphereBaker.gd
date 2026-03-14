@@ -221,8 +221,8 @@ func _sample_terrain(centroid: Vector3, img: Image, img_w: int, img_h: int, mask
 	var lat = asin(centroid.y) 
 	var lon = atan2(centroid.z, centroid.x) 
 	
-	var u = (lon + PI) / (2.0 * PI)
-	u = 1.0 - u # Flip U to correct East/West mirroring
+	var u_base = (lon + PI) / (2.0 * PI)
+	var u_flipped = 1.0 - u_base # Flip U to correct East/West mirroring for ETOPO/Topography
 	
 	var v_base = (lat + (PI / 2.0)) / PI
 	
@@ -230,7 +230,7 @@ func _sample_terrain(centroid: Vector3, img: Image, img_w: int, img_h: int, mask
 	var v_north = 1.0 - v_base # Topo and NDVI are North-Up
 	
 	# Sample Landmask First
-	var mask_px = clamp(int(u * mask_w), 0, mask_w - 1)
+	var mask_px = clamp(int(u_flipped * mask_w), 0, mask_w - 1)
 	var mask_py = clamp(int(v_etopo * mask_h), 0, mask_h - 1)
 	var is_land = mask.get_pixel(mask_px, mask_py).v > 0.5
 	
@@ -238,7 +238,7 @@ func _sample_terrain(centroid: Vector3, img: Image, img_w: int, img_h: int, mask
 		return "OCEAN"
 	
 	# Sample Topography if Land
-	var px = clamp(int(u * img_w), 0, img_w - 1)
+	var px = clamp(int(u_flipped * img_w), 0, img_w - 1)
 	var py = clamp(int(v_north * img_h), 0, img_h - 1)
 	var topo_color = img.get_pixel(px, py)
 	var elevation = topo_color.v
@@ -248,7 +248,8 @@ func _sample_terrain(centroid: Vector3, img: Image, img_w: int, img_h: int, mask
 		
 	# Sample Vegetation
 	# The NDVI image is cropped (scaled 76% vertically, offset 14% from poles) and shifted East 1%.
-	var ndvi_u = fmod(u + 0.01, 1.0)
+	# NDVI correctly maps East/West so we use the un-flipped u_base.
+	var ndvi_u = fmod(u_base + 0.01, 1.0)
 	var ndvi_v = (v_base * 0.76) + 0.14
 	var ndvi_v_north = 1.0 - ndvi_v
 	
