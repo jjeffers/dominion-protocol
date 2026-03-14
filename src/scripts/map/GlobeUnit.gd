@@ -31,6 +31,8 @@ func _init() -> void:
 	# 34x34 sprite. 3 tiles = 0.0184 units across. 0.0184 / 34 = 0.00054 pixel_size
 	sprite.pixel_size = 0.00054
 	sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+	# Ensure the unit consistently renders above the path arrow
+	sprite.render_priority = 2
 	add_child(sprite)
 	
 	# Setup Clickable Area
@@ -54,6 +56,9 @@ func _init() -> void:
 	path_mat.albedo_color = Color(1.0, 1.0, 0.5, 0.8)
 	path_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	path_mat.use_point_size = false
+	
+	# Force path rendering underneath Sprite3Ds (default priority 0, less than unit's 2)
+	path_mat.render_priority = 0
 	
 	# To make the line visible at varying distances, we use a thicker tube-like approach if standard line width isn't supported, but since ImmediateMesh line_strip thickness is fixed at 1px on most platforms, we just ensure it exists robustly.
 	path_mesh_instance.material_override = path_mat
