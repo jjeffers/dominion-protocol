@@ -5,12 +5,17 @@ signal focus_changed(longitude: float, latitude: float)
 
 @onready var mesh_instance: MeshInstance3D = $MeshInstance3D
 @onready var camera_pivot: Node3D = $CameraPivot
+@onready var camera: Camera3D = $CameraPivot/Camera3D
 
 var map_data: MapData
 
 var radius: float = 1.0
 var current_longitude: float = 0.0
 var current_latitude: float = 0.0
+
+var target_zoom: float = 3.0
+var min_zoom: float = 1.5
+var max_zoom: float = 4.5
 
 var _is_dragging: bool = false
 var _drag_start_pos: Vector2
@@ -88,6 +93,19 @@ void fragment() {
 	mesh_instance.material_override = mat
 
 func _process(delta: float) -> void:
+	# Handle Zoom Interpolation
+	if camera.transform.origin.z != target_zoom:
+		var new_z = lerpf(camera.transform.origin.z, target_zoom, 10.0 * delta)
+		if abs(new_z - target_zoom) < 0.01:
+			new_z = target_zoom
+		camera.transform.origin.z = new_z
+
+	# Keyboard Zoom Input (+/- or PageUp/PageDown)
+	if Input.is_physical_key_pressed(KEY_EQUAL) or Input.is_action_pressed("ui_page_up"):
+		target_zoom = clampf(target_zoom - 2.0 * delta, min_zoom, max_zoom)
+	if Input.is_physical_key_pressed(KEY_MINUS) or Input.is_action_pressed("ui_page_down"):
+		target_zoom = clampf(target_zoom + 2.0 * delta, min_zoom, max_zoom)
+
 	var lon_delta = 0.0
 	var lat_delta = 0.0
 	if Input.is_action_pressed("ui_left"): lon_delta = -2.0 * delta
@@ -110,6 +128,10 @@ func _unhandled_input(event: InputEvent) -> void:
 				_drag_start_lat = current_latitude
 			else:
 				_is_dragging = false
+		elif event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
+			target_zoom = clampf(target_zoom - 0.25, min_zoom, max_zoom)
+		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
+			target_zoom = clampf(target_zoom + 0.25, min_zoom, max_zoom)
 	
 	elif event is InputEventMouseMotion and _is_dragging:
 		var delta = event.position - _drag_start_pos
