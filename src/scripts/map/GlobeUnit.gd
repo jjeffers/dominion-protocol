@@ -98,18 +98,89 @@ func _process(delta: float) -> void:
 
 func _draw_path(angle: float) -> void:
 	path_immediate_mesh.clear_surfaces()
-	# Draw line strip connecting current to target
-	path_immediate_mesh.surface_begin(Mesh.PRIMITIVE_LINE_STRIP)
+	path_immediate_mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
 	
 	# Calculate number of segments based on angular distance, min 4, max 32
 	var segments = clampi(int(angle * 30.0), 4, 32)
 	
-	for i in range(segments + 1):
+	# ~1 tile width = 0.006 world units
+	var path_width = 0.006
+	var path_elevation = 1.03 # Float above the terrain peaks
+	
+	# Calculate arrowhead proportion (fixed world unit length, converted to percentage of path)
+	var arrow_length_units = 0.02
+	var total_distance = current_position.distance_to(target_position)
+	var arrow_fraction = min(arrow_length_units / total_distance, 0.5) if total_distance > 0 else 0.5
+	
+	var arrow_start_segment = int(segments * (1.0 - arrow_fraction))
+	
+	# Store the vertices so we can stitch them into triangles
+	var left_verts = []
+	var right_verts = []
+	
+	# Draw the main line body
+	for i in range(arrow_start_segment + 1):
 		var w = i / float(segments)
-		var p = current_position.slerp(target_position, w).normalized() * radius
+		var p = current_position.slerp(target_position, w).normalized()
 		
-		# Elevate enough to prevent z-fighting with the globe surface topologies which oscillate between 1.00 and 1.01 radius
-		# The unit's highest radius is 1.02. We'll draw the line floating right above the unit at 1.03.
-		path_immediate_mesh.surface_add_vertex(p * 1.03)
+		# Figure out the forward direction at this exact point on the curve
+		var forward = Vector3.ZERO
+		if i < arrow_start_segment:
+			var w_next = (i + 1) / float(segments)
+			forward = (current_position.slerp(target_position, w_next).normalized() - p).normalized()
+		else:
+			# Last segment of line body, use previous as reference
+			var w_prev = (i - 1) / float(segments)
+			forward = (p - current_position.slerp(target_position, w_prev).normalized()).normalized()
+			
+		# The UP vector is just the normal extending from the core
+		var up = p
 		
+		# The RIGHT vector is perpendicular to Forward and Up
+		var right = forward.cross(up).normalized()
+		
+		var left_point = (p * radius * path_elevation) - (right * path_width * 0.5)
+		var right_point = (p * radius * path_elevation) + (right * path_width * 0.5)
+		
+		left_verts.append(left_point)
+		right_verts.append(right_point)
+		
+	# Build Triangles for the main line body
+	for i in range(left_verts.size() - 1):
+		var tl = left_verts[i]
+		var tr = right_verts[i]
+		var bl = left_verts[i+1]
+		var br = right_verts[i+1]
+		
+		# Triangle 1: TopLeft, BottomLeft, TopRight
+		path_immediate_mesh.surface_add_vertex(tl)
+		path_immediate_mesh.surface_add_vertex(bl)
+		path_immediate_mesh.surface_add_vertex(tr)
+		
+		# Triangle 2: TopRight, BottomLeft, BottomRight
+		path_immediate_mesh.surface_add_vertex(tr)
+		path_immediate_mesh.surface_add_vertex(bl)
+		path_immediate_mesh.surface_add_vertex(br)
+
+	# Draw the Arrowhead (spanning from arrow_start_segment to the target_position)
+	# The base of the arrow should be twice as wide as the path
+	var arrow_width = path_width * 3.0
+	
+	var arrow_base_w = arrow_start_segment / float(segments)
+	var arrow_base_p = current_position.slerp(target_position, arrow_base_w).normalized()
+	
+	var arrow_tip_p = target_position.normalized()
+	var arrow_forward = (arrow_tip_p - arrow_base_p).normalized()
+	var arrow_up = arrow_base_p
+	var arrow_right = arrow_forward.cross(arrow_up).normalized()
+	
+	var arrow_base_left = (arrow_base_p * radius * path_elevation) - (arrow_right * arrow_width * 0.5)
+	var arrow_base_right = (arrow_base_p * radius * path_elevation) + (arrow_right * arrow_width * 0.5)
+	var arrow_tip = arrow_tip_p * radius * path_elevation
+	
+	# Arrow Triangle: BaseLeft, Tip, BaseRight
+	path_immediate_mesh.surface_add_vertex(arrow_base_left)
+	path_immediate_mesh.surface_add_vertex(arrow_tip)
+	path_immediate_mesh.surface_add_vertex(arrow_base_right)
+	
 	path_immediate_mesh.surface_end()
