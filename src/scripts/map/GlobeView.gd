@@ -45,6 +45,18 @@ func _ready() -> void:
 	
 	add_child(outline_mesh_instance)
 	
+	# Add custom sprite marker for North Carolina
+	var marker = Sprite3D.new()
+	marker.texture = load("res://src/assets/extracted_sprite.png")
+	# 34x34 sprite with 0.001 size = 0.034 world units tall (approx 3x3 tiles area)
+	marker.pixel_size = 0.001
+	marker.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	
+	# Lat/Lon for North Carolina is ~35.5 N, -79.0 W
+	var nc_lat = deg_to_rad(35.5)
+	var nc_lon = deg_to_rad(-79.0)
+	marker.position = _lat_lon_to_vector3(nc_lat, nc_lon, radius * 1.02)
+	add_child(marker)
 
 
 func _generate_mesh() -> void:
