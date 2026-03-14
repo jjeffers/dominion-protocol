@@ -9,7 +9,7 @@ var map_data: MapData
 @onready var camera_pivot: Node3D = $CameraPivot
 @onready var camera: Camera3D = $CameraPivot/Camera3D
 
-var current_longitude: float = -1.3788
+var current_longitude: float = 0.192
 var current_latitude: float = 0.6196
 
 var _is_dragging: bool = false

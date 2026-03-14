@@ -10,7 +10,7 @@ signal focus_changed(longitude: float, latitude: float)
 var map_data: MapData
 
 var radius: float = 1.0
-var current_longitude: float = -1.3788
+var current_longitude: float = 0.192
 var current_latitude: float = 0.6196
 
 var target_zoom: float = 3.0
@@ -47,7 +47,11 @@ func _ready() -> void:
 	
 	# Add custom sprite marker for North Carolina
 	var marker = Sprite3D.new()
-	marker.texture = load("res://src/assets/extracted_sprite.png")
+	var img = Image.new()
+	if img.load("res://src/assets/extracted_sprite.png") == OK:
+		marker.texture = ImageTexture.create_from_image(img)
+	else:
+		push_error("GlobeView: Failed to load extracted_sprite.png")
 	# 34x34 sprite with 0.001 size = 0.034 world units tall (approx 3x3 tiles area)
 	marker.pixel_size = 0.001
 	marker.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -196,10 +200,15 @@ func update_outline(min_lon: float, max_lon: float, min_lat: float, max_lat: flo
 	outline_immediate_mesh.surface_end()
 
 func _lat_lon_to_vector3(lat: float, lon: float, r: float) -> Vector3:
+	# Calculate standard 2D map projection U-coordinate
+	var u_base = (lon + PI) / (2.0 * PI)
+	# Map back to the 3D space baked by QuadSphereBaker (which applied 1.0 - u_base)
+	var lon_baker = ((1.0 - u_base) * 2.0 * PI) - PI
+	
 	var cos_lat = cos(lat)
-	var nx = cos_lat * sin(lon)
 	var ny = sin(lat)
-	var nz = cos_lat * cos(lon)
+	var nx = cos_lat * cos(lon_baker)
+	var nz = cos_lat * sin(lon_baker)
 	return Vector3(nx, ny, nz) * r
 ## Public function to sync this view from external changes (e.g. 2D map panning)
 func set_focus(longitude: float, latitude: float) -> void:
