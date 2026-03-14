@@ -1,0 +1,19 @@
+[gd_scene load_steps=3 format=3 uid="uid://c6v2n2r0j7tq7"]
+
+[ext_resource type="Script" path="res://src/scripts/map/GlobeView.gd" id="1_globeview"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_jg7h1"]
+albedo_color = Color(0.12549, 0.40392, 0.611765, 1)
+
+[node name="GlobeView" type="Node3D"]
+script = ExtResource("1_globeview")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+material_override = SubResource("StandardMaterial3D_jg7h1")
+
+[node name="CameraPivot" type="Node3D" parent="."]
+
+[node name="Camera3D" type="Camera3D" parent="CameraPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 2.5)
+
+

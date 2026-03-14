@@ -1,0 +1,14 @@
+# Godot 4+ specific ignores
+.godot/
+*.translation
+
+# External IDEs
+.vscode/
+.idea/
+*.sln
+*.csproj
+*.user
+
+# System/OS
+.DS_Store
+Thumbs.db

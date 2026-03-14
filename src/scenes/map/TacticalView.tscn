@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=3 uid="uid://dovs8j0xk0q1v"]
+
+[ext_resource type="Script" path="res://src/scripts/map/TacticalView.gd" id="1_tacticalview"]
+
+[node name="TacticalView" type="Node2D"]
+script = ExtResource("1_tacticalview")
+
+[node name="MapLayer" type="Node2D" parent="."]
+
+[node name="Camera2D" type="Camera2D" parent="."]

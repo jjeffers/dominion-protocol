@@ -1,0 +1,2 @@
+src/data/quad_data.json filter=lfs diff=lfs merge=lfs -text
+src/data/quadsphere_globe.res filter=lfs diff=lfs merge=lfs -text
