@@ -255,7 +255,8 @@ func _load_cities() -> void:
 			var sprite = Sprite3D.new()
 			sprite.texture = tex
 			
-			sprite.pixel_size = 0.008 # Make drastically larger (approx 10x)
+			# 0.006 is 1 tile width. 32px * 0.0001875 = 0.006 world units
+			sprite.pixel_size = 0.0001875
 			sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 			sprite.no_depth_test = true # Guarantee rendering over terrain
 			sprite.render_priority = 10
@@ -263,11 +264,11 @@ func _load_cities() -> void:
 			
 			var lbl = Label3D.new()
 			lbl.text = city_name
-			lbl.pixel_size = 0.005 # 5x larger text
-			lbl.font_size = 64
+			lbl.pixel_size = 0.0005
+			lbl.font_size = 32
 			lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 			lbl.no_depth_test = true
-			lbl.offset = Vector2(0, -64)
+			lbl.offset = Vector2(0, -32)
 			lbl.render_priority = 10
 			city_node.add_child(lbl)
 			
