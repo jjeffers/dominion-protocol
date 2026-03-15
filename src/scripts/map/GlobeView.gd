@@ -367,8 +367,8 @@ func _load_oil() -> void:
 		push_error("GlobeView: Failed to load oil spritesheet.png")
 		return
 		
-	# Slice Oil icon from Row 10 (index 9), Col 1 (index 0) => y=288
-	var tex_oil = ImageTexture.create_from_image(img.get_region(Rect2i(0, 288, 32, 32)))
+	# Slice Oil icon from Row 1 (index 0), Col 8 (index 7) => y=0, x=224
+	var tex_oil = ImageTexture.create_from_image(img.get_region(Rect2i(224, 0, 32, 32)))
 	
 	for marker in oil_dict:
 		var pos_data = marker.get("position")
