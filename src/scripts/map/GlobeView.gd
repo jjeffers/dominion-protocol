@@ -73,7 +73,7 @@ func _ready() -> void:
 		target_bracket.modulate = Color(1.0, 1.0, 0.0, 0.5) # Translucent yellow
 	target_bracket.pixel_size = 0.00065
 	target_bracket.billboard = BaseMaterial3D.BILLBOARD_DISABLED
-	target_bracket.render_priority = 1
+	target_bracket.render_priority = 11
 	target_bracket.visible = false
 	add_child(target_bracket)
 
