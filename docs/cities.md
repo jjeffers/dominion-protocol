@@ -45,7 +45,6 @@ Madrid
 Miami
 Tel Aviv
 Austin
-Bern
 Prague
 Hong Kong
 Bogotá
@@ -78,8 +77,6 @@ Belgrade
 Kyiv
 Montevideo
 Addis Ababa
-Pune
-Bratislava
 Curitiba
 Ahmedabad
 Port Louis
@@ -94,7 +91,14 @@ Belo Horizonte
 Surat
 Dakar
 Tashkent
-Tallinn
 Brasília
 Luanda
 Riga
+Mexico City
+Rome
+Marseille
+Baghdad
+Saigon
+Beijing
+Vladivostok
+Manila
