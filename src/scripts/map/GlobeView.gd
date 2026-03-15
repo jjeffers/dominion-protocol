@@ -189,10 +189,9 @@ func _unhandled_input(event: InputEvent) -> void:
 				_is_dragging = false
 				
 		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
-			# Deselect / Cancel
 			if test_unit.is_selected:
-				test_unit.is_selected = false
-				target_bracket.visible = false
+				# Issue Move Command via Right Click
+				_handle_click(event.position, false)
 			else:
 				# Cancel any potential drag early
 				_is_dragging = false
@@ -395,18 +394,24 @@ func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
 				
 		elif collider == map_collider:
 			# Clicked the globe surface!
-			if is_left_click and test_unit.is_selected:
-				# Move unit
+			if is_left_click:
+				# Left Click empty ground = Deselect
+				if test_unit.is_selected:
+					test_unit.is_selected = false
+					target_bracket.visible = false
+			elif not is_left_click and test_unit.is_selected:
+				# Right Click = Move unit to exact tile centroid
 				var hit_point = result.position
-				test_unit.set_target(hit_point)
+				var tile_id = _get_tile_from_vector3(hit_point)
+				var centroid = map_data.get_centroid(tile_id)
+				
+				if centroid != Vector3.ZERO:
+					test_unit.set_target(centroid)
+					print("Unit Ordered To Compute Travel to Centroid of Tile: ", tile_id)
 				
 				# Deselect unit instantly per user request
 				test_unit.is_selected = false
 				target_bracket.visible = false
-				
-				# Debug Log Tile Hit
-				var tile_id = _get_tile_from_vector3(hit_point)
-				print("Unit Ordered To Compute Travel to Tile: ", tile_id)
 
 func _handle_hover(screen_pos: Vector2) -> void:
 	var space_state = get_world_3d().direct_space_state
@@ -420,10 +425,17 @@ func _handle_hover(screen_pos: Vector2) -> void:
 	var result = space_state.intersect_ray(query)
 	
 	if result and result.collider == map_collider:
-		# Place bracket over the globe surface where hovered
-		target_bracket.position = result.position
-		target_bracket.look_at_from_position(result.position, Vector3.ZERO, Vector3.UP)
-		target_bracket.visible = true
+		# Snap bracket over the exact centroid of the hovered tile
+		var tile_id = _get_tile_from_vector3(result.position)
+		var centroid = map_data.get_centroid(tile_id)
+		
+		# Position slightly above the terrain surface
+		var snap_pos = centroid.normalized() * (radius * 1.01)
+		
+		if snap_pos != Vector3.ZERO:
+			target_bracket.position = snap_pos
+			target_bracket.look_at_from_position(snap_pos, Vector3.ZERO, Vector3.UP)
+			target_bracket.visible = true
 	else:
 		target_bracket.visible = false
 
