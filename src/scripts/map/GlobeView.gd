@@ -251,22 +251,28 @@ func _load_cities() -> void:
 			
 			var sprite = Sprite3D.new()
 			sprite.texture = tex
+			sprite.axis = Vector3.AXIS_Y
+			
 			# 0.006 is 1 tile width. 16px * 0.000375 = 0.006 world units
-			sprite.pixel_size = 0.000375
+			# Let's double the size so it's clearly visible (0.00075)
+			sprite.pixel_size = 0.00075
 			sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
-			# Keep city marker flat against the terrain but render over it
-			sprite.render_priority = 1
+			# Render completely over the globe
+			sprite.no_depth_test = true
+			sprite.render_priority = 10
 			city_node.add_child(sprite)
 			
 			var lbl = Label3D.new()
 			lbl.text = city_name
-			lbl.pixel_size = 0.0005
+			lbl.pixel_size = 0.001
 			lbl.font_size = 32
 			lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-			# Float the label slightly above and screen-facing so it's readable
-			lbl.offset = Vector2(0, -24)
+			# Render completely over the globe
+			lbl.no_depth_test = true
+			# Float the label slightly below so it's readable
+			lbl.offset = Vector2(0, -32)
 			# Ensure text sorts predictably
-			lbl.render_priority = 1
+			lbl.render_priority = 10
 			city_node.add_child(lbl)
 			
 			# Orient the Node directly away from the core
