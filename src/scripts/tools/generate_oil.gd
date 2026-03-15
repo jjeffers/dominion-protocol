@@ -116,11 +116,11 @@ func _init() -> void:
 			}
 		})
 		
-	var out_file = FileAccess.open("res://docs/oil_data.json", FileAccess.WRITE)
+	var out_file = FileAccess.open("res://src/data/oil_data.json", FileAccess.WRITE)
 	out_file.store_string(JSON.stringify(output_arr, "\t"))
 	out_file.close()
 	
-	print("--- Successfully Exported ", final_oil_tiles.size(), " Oil Resources to docs/oil_data.json ---")
+	print("--- Successfully Exported ", final_oil_tiles.size(), " Oil Resources to src/data/oil_data.json ---")
 	quit(0)
 
 

@@ -345,7 +345,7 @@ func _load_cities() -> void:
 			cullable_nodes.append(city_node)
 
 func _load_oil() -> void:
-	var path = "res://docs/oil_data.json"
+	var path = "res://src/data/oil_data.json"
 	if not FileAccess.file_exists(path):
 		push_error("GlobeView: Could not find oil_data.json")
 		return
