@@ -28,6 +28,8 @@ var outline_immediate_mesh: ImmediateMesh
 
 var test_unit: Node3D
 var target_bracket: Sprite3D
+# List of 3D positional nodes to trace against the camera horizon
+var cullable_nodes: Array[Node3D] = []
 var map_collider: StaticBody3D
 
 var city_nodes: Array[Node3D] = []
@@ -62,6 +64,7 @@ func _ready() -> void:
 	add_child(map_collider)
 	
 	_load_cities()
+	_load_oil()
 	
 	# Instantiate targeting bracket
 	target_bracket = Sprite3D.new()
@@ -143,16 +146,16 @@ func _process(delta: float) -> void:
 			new_z = target_zoom
 		camera.transform.origin.z = new_z
 		
-	# Handle City Visibility (Horizon Culling)
-	# Because cities have no_depth_test to render over mountains, they punch through the whole globe.
-	# We hide them if they rotate out of hemispheric view.
+	# Handle Node Visibility (Horizon Culling)
+	# Because Sprites have no_depth_test to render clearly over terrain peaks, they punch through the globe.
+	# We dynamically hide them if they rotate out of hemispheric front-view.
 	var cam_pos = camera.global_position.normalized()
-	for city in city_nodes:
+	for node in cullable_nodes:
 		# Use 0.15 threshold to cull them slightly before they clip exactly sideways over the mathematical edge
-		if city.position.normalized().dot(cam_pos) > 0.15:
-			city.show()
+		if node.position.normalized().dot(cam_pos) > 0.15:
+			node.show()
 		else:
-			city.hide()
+			node.hide()
 
 	# Keyboard Zoom Input (+/- or PageUp/PageDown)
 	if Input.is_physical_key_pressed(KEY_EQUAL) or Input.is_action_pressed("ui_page_up"):
@@ -339,7 +342,59 @@ func _load_cities() -> void:
 				city_node.add_child(sub_sprite)
 				o_idx += 1
 				
-			city_nodes.append(city_node)
+			cullable_nodes.append(city_node)
+
+func _load_oil() -> void:
+	var path = "res://docs/oil_data.json"
+	if not FileAccess.file_exists(path):
+		push_error("GlobeView: Could not find oil_data.json")
+		return
+		
+	var file = FileAccess.open(path, FileAccess.READ)
+	var json_str = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	var err = json.parse(json_str)
+	if err != OK:
+		push_error("GlobeView: Failed to parse oil_data.json error " + str(err))
+		return
+		
+	var oil_dict = json.data
+	
+	var img = Image.new()
+	if img.load("res://src/assets/spritesheet.png") != OK:
+		push_error("GlobeView: Failed to load oil spritesheet.png")
+		return
+		
+	# Slice Oil icon from Row 10 (index 9), Col 1 (index 0) => y=288
+	var tex_oil = ImageTexture.create_from_image(img.get_region(Rect2i(0, 288, 32, 32)))
+	
+	for marker in oil_dict:
+		var pos_data = marker.get("position")
+		if pos_data and pos_data.has("x"):
+			var pos = Vector3(pos_data["x"], pos_data["y"], pos_data["z"])
+			
+			var oil_node = Node3D.new()
+			add_child(oil_node)
+			
+			var sprite = Sprite3D.new()
+			sprite.texture = tex_oil
+			
+			# Use the same exact metrics as City decals
+			sprite.pixel_size = 0.0001875
+			sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+			sprite.no_depth_test = true
+			sprite.render_priority = 5
+			
+			oil_node.add_child(sprite)
+			
+			# Target coordinates generated from map_data.get_centroid, which is explicitly mathematical radius. Push by 1.02 multiplier matching Cities
+			var final_pos = pos.normalized() * (radius * 1.02)
+			oil_node.position = final_pos
+			oil_node.look_at_from_position(final_pos, Vector3.ZERO, Vector3.UP)
+			
+			cullable_nodes.append(oil_node)
 
 func update_outline(min_lon: float, max_lon: float, min_lat: float, max_lat: float) -> void:
 	outline_immediate_mesh.clear_surfaces()
