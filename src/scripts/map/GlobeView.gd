@@ -30,6 +30,8 @@ var test_unit: Node3D
 var target_bracket: Sprite3D
 var map_collider: StaticBody3D
 
+var city_nodes: Array[Node3D] = []
+
 func _ready() -> void:
 	if not map_data:
 		# Create a dummy map for testing if none provided
@@ -140,6 +142,17 @@ func _process(delta: float) -> void:
 		if abs(new_z - target_zoom) < 0.01:
 			new_z = target_zoom
 		camera.transform.origin.z = new_z
+		
+	# Handle City Visibility (Horizon Culling)
+	# Because cities have no_depth_test to render over mountains, they punch through the whole globe.
+	# We hide them if they rotate out of hemispheric view.
+	var cam_pos = camera.global_position.normalized()
+	for city in city_nodes:
+		# Use 0.15 threshold to cull them slightly before they clip exactly sideways over the mathematical edge
+		if city.position.normalized().dot(cam_pos) > 0.15:
+			city.show()
+		else:
+			city.hide()
 
 	# Keyboard Zoom Input (+/- or PageUp/PageDown)
 	if Input.is_physical_key_pressed(KEY_EQUAL) or Input.is_action_pressed("ui_page_up"):
@@ -276,6 +289,8 @@ func _load_cities() -> void:
 			city_node.position = pos
 			if pos.normalized().abs() != Vector3.UP:
 				city_node.look_at(Vector3.ZERO, Vector3.UP)
+				
+			city_nodes.append(city_node)
 
 func update_outline(min_lon: float, max_lon: float, min_lat: float, max_lat: float) -> void:
 	outline_immediate_mesh.clear_surfaces()
