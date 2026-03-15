@@ -1,3 +1,4 @@
+class_name TacticalView
 extends Node3D
 
 signal focus_changed(longitude: float, latitude: float)

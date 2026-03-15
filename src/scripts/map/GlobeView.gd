@@ -334,9 +334,9 @@ func _load_cities() -> void:
 				# Convert the local XY tangent offset to true Godot global 3D space relative to the angled CityNode
 				var global_offset = city_node.to_global(local_offset)
 				# Reverse-project the global 3D coordinate back into the specific XYZ Face coordinate string of the map
-				var tile_id = _get_tile_from_vector3(global_offset)
+				var sub_tile_id = _get_tile_from_vector3(global_offset)
 				# Query the memory dictionary to ascertain the biome
-				var is_ocean = map_data.get_terrain(tile_id) == "OCEAN"
+				var is_ocean = map_data.get_terrain(sub_tile_id) == "OCEAN"
 				
 				# Spawn the correct adjacent piece
 				var sub_sprite = Sprite3D.new()
