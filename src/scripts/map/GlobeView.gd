@@ -30,7 +30,6 @@ var outline_immediate_mesh: ImmediateMesh
 
 var test_unit: Node3D
 var target_bracket: Sprite3D
-var hover_highlight: Sprite3D
 # List of 3D positional nodes to trace against the camera horizon
 var cullable_nodes: Array[Node3D] = []
 var map_collider: StaticBody3D
@@ -98,24 +97,7 @@ func _ready() -> void:
 	target_bracket.visible = false
 	add_child(target_bracket)
 
-	# Instantiate hover highlight (Hollow outline 1-tile size)
-	hover_highlight = Sprite3D.new()
-	var himg = Image.create(36, 36, false, Image.FORMAT_RGBA8)
-	for x in range(36):
-		for y in range(36):
-			if x <= 1 or x >= 34 or y <= 1 or y >= 34:
-				himg.set_pixel(x, y, Color.WHITE)
-			else:
-				himg.set_pixel(x, y, Color(0, 0, 0, 0))
-	
-	hover_highlight.texture = ImageTexture.create_from_image(himg)
-	hover_highlight.modulate = Color(1.0, 1.0, 1.0, 0.8) # Stronger white outline
-	hover_highlight.pixel_size = 0.0001875
-	hover_highlight.billboard = BaseMaterial3D.BILLBOARD_DISABLED
-	hover_highlight.no_depth_test = true
-	hover_highlight.render_priority = 11
-	hover_highlight.visible = false
-	add_child(hover_highlight)
+	# Removed hover highlight sprite
 
 	# Add custom unit for North Carolina
 	test_unit = GlobeUnitScript.new()
@@ -286,7 +268,7 @@ func _load_cities() -> void:
 		
 		if lat_deg != null and lon_deg != null:
 			# Get generic continuous point to find what Godot discrete Face/X/Y coordinate it lands on
-			var raw_pos = _lat_lon_to_vector3(deg_to_rad(lat_deg), deg_to_rad(lon_deg), radius * 1.02)
+			var raw_pos = _lat_lon_to_vector3(deg_to_rad(lat_deg), deg_to_rad(lon_deg), radius)
 			var tile_id = _get_tile_from_vector3(raw_pos)
 			city_tile_cache[tile_id] = city_name
 			
@@ -296,7 +278,7 @@ func _load_cities() -> void:
 			var pos = raw_pos
 			if centroid != Vector3.ZERO:
 				# Snap it exactly to the geometric center of the true Godot tile so it frames perfectly with the hover outline!
-				pos = centroid.normalized() * (radius * 1.02)
+				pos = centroid.normalized() * radius
 			
 			# Discover exact physical size of the terrain quad here to correct for spherified cube distortion
 			var tile_width = 0.006
@@ -304,7 +286,7 @@ func _load_cities() -> void:
 			if nbrs.size() > 0:
 				var c1 = centroid.normalized()
 				var c2 = map_data.get_centroid(nbrs[0]).normalized()
-				tile_width = c1.distance_to(c2) * (radius * 1.02)
+				tile_width = c1.distance_to(c2) * radius
 				
 			var node_pixel_size = tile_width / 32.0
 			
@@ -440,7 +422,7 @@ void fragment() {
 		var pos_data = marker.get("position")
 		if pos_data and pos_data.has("x"):
 			var pos = Vector3(pos_data["x"], pos_data["y"], pos_data["z"])
-			var final_pos = pos.normalized() * (radius * 1.02)
+			var final_pos = pos.normalized() * radius
 			
 			var oil_node = Node3D.new()
 			add_child(oil_node)
@@ -599,17 +581,9 @@ func _update_terrain_hover(screen_pos: Vector2) -> void:
 			var c2 = map_data.get_centroid(nbrs[0]).normalized()
 			tile_width = c1.distance_to(c2) * (radius * 1.02)
 			
-		hover_highlight.pixel_size = tile_width / 32.0
-		
-		if snap_pos != Vector3.ZERO:
-			hover_highlight.position = snap_pos
-			hover_highlight.look_at_from_position(snap_pos, Vector3.ZERO, Vector3.UP)
-			hover_highlight.visible = true
-			
 		var region_name = map_data.get_region(tile_id)
 		hovered_tile_changed.emit(tile_id, terrain, c_name, region_name)
 	else:
-		hover_highlight.visible = false
 		# Cursor over deep space
 		hovered_tile_changed.emit("", "", "", "")
 
