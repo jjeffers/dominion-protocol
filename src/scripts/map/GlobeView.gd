@@ -370,12 +370,45 @@ func _load_oil() -> void:
 	# Slice Oil icon from Row 1 (index 0), Col 8 (index 7) => y=0, x=224
 	var tex_oil = ImageTexture.create_from_image(img.get_region(Rect2i(224, 0, 32, 32)))
 	
+	var outline_mat = ShaderMaterial.new()
+	var outline_shader = Shader.new()
+	outline_shader.code = """
+shader_type spatial;
+render_mode unshaded, depth_test_disabled;
+uniform sampler2D tex_albedo : source_color, filter_nearest;
+uniform vec4 outline_color : source_color = vec4(1.0, 1.0, 0.0, 1.0);
+void fragment() {
+	vec4 c = texture(tex_albedo, UV);
+	vec2 size = vec2(32.0, 32.0);
+	float o = 0.0;
+	o = max(o, texture(tex_albedo, UV + vec2(-1.0, 0.0) / size).a);
+	o = max(o, texture(tex_albedo, UV + vec2(0.0, 1.0) / size).a);
+	o = max(o, texture(tex_albedo, UV + vec2(1.0, 0.0) / size).a);
+	o = max(o, texture(tex_albedo, UV + vec2(0.0, -1.0) / size).a);
+	o = max(o, texture(tex_albedo, UV + vec2(-1.0, -1.0) / size).a);
+	o = max(o, texture(tex_albedo, UV + vec2(-1.0, 1.0) / size).a);
+	o = max(o, texture(tex_albedo, UV + vec2(1.0, -1.0) / size).a);
+	o = max(o, texture(tex_albedo, UV + vec2(1.0, 1.0) / size).a);
+	if (c.a > 0.1) {
+		ALBEDO = c.rgb;
+		ALPHA = c.a;
+	} else if (o > 0.1) {
+		ALBEDO = outline_color.rgb;
+		ALPHA = 1.0;
+	} else {
+		ALPHA = 0.0;
+	}
+}
+"""
+	outline_mat.shader = outline_shader
+	outline_mat.set_shader_parameter("tex_albedo", tex_oil)
+	outline_mat.render_priority = 5
+	
 	for marker in oil_dict:
 		var pos_data = marker.get("position")
 		if pos_data and pos_data.has("x"):
 			var pos = Vector3(pos_data["x"], pos_data["y"], pos_data["z"])
 			var final_pos = pos.normalized() * (radius * 1.02)
-			print("Placing OIL at ", final_pos)
 			
 			var oil_node = Node3D.new()
 			add_child(oil_node)
@@ -388,6 +421,7 @@ func _load_oil() -> void:
 			sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
 			sprite.no_depth_test = true
 			sprite.render_priority = 5
+			sprite.material_override = outline_mat
 			
 			oil_node.add_child(sprite)
 			
