@@ -270,19 +270,21 @@ func _load_cities() -> void:
 			
 			# 0.006 is 1 tile width. 32px * 0.0001875 = 0.006 world units
 			sprite.pixel_size = 0.0001875
-			sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			# Turn off Billboard so the Sprite lays mathematically flat against the XYZ rotation of the `city_node` LookAt
+			sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
 			sprite.no_depth_test = true # Guarantee rendering over terrain
-			sprite.render_priority = 10
+			sprite.render_priority = 5 # Renters UNDER units (priority 10)
 			city_node.add_child(sprite)
 			
 			var lbl = Label3D.new()
 			lbl.text = city_name
 			lbl.pixel_size = 0.0005
 			lbl.font_size = 32
+			# Keep Labels billboarded so the text is always readable to the player despite the rotation angle of the ground
 			lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 			lbl.no_depth_test = true
 			lbl.offset = Vector2(0, -32)
-			lbl.render_priority = 10
+			lbl.render_priority = 5
 			city_node.add_child(lbl)
 			
 			# Orient the Node directly away from the core
