@@ -27,8 +27,8 @@ func _init() -> void:
 	var cities = json.data
 	print("Loaded ", cities.size(), " cities.")
 	
-	var quota = int(cities.size() / 8.0)
-	print("Calculated target Oil Quota: ", quota, " (based on 8:1 limit).")
+	var quota = int(cities.size() / 7.0)
+	print("Calculated target Oil Quota: ", quota, " (based on 7:1 limit).")
 	
 	# Phase A: Distance Calculation & Filtering
 	var city_tiles = _get_city_tiles(cities)
@@ -71,19 +71,50 @@ func _init() -> void:
 		
 	var final_oil_tiles: Array[String] = []
 	
-	# Phase B: Cluster Generation
-	# We build 2 clusters of 3 (6 resources).
+	# Phase B: Continent Seeds
+	# Ensure each continent gets at least 1 oil
+	var continents = _build_continents()
+	var continent_seeds = 0
+	
+	for c_dict in continents:
+		if final_oil_tiles.size() >= quota: break
+		
+		# Find highest priority tile that belongs to this continent
+		var seed_tile = ""
+		for t_id in high_priority_pool:
+			if c_dict.has(t_id):
+				seed_tile = t_id
+				break
+				
+		# Fallback to any tile in continent if no high priority exists
+		if seed_tile == "":
+			seed_tile = c_dict.keys()[0]
+			
+		if _is_safe_distance(seed_tile, final_oil_tiles, 15):
+			final_oil_tiles.append(seed_tile)
+			high_priority_pool.erase(seed_tile)
+			var neighbors = map_data.get_neighbors(seed_tile)
+			for n in neighbors:
+				high_priority_pool.erase(n)
+			continent_seeds += 1
+			
+	print("Seeded ", continent_seeds, " continents with initial oil.")
+
+	# Phase C: Cluster Generation
+	# We build 2 clusters of randomized size 2 or 3.
 	
 	for cluster_id in range(2):
-		if high_priority_pool.is_empty(): break
+		if high_priority_pool.is_empty() or final_oil_tiles.size() >= quota: break
 		
 		# 1. Seed Selection
 		var lead_tile = high_priority_pool[0]
 		final_oil_tiles.append(lead_tile)
 		
 		# 2. Member Placement
-		var cluster_members = _find_cluster_members(lead_tile, 2)
+		var cluster_size = randi_range(1, 2)
+		var cluster_members = _find_cluster_members(lead_tile, cluster_size)
 		for member in cluster_members:
+			if final_oil_tiles.size() >= quota: break
 			final_oil_tiles.append(member)
 			
 		# Remove clustered tiles and immediate neighbors from High Priority Pool
@@ -96,7 +127,7 @@ func _init() -> void:
 				
 		print("Generated Cluster ", cluster_id + 1, " with ", 1 + cluster_members.size(), " nodes.")
 				
-	# Phase C: Lone Scattering
+	# Phase D: Lone Scattering
 	# Scattering remaining quota targets
 	var scattered = 0
 	
@@ -247,6 +278,37 @@ func _find_cluster_members(lead: String, count: int) -> Array[String]:
 			
 	return members
 
+func _build_continents() -> Array:
+	var continents = []
+	var visited = {}
+	
+	for tile_id in map_data._quad_faces.keys():
+		if map_data.get_terrain(tile_id) != "OCEAN" and not visited.has(tile_id):
+			var blob = []
+			var q = [tile_id]
+			visited[tile_id] = true
+			
+			var q_idx = 0
+			while q_idx < q.size():
+				var curr = q[q_idx]
+				q_idx += 1
+				blob.append(curr)
+				
+				var neighbors = map_data.get_neighbors(curr)
+				for n in neighbors:
+					if map_data.get_terrain(n) != "OCEAN" and not visited.has(n):
+						visited[n] = true
+						q.append(n)
+			
+			if blob.size() >= 2000:
+				var c_dict = {}
+				for b in blob:
+					c_dict[b] = true
+				continents.append(c_dict)
+				
+	print("Detected ", continents.size(), " major continents (>= 2000 tiles).")
+	return continents
+	
 func _is_safe_distance(candidate: String, existing_pool: Array[String], min_dist: int) -> bool:
 	var visited = {candidate: 0}
 	var queue = [{"id": candidate, "dist": 0}]

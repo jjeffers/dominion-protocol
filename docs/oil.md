@@ -6,13 +6,14 @@ Here is the algorithmic step-by-step for the **Global Resource Distributor** to 
 
 ## 1. The Distribution Algorithm
 
-Since you have a $8:1$ ratio, the first step is to count your total cities ($N$). You will then need to place $R = N / 8$ oil resources.
+Since you have a $7:1$ ratio, the first step is to count your total cities ($N$). You will then need to place $R = N / 7$ oil resources.
 
 ### Phase A: Candidate Filtering
 
 1. **Exclude Oceans:** Filter your `tile_catalog` for only those with `terrain != "Ocean"`.
 2. **Buffer Zones:** Identify all tiles that are within $D$ tiles of a city. For your "further away" rule, $D$ should be roughly 10–15 tiles. These tiles are marked as **Low Priority**.
 3. Favor desert regions. Add a bias towards arid areas like desert terrain.
+4. Each continent will have at least 1 oil resource.
 
 ### Phase B: Cluster Generation
 

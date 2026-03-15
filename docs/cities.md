@@ -88,7 +88,6 @@ Accra
 Ljubljana
 Kraków
 Belo Horizonte
-Surat
 Dakar
 Tashkent
 Brasília
@@ -102,3 +101,4 @@ Saigon
 Beijing
 Vladivostok
 Manila
+Tehran
