@@ -1,7 +1,6 @@
 New York
 London
 Paris
-San Jose
 Seattle
 Melbourne
 Sydney

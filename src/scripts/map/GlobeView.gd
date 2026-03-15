@@ -30,6 +30,7 @@ var outline_immediate_mesh: ImmediateMesh
 
 var test_unit: Node3D
 var target_bracket: Sprite3D
+var hover_highlight: Sprite3D
 # List of 3D positional nodes to trace against the camera horizon
 var cullable_nodes: Array[Node3D] = []
 var map_collider: StaticBody3D
@@ -81,6 +82,18 @@ func _ready() -> void:
 	target_bracket.render_priority = 11
 	target_bracket.visible = false
 	add_child(target_bracket)
+
+	# Instantiate hover highlight
+	hover_highlight = Sprite3D.new()
+	var himg = Image.new()
+	if himg.load("res://src/assets/extracted_sprite.png") == OK:
+		hover_highlight.texture = ImageTexture.create_from_image(himg)
+		hover_highlight.modulate = Color(1.0, 1.0, 1.0, 0.4) # Translucent white
+	hover_highlight.pixel_size = 0.00065
+	hover_highlight.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+	hover_highlight.render_priority = 11
+	hover_highlight.visible = false
+	add_child(hover_highlight)
 
 	# Add custom unit for North Carolina
 	test_unit = GlobeUnitScript.new()
@@ -335,6 +348,8 @@ func _load_cities() -> void:
 				var global_offset = city_node.to_global(local_offset)
 				# Reverse-project the global 3D coordinate back into the specific XYZ Face coordinate string of the map
 				var sub_tile_id = _get_tile_from_vector3(global_offset)
+				# Cache adjacent tile so hover tooltip displays city name within 3x3 array
+				city_tile_cache[sub_tile_id] = city_name
 				# Query the memory dictionary to ascertain the biome
 				var is_ocean = map_data.get_terrain(sub_tile_id) == "OCEAN"
 				
@@ -556,8 +571,17 @@ func _update_terrain_hover(screen_pos: Vector2) -> void:
 		if city_tile_cache.has(tile_id):
 			c_name = city_tile_cache[tile_id]
 			
+		var centroid = map_data.get_centroid(tile_id)
+		var snap_pos = centroid.normalized() * (radius * 1.01)
+		
+		if snap_pos != Vector3.ZERO:
+			hover_highlight.position = snap_pos
+			hover_highlight.look_at_from_position(snap_pos, Vector3.ZERO, Vector3.UP)
+			hover_highlight.visible = true
+			
 		hovered_tile_changed.emit(tile_id, terrain, c_name)
 	else:
+		hover_highlight.visible = false
 		# Cursor over deep space
 		hovered_tile_changed.emit("", "", "")
 
