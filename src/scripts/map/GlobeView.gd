@@ -232,10 +232,11 @@ func _load_cities() -> void:
 	var cities_dict = json.data
 	
 	# Pre-load the spritesheet texture directly
-	var tex = load("res://src/assets/spritesheet.png")
-	if not tex:
+	var img = Image.new()
+	if img.load("res://src/assets/spritesheet.png") != OK:
 		push_error("GlobeView: Failed to load spritesheet.png")
 		return
+	var tex = ImageTexture.create_from_image(img)
 		
 	for city_name in cities_dict:
 		var data = cities_dict[city_name]
