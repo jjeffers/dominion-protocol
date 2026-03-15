@@ -85,10 +85,10 @@ func _ready() -> void:
 
 	# Instantiate hover highlight (Hollow outline 1-tile size)
 	hover_highlight = Sprite3D.new()
-	var himg = Image.create(34, 34, false, Image.FORMAT_RGBA8)
-	for x in range(34):
-		for y in range(34):
-			if x <= 1 or x >= 32 or y <= 1 or y >= 32:
+	var himg = Image.create(36, 36, false, Image.FORMAT_RGBA8)
+	for x in range(36):
+		for y in range(36):
+			if x <= 1 or x >= 34 or y <= 1 or y >= 34:
 				himg.set_pixel(x, y, Color.WHITE)
 			else:
 				himg.set_pixel(x, y, Color(0, 0, 0, 0))
@@ -97,6 +97,7 @@ func _ready() -> void:
 	hover_highlight.modulate = Color(1.0, 1.0, 1.0, 0.8) # Stronger white outline
 	hover_highlight.pixel_size = 0.0001875
 	hover_highlight.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+	hover_highlight.no_depth_test = true
 	hover_highlight.render_priority = 11
 	hover_highlight.visible = false
 	add_child(hover_highlight)
@@ -298,12 +299,28 @@ func _load_cities() -> void:
 		var lon_deg = data.get("longitude")
 		
 		if lat_deg != null and lon_deg != null:
-			# Radius 1.02 perfectly aligns the sprite on the unit layer hovering over the peaks
-			var pos = _lat_lon_to_vector3(deg_to_rad(lat_deg), deg_to_rad(lon_deg), radius * 1.02)
-			var tile_id = _get_tile_from_vector3(pos)
+			# Get generic continuous point to find what Godot discrete Face/X/Y coordinate it lands on
+			var raw_pos = _lat_lon_to_vector3(deg_to_rad(lat_deg), deg_to_rad(lon_deg), radius * 1.02)
+			var tile_id = _get_tile_from_vector3(raw_pos)
 			city_tile_cache[tile_id] = city_name
 			
 			print("Placing City: ", city_name, " at Tile: ", tile_id)
+			
+			var centroid = map_data.get_centroid(tile_id)
+			var pos = raw_pos
+			if centroid != Vector3.ZERO:
+				# Snap it exactly to the geometric center of the true Godot tile so it frames perfectly with the hover outline!
+				pos = centroid.normalized() * (radius * 1.02)
+			
+			# Discover exact physical size of the terrain quad here to correct for spherified cube distortion
+			var tile_width = 0.006
+			var nbrs = map_data.get_neighbors(tile_id)
+			if nbrs.size() > 0:
+				var c1 = centroid.normalized()
+				var c2 = map_data.get_centroid(nbrs[0]).normalized()
+				tile_width = c1.distance_to(c2) * (radius * 1.02)
+				
+			var node_pixel_size = tile_width / 32.0
 			
 			var city_node = Node3D.new()
 			add_child(city_node)
@@ -311,8 +328,8 @@ func _load_cities() -> void:
 			var sprite_main = Sprite3D.new()
 			sprite_main.texture = tex_center
 			
-			# 0.006 is 1 tile width. 32px * 0.0001875 = 0.006 world units
-			sprite_main.pixel_size = 0.0001875
+			# Mathematically exactly size the 32x32 sprite to stretch perfectly across the true width of the underlying geometric tile!
+			sprite_main.pixel_size = node_pixel_size
 			# Turn off Billboard so the Sprite lays mathematically flat against the XYZ rotation of the `city_node` LookAt
 			sprite_main.billboard = BaseMaterial3D.BILLBOARD_DISABLED
 			sprite_main.no_depth_test = true # Guarantee rendering over terrain
@@ -335,17 +352,17 @@ func _load_cities() -> void:
 			if pos.normalized().abs() != Vector3.UP:
 				city_node.look_at(Vector3.ZERO, Vector3.UP)
 				
-			# Generate the 8 surrounding subtiles based on dynamically queried grid geometry
+			# Generate the 8 surrounding subtiles using the dynamically retrieved tile width
 			# Order matches: NW, N, NE, E, SE, S, SW, W -> Index 0 to 7
 			var grid_offsets = [
-				Vector3(-0.006, 0.006, 0),  # 0: NW (Top-Left)
-				Vector3(0, 0.006, 0),       # 1: N  (Top)
-				Vector3(0.006, 0.006, 0),   # 2: NE (Top-Right)
-				Vector3(0.006, 0, 0),       # 3: E  (Right)
-				Vector3(0.006, -0.006, 0),  # 4: SE (Bottom-Right)
-				Vector3(0, -0.006, 0),      # 5: S  (Bottom)
-				Vector3(-0.006, -0.006, 0), # 6: SW (Bottom-Left)
-				Vector3(-0.006, 0, 0)       # 7: W  (Left)
+				Vector3(-tile_width, tile_width, 0),  # 0: NW (Top-Left)
+				Vector3(0, tile_width, 0),            # 1: N  (Top)
+				Vector3(tile_width, tile_width, 0),   # 2: NE (Top-Right)
+				Vector3(tile_width, 0, 0),            # 3: E  (Right)
+				Vector3(tile_width, -tile_width, 0),  # 4: SE (Bottom-Right)
+				Vector3(0, -tile_width, 0),           # 5: S  (Bottom)
+				Vector3(-tile_width, -tile_width, 0), # 6: SW (Bottom-Left)
+				Vector3(-tile_width, 0, 0)            # 7: W  (Left)
 			]
 			
 			var o_idx = 0
@@ -362,7 +379,7 @@ func _load_cities() -> void:
 				# Spawn the correct adjacent piece
 				var sub_sprite = Sprite3D.new()
 				sub_sprite.texture = tex_ocean[o_idx] if is_ocean else tex_land[o_idx]
-				sub_sprite.pixel_size = 0.0001875
+				sub_sprite.pixel_size = node_pixel_size
 				sub_sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
 				sub_sprite.no_depth_test = true
 				sub_sprite.render_priority = 5
@@ -550,7 +567,16 @@ func _handle_hover(screen_pos: Vector2) -> void:
 		var centroid = map_data.get_centroid(tile_id)
 		
 		# Position slightly above the terrain surface
-		var snap_pos = centroid.normalized() * (radius * 1.01)
+		var snap_pos = centroid.normalized() * (radius * 1.03) # slightly higher than city tiles (1.02)
+		
+		var tile_width = 0.006
+		var nbrs = map_data.get_neighbors(tile_id)
+		if nbrs.size() > 0:
+			var c1 = centroid.normalized()
+			var c2 = map_data.get_centroid(nbrs[0]).normalized()
+			tile_width = c1.distance_to(c2) * (radius * 1.02)
+			
+		target_bracket.pixel_size = (tile_width / 32.0) * 1.1 # 10% larger than 1 tile
 		
 		if snap_pos != Vector3.ZERO:
 			target_bracket.position = snap_pos
@@ -578,7 +604,16 @@ func _update_terrain_hover(screen_pos: Vector2) -> void:
 			c_name = city_tile_cache[tile_id]
 			
 		var centroid = map_data.get_centroid(tile_id)
-		var snap_pos = centroid.normalized() * (radius * 1.01)
+		var snap_pos = centroid.normalized() * (radius * 1.03) # slightly atop city (1.02)
+		
+		var tile_width = 0.006
+		var nbrs = map_data.get_neighbors(tile_id)
+		if nbrs.size() > 0:
+			var c1 = centroid.normalized()
+			var c2 = map_data.get_centroid(nbrs[0]).normalized()
+			tile_width = c1.distance_to(c2) * (radius * 1.02)
+			
+		hover_highlight.pixel_size = tile_width / 32.0
 		
 		if snap_pos != Vector3.ZERO:
 			hover_highlight.position = snap_pos
