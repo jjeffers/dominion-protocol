@@ -4,13 +4,16 @@ extends RefCounted
 ## Represents the Quad-Sphere Dictionary data.
 
 const DATA_PATH = "res://src/data/quad_data.json"
+const REGIONS_PATH = "res://src/data/region_data.json"
 
 var _quad_faces: Dictionary = {}
+var _region_map: Dictionary = {}
 
 func _init() -> void:
 	_load_data()
-
+	
 func _load_data() -> void:
+	# Load Quadrilateral Grid Metadata
 	if not FileAccess.file_exists(DATA_PATH):
 		push_error("MapData: Quad-Sphere dictionary not found at ", DATA_PATH)
 		return
@@ -26,6 +29,16 @@ func _load_data() -> void:
 		
 	_quad_faces = json.get_data()
 	print("MapData: Successfully loaded ", _quad_faces.size(), " quad tiles from Dictionary.")
+
+	# Load Regional Territory Ownership Metadata
+	if FileAccess.file_exists(REGIONS_PATH):
+		var rf = FileAccess.open(REGIONS_PATH, FileAccess.READ)
+		var r_json = JSON.new()
+		if r_json.parse(rf.get_as_text()) == OK:
+			_region_map = r_json.get_data()
+			print("MapData: Successfully loaded ", _region_map.size(), " regional claims from Dictionary.")
+		else:
+			push_error("MapData: Failed to parse Regions JSON!")
 
 ## Returns the dictionary entry for a specific tile ID (e.g. 'FRONT_10_10')
 func get_tile(tile_id: String) -> Dictionary:
@@ -58,6 +71,12 @@ func get_terrain(tile_id: String) -> String:
 	if tile.is_empty():
 		return "OCEAN"
 	return tile.get("terrain", "OCEAN")
+
+## Returns the sovereign Region string
+func get_region(tile_id: String) -> String:
+	if _region_map.has(tile_id):
+		return _region_map[tile_id]
+	return ""
 
 ## Check if this tile has a port
 func has_port(tile_id: String) -> bool:

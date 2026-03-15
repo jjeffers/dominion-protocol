@@ -56,7 +56,7 @@ func _ready() -> void:
 	city_icon.hide()
 	terrain_color.add_child(city_icon)
 
-func _on_globe_hovered_tile_changed(tile_id: String, terrain: String, c_name: String) -> void:
+func _on_globe_hovered_tile_changed(tile_id: String, terrain: String, c_name: String, region_name: String) -> void:
 	if tile_id == "":
 		terrain_panel.hide()
 		return
@@ -69,13 +69,18 @@ func _on_globe_hovered_tile_changed(tile_id: String, terrain: String, c_name: St
 		
 		# Show city icon and hide underlying terrain color
 		terrain_name.text = "CITY"
+		if region_name != "":
+			terrain_name.text += " (" + region_name + ")"
 		city_icon.show()
 		terrain_color.self_modulate = Color(1, 1, 1, 0)
 	else:
 		city_name.hide()
 		
 		# Show underlying terrain
-		terrain_name.text = terrain
+		var t_name = terrain
+		if region_name != "":
+			t_name += " (" + region_name + ")"
+		terrain_name.text = t_name
 		city_icon.hide()
 		terrain_color.self_modulate = Color.WHITE
 		

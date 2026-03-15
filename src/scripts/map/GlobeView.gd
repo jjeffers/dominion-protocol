@@ -2,7 +2,7 @@ class_name GlobeView
 extends Node3D
 
 signal focus_changed(longitude: float, latitude: float)
-signal hovered_tile_changed(tile_id: String, terrain: String, city_name: String)
+signal hovered_tile_changed(tile_id: String, terrain: String, city_name: String, region_name: String)
 
 @onready var mesh_instance: MeshInstance3D = $MeshInstance3D
 @onready var camera_pivot: Node3D = $CameraPivot
@@ -60,11 +60,26 @@ func _ready() -> void:
 	# Add physics collider matching the exact globe surface
 	map_collider = StaticBody3D.new()
 	var collision_shape = CollisionShape3D.new()
-	var sphere_shape = SphereShape3D.new()
-	sphere_shape.radius = radius 
-	collision_shape.shape = sphere_shape
+	var sphere = SphereShape3D.new()
+	sphere.radius = radius 
+	collision_shape.shape = sphere
 	map_collider.add_child(collision_shape)
+	
+	# Keep on layer 1 by default, but let's make it explicitly interactive
+	map_collider.collision_layer = 1
 	add_child(map_collider)
+	
+	# Initialize Regional Borders
+	if FileAccess.file_exists("res://src/data/region_borders.res"):
+		var border_mesh = load("res://src/data/region_borders.res") as ArrayMesh
+		if border_mesh:
+			var border_node = MeshInstance3D.new()
+			border_node.mesh = border_mesh
+			var border_mat = StandardMaterial3D.new()
+			border_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			border_mat.albedo_color = Color(0.2, 0.2, 0.2, 1.0) # Solid dark grey lines
+			border_node.material_override = border_mat
+			add_child(border_node)
 	
 	_load_cities()
 	_load_oil()
@@ -620,11 +635,12 @@ func _update_terrain_hover(screen_pos: Vector2) -> void:
 			hover_highlight.look_at_from_position(snap_pos, Vector3.ZERO, Vector3.UP)
 			hover_highlight.visible = true
 			
-		hovered_tile_changed.emit(tile_id, terrain, c_name)
+		var region_name = map_data.get_region(tile_id)
+		hovered_tile_changed.emit(tile_id, terrain, c_name, region_name)
 	else:
 		hover_highlight.visible = false
 		# Cursor over deep space
-		hovered_tile_changed.emit("", "", "")
+		hovered_tile_changed.emit("", "", "", "")
 
 func _get_tile_from_vector3(pos: Vector3) -> String:
 	# Convert a 3D coordinate point on the sphere back into the exact Face and XY coordinate it corresponds to on the underlying 181x181 matrices.
