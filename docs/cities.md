@@ -48,3 +48,53 @@ Austin
 Bern
 Prague
 Hong Kong
+Bogotá
+São Paulo
+Mumbai
+Moscow
+Warsaw
+Johannesburg
+New Delhi
+Buenos Aires
+Prague
+Istanbul
+Cairo
+Bangalore
+Budapest
+Cape Town
+Lima
+Santiago
+St. Petersburg
+Hyderabad
+Nairobi
+Bucharest
+Rio de Janeiro
+Chennai
+Lagos
+Casablanca
+Medellín
+Kolkata
+Belgrade
+Kyiv
+Montevideo
+Addis Ababa
+Pune
+Bratislava
+Curitiba
+Ahmedabad
+Port Louis
+Almaty
+Sofia
+Quito
+Yekaterinburg
+Accra
+Ljubljana
+Kraków
+Belo Horizonte
+Surat
+Dakar
+Tashkent
+Tallinn
+Brasília
+Luanda
+Riga
