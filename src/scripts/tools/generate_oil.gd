@@ -182,12 +182,10 @@ func _get_city_tiles(cities: Dictionary) -> Array[String]:
 			var lon = deg_to_rad(lon_deg)
 			
 			# GlobeView/QuadBaker projection math
-			var u_base = (lon + PI) / (2.0 * PI)
-			var lon_baker = ((1.0 - u_base) * 2.0 * PI) - PI
 			var cos_lat = cos(lat)
 			var y = sin(lat)
-			var x = cos_lat * cos(lon_baker)
-			var z = cos_lat * sin(lon_baker)
+			var x = cos_lat * -sin(lon)
+			var z = cos_lat * -cos(lon)
 			
 			var v = Vector3(x, y, z)
 			var t_id = _get_tile_from_vector3(v)
@@ -356,7 +354,7 @@ func _get_tile_from_vector3(pos: Vector3) -> String:
 	elif face == 4: local_x = n.x / n.y; local_y = n.z / n.y
 	elif face == 5: local_x = n.x / -n.y; local_y = -n.z / -n.y
 
-	var M = 181
+	var M = 361
 	var rx = clamp(int(((local_x + 1.0) / 2.0) * M), 0, M - 1)
 	var ry = clamp(int(((local_y + 1.0) / 2.0) * M), 0, M - 1)
 	var face_names = ["FRONT", "BACK", "LEFT", "RIGHT", "TOP", "BOTTOM"]

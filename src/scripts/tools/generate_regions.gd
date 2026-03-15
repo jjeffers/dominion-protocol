@@ -60,7 +60,7 @@ class MinHeap:
 
 enum Face { FRONT, BACK, LEFT, RIGHT, TOP, BOTTOM }
 
-const RESOLUTION = 181
+const RESOLUTION = 361
 const RADIUS = 1.015
 
 var map_data: MapData
@@ -202,12 +202,10 @@ func _init() -> void:
 # --- MAP MATH FOR REVERSE PROJECTION & CORNER CALCULATION ---
 
 func _lat_lon_to_vector3(lat: float, lon: float, r: float) -> Vector3:
-	var u_base = (lon + PI) / (2.0 * PI)
-	var lon_baker = ((1.0 - u_base) * 2.0 * PI) - PI
 	var cos_lat = cos(lat)
 	var ny = sin(lat)
-	var nx = cos_lat * cos(lon_baker)
-	var nz = cos_lat * sin(lon_baker)
+	var nx = cos_lat * -sin(lon)
+	var nz = cos_lat * -cos(lon)
 	return Vector3(nx, ny, nz) * r
 
 func _get_tile_from_vector3(pos: Vector3) -> String:

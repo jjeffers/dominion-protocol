@@ -42,7 +42,6 @@ Montreal
 Madrid
 Miami
 Tel Aviv
-Austin
 Prague
 Hong Kong
 Bogotá
@@ -54,7 +53,7 @@ Johannesburg
 New Delhi
 Buenos Aires
 Prague
-Istanbul
+Constantinople
 Cairo
 Bandar Abbas
 Budapest

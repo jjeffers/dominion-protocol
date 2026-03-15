@@ -1,6 +1,6 @@
 extends SceneTree
 
-const RESOLUTION = 181
+const RESOLUTION = 361
 const RADIUS = 1.0
 
 const TOPOGRAPHY_IMAGE_PATH = "res://src/assets/Topography.jpg"
@@ -51,6 +51,7 @@ func _bake() -> void:
 	var normals = PackedVector3Array()
 	var colors = PackedColorArray()
 	var indices = PackedInt32Array()
+	var uvs = PackedVector2Array()
 	
 	var img_w = img.get_width()
 	var img_h = img.get_height()
@@ -106,6 +107,30 @@ func _bake() -> void:
 				normals.append(n); normals.append(n); normals.append(n); normals.append(n)
 				colors.append(tile_color); colors.append(tile_color); colors.append(tile_color); colors.append(tile_color)
 				
+				# Generate UVs and handle anti-meridian seam
+				var uv00 = _get_uv(v00)
+				var uv10 = _get_uv(v10)
+				var uv01 = _get_uv(v01)
+				var uv11 = _get_uv(v11)
+				var tile_uvs = [uv00, uv10, uv01, uv11]
+				
+				var min_u = uv00.x
+				var max_u = uv00.x
+				for t_uv in tile_uvs:
+					if t_uv.x < min_u: min_u = t_uv.x
+					if t_uv.x > max_u: max_u = t_uv.x
+					
+				if (max_u - min_u) > 0.5:
+					if uv00.x < 0.5: uv00.x += 1.0
+					if uv10.x < 0.5: uv10.x += 1.0
+					if uv01.x < 0.5: uv01.x += 1.0
+					if uv11.x < 0.5: uv11.x += 1.0
+					
+				uvs.append(uv00)
+				uvs.append(uv10)
+				uvs.append(uv01)
+				uvs.append(uv11)
+				
 				# Triangle 1: v00 (0), v10 (1), v01 (2) -> 0, 1, 2
 				indices.append(vertex_offset + 0)
 				indices.append(vertex_offset + 1)
@@ -122,6 +147,7 @@ func _bake() -> void:
 	surface_array[Mesh.ARRAY_VERTEX] = verts
 	surface_array[Mesh.ARRAY_NORMAL] = normals
 	surface_array[Mesh.ARRAY_COLOR] = colors
+	surface_array[Mesh.ARRAY_TEX_UV] = uvs
 	surface_array[Mesh.ARRAY_INDEX] = indices
 	
 	var mesh = ArrayMesh.new()
@@ -134,6 +160,15 @@ func _bake() -> void:
 	file.store_string(JSON.stringify(all_tiles, "\t"))
 	file.close()
 	print("Saved Quad Dictionary to: ", OUT_JSON_PATH)
+
+func _get_uv(v: Vector3) -> Vector2:
+	var n = v.normalized()
+	var lat = asin(n.y)
+	var lon = atan2(-n.x, -n.z)
+	var u_base = (lon + PI) / (2.0 * PI)
+	var v_base = (lat + (PI / 2.0)) / PI
+	var v_north = 1.0 - v_base
+	return Vector2(u_base, v_north)
 
 func _get_sphere_point(face: int, local_x: float, local_y: float) -> Vector3:
 	# Convert 2D face coordinates to 3D cube coordinates
@@ -219,12 +254,12 @@ func _get_edge_neighbor(face: int, x: int, y: int, dir: String) -> String:
 
 
 func _sample_terrain(centroid: Vector3, img: Image, img_w: int, img_h: int, mask: Image, mask_w: int, mask_h: int, ndvi: Image, ndvi_w: int, ndvi_h: int, noise: FastNoiseLite) -> Array:
-	# Convert 3D Centroid to Lat/Lon Radians
+	# Compute Lon/Lat mapping on Sphere
 	var lat = asin(centroid.y) 
-	var lon = atan2(centroid.z, centroid.x) 
+	var lon = atan2(-centroid.x, -centroid.z) 
 	
 	# Godot 3D orientation needs a U-flip for standard projection images
-	var u_base = 1.0 - ((lon + PI) / (2.0 * PI))
+	var u_base = (lon + PI) / (2.0 * PI)
 	var v_base = (lat + (PI / 2.0)) / PI
 	
 	# All maps are North-Up

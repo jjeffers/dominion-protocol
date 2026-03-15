@@ -1,7 +1,7 @@
 from PIL import Image
 
-ndvi = Image.open('/home/jdjeffers/Documents/NDVI_84.bw.png').convert('L')
-topo = Image.open('/home/jdjeffers/Documents/Topography.jpg').convert('L')
+ndvi = Image.open('src/assets/NDVI_84.bw.png').convert('L')
+topo = Image.open('src/assets/Topography.jpg').convert('L')
 
 print("NDVI size:", ndvi.size)
 print("Topo size:", topo.size)

@@ -131,49 +131,20 @@ func _ready() -> void:
 
 
 func _generate_mesh() -> void:
-	var mesh = ResourceLoader.load("res://src/data/quadsphere_globe.res")
-	if not mesh:
-		push_error("GlobeView: Failed to load Quad-Sphere Mesh!")
-		return
-		
-	mesh_instance.mesh = mesh
-	
-	var mat = ShaderMaterial.new()
-	var shader = Shader.new()
-	shader.code = """
-shader_type spatial;
-render_mode unshaded, cull_disabled;
-
-varying vec3 v_world_pos;
-
-void vertex() {
-	v_world_pos = VERTEX;
-}
-
-// 3D hash for noise
-float hash(vec3 p) {
-	p = fract(p * 0.3183099 + .1);
-	p *= 17.0;
-	return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
-}
-
-void fragment() {
-	vec3 col = COLOR.rgb;
-	
-	// Desert is tagged with Alpha < 0.9 (we use 0.5 in Baker)
-	if (COLOR.a < 0.9) {
-		float n = hash(floor(v_world_pos * 500.0));
-		if (n > 0.95) {
-			col = vec3(0.3, 0.3, 0.3); // Dark Gray speck
-		}
-	}
-	
-	ALBEDO = col;
-	ALPHA = 1.0;
-}
-"""
-	mat.shader = shader
-	mesh_instance.material_override = mat
+	var mesh = load("res://src/data/globe_mesh.res")
+	if mesh:
+		mesh_instance.mesh = mesh
+		var img = Image.new()
+		if img.load("res://src/assets/biome_map.png") == OK:
+			var mat = StandardMaterial3D.new()
+			mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR
+			mat.albedo_texture = ImageTexture.create_from_image(img)
+			mesh_instance.material_override = mat
+		else:
+			push_error("GlobeView: Failed to load biome_map.png image")
+	else:
+		push_error("GlobeView: Failed to load globe_mesh.res!")
 
 func _process(delta: float) -> void:
 	# Handle Zoom Interpolation
@@ -262,7 +233,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _update_camera() -> void:
 	var t = Transform3D.IDENTITY
-	t = t.rotated(Vector3.UP, current_longitude)
+	t = t.rotated(Vector3.UP, current_longitude + PI)
 	t = t.rotated(t.basis.x, -current_latitude)
 	camera_pivot.transform = t
 	
@@ -643,7 +614,7 @@ func _update_terrain_hover(screen_pos: Vector2) -> void:
 		hovered_tile_changed.emit("", "", "", "")
 
 func _get_tile_from_vector3(pos: Vector3) -> String:
-	# Convert a 3D coordinate point on the sphere back into the exact Face and XY coordinate it corresponds to on the underlying 181x181 matrices.
+	# Convert a 3D coordinate point on the sphere back into the exact Face and XY coordinate it corresponds to on the underlying 361x361 matrices.
 	var n = pos.normalized()
 	
 	# Determine principle axis (which face of the cube)
@@ -686,8 +657,8 @@ func _get_tile_from_vector3(pos: Vector3) -> String:
 		local_y = -n.z / -n.y
 
 	# Map cube coordinates [-1, 1] to discrete matrix indices [0, RESOLUTION-1]
-	# RESOLUTION = 181
-	var M = 181
+	# RESOLUTION = 361
+	var M = 361
 	
 	var x = clamp(int(((local_x + 1.0) / 2.0) * M), 0, M - 1)
 	var y = clamp(int(((local_y + 1.0) / 2.0) * M), 0, M - 1)
@@ -696,15 +667,10 @@ func _get_tile_from_vector3(pos: Vector3) -> String:
 	var face_names = ["FRONT", "BACK", "LEFT", "RIGHT", "TOP", "BOTTOM"]
 	return "%s_%d_%d" % [face_names[face], x, y]
 func _lat_lon_to_vector3(lat: float, lon: float, r: float) -> Vector3:
-	# Calculate standard 2D map projection U-coordinate
-	var u_base = (lon + PI) / (2.0 * PI)
-	# Map back to the 3D space baked by QuadSphereBaker (which applied 1.0 - u_base)
-	var lon_baker = ((1.0 - u_base) * 2.0 * PI) - PI
-	
 	var cos_lat = cos(lat)
 	var ny = sin(lat)
-	var nx = cos_lat * cos(lon_baker)
-	var nz = cos_lat * sin(lon_baker)
+	var nx = cos_lat * -sin(lon)
+	var nz = cos_lat * -cos(lon)
 	return Vector3(nx, ny, nz) * r
 ## Public function to sync this view from external changes (e.g. 2D map panning)
 func set_focus(longitude: float, latitude: float) -> void:

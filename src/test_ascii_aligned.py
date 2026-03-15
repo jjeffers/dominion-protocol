@@ -1,7 +1,7 @@
 from PIL import Image
 
-ndvi = Image.open('/home/jdjeffers/Documents/NDVI_84.bw.png').convert('L')
-mask = Image.open('/home/jdjeffers/Documents/etopo-landmask.png').convert('L')
+ndvi = Image.open('src/assets/NDVI_84.bw.png').convert('L')
+mask = Image.open('src/assets/etopo-landmask.png').convert('L')
 
 nw, nh = ndvi.size
 out_h, out_w = 32, 64

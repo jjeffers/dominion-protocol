@@ -9,7 +9,6 @@ albedo_color = Color(0.12549, 0.40392, 0.611765, 1)
 script = ExtResource("1_globeview")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="."]
-material_override = SubResource("StandardMaterial3D_jg7h1")
 
 [node name="CameraPivot" type="Node3D" parent="."]
 

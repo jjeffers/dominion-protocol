@@ -72,7 +72,7 @@ func set_focus(longitude: float, latitude: float) -> void:
 
 func _update_camera() -> void:
 	var t = Transform3D.IDENTITY
-	t = t.rotated(Vector3.UP, current_longitude)
+	t = t.rotated(Vector3.UP, current_longitude - (PI / 2.0))
 	t = t.rotated(t.basis.x, -current_latitude)
 	camera_pivot.transform = t
 	_emit_bounds()
