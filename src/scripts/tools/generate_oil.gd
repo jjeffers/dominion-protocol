@@ -27,6 +27,9 @@ func _init() -> void:
 	var cities = json.data
 	print("Loaded ", cities.size(), " cities.")
 	
+	var quota = int(cities.size() / 8.0)
+	print("Calculated target Oil Quota: ", quota, " (based on 8:1 limit).")
+	
 	# Phase A: Distance Calculation & Filtering
 	var city_tiles = _get_city_tiles(cities)
 	print("Reverse-projected ", city_tiles.size(), " unique city tiles.")
@@ -54,7 +57,7 @@ func _init() -> void:
 	var final_oil_tiles: Array[String] = []
 	
 	# Phase B: Cluster Generation
-	# Quota is 10 total. We build 2 clusters of 3.
+	# We build 2 clusters of 3 (6 resources).
 	high_priority_pool.shuffle()
 	
 	for cluster_id in range(2):
@@ -80,12 +83,12 @@ func _init() -> void:
 		print("Generated Cluster ", cluster_id + 1, " with ", 1 + cluster_members.size(), " nodes.")
 				
 	# Phase C: Lone Scattering
-	# Target = 10 resources total
+	# Scattering remaining quota targets
 	var scattered = 0
 	high_priority_pool.shuffle()
 	
 	for tile_id in high_priority_pool:
-		if final_oil_tiles.size() >= 10:
+		if final_oil_tiles.size() >= quota:
 			break
 			
 		# Ensure minimum 15 spacing from any existing oil to prevent bloat
@@ -96,7 +99,7 @@ func _init() -> void:
 	print("Scattered ", scattered, " lone resources.")
 	
 	# Fallback if map is too tight (unlikely with 196k tiles, but mathematically possible)
-	while final_oil_tiles.size() < 10 and not low_priority_pool.is_empty():
+	while final_oil_tiles.size() < quota and not low_priority_pool.is_empty():
 		low_priority_pool.shuffle()
 		var candidate = low_priority_pool.pop_back()
 		if not final_oil_tiles.has(candidate):
@@ -126,10 +129,17 @@ func _init() -> void:
 
 func _get_city_tiles(cities: Dictionary) -> Array[String]:
 	var tiles: Array[String] = []
+	var r = 1.0 # Base radius for Quad matching
 	for city in cities.values():
-		var pos = city.get("vector3")
-		if pos and pos.has("x"):
-			var v = Vector3(pos["x"], pos["y"], pos["z"])
+		var lat_deg = city.get("latitude")
+		var lon_deg = city.get("longitude")
+		if lat_deg != null and lon_deg != null:
+			var lat = deg_to_rad(lat_deg)
+			var lon = deg_to_rad(lon_deg)
+			var x = r * cos(lat) * sin(lon)
+			var y = r * sin(lat)
+			var z = r * cos(lat) * cos(lon)
+			var v = Vector3(x, y, z)
 			var t_id = _get_tile_from_vector3(v)
 			if not tiles.has(t_id):
 				tiles.append(t_id)
