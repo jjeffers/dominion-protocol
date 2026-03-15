@@ -231,11 +231,13 @@ func _load_cities() -> void:
 		
 	var cities_dict = json.data
 	
-	# Pre-load the city sprite texture directly
-	var tex = load("res://src/assets/city_sprite_raw.png")
-	if not tex:
+	# Pre-load the city sprite texture directly via memory byte buffer
+	var img = Image.new()
+	if img.load("res://src/assets/city_sprite_raw.png") != OK:
 		push_error("GlobeView: Failed to load city_sprite_raw.png")
 		return
+	var tex = ImageTexture.create_from_image(img)
+	print("Loaded city sprite successfully!")
 		
 	for city_name in cities_dict:
 		var data = cities_dict[city_name]
@@ -245,20 +247,19 @@ func _load_cities() -> void:
 		if lat_deg != null and lon_deg != null:
 			# Radius 1.02 perfectly aligns the sprite on the unit layer hovering over the peaks
 			var pos = _lat_lon_to_vector3(deg_to_rad(lat_deg), deg_to_rad(lon_deg), radius * 1.02)
+			print("Placing City: ", city_name, " at Pos: ", pos)
 			
 			var city_node = Node3D.new()
 			add_child(city_node)
 			
 			var sprite = Sprite3D.new()
 			sprite.texture = tex
-			sprite.axis = Vector3.AXIS_Y
 			
 			# 0.006 is 1 tile width. 16px * 0.000375 = 0.006 world units
 			# Let's double the size so it's clearly visible (0.00075)
 			sprite.pixel_size = 0.00075
 			sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
-			# Render completely over the globe
-			sprite.no_depth_test = true
+			# Keep city marker flat against the terrain but render over it
 			sprite.render_priority = 10
 			city_node.add_child(sprite)
 			
@@ -267,10 +268,8 @@ func _load_cities() -> void:
 			lbl.pixel_size = 0.001
 			lbl.font_size = 32
 			lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-			# Render completely over the globe
-			lbl.no_depth_test = true
-			# Float the label slightly below so it's readable
-			lbl.offset = Vector2(0, -32)
+			# Float the label slightly above and screen-facing so it's readable
+			lbl.offset = Vector2(0, 24)
 			# Ensure text sorts predictably
 			lbl.render_priority = 10
 			city_node.add_child(lbl)
