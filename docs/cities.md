@@ -58,7 +58,7 @@ Buenos Aires
 Prague
 Istanbul
 Cairo
-Bangalore
+Bandar Abbas
 Budapest
 Cape Town
 Lima

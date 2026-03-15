@@ -2,6 +2,7 @@ class_name GlobeView
 extends Node3D
 
 signal focus_changed(longitude: float, latitude: float)
+signal hovered_tile_changed(tile_id: String, terrain: String, city_name: String)
 
 @onready var mesh_instance: MeshInstance3D = $MeshInstance3D
 @onready var camera_pivot: Node3D = $CameraPivot
@@ -10,6 +11,7 @@ signal focus_changed(longitude: float, latitude: float)
 var map_data: MapData
 
 var radius: float = 1.0
+var city_tile_cache: Dictionary = {}
 var current_longitude: float = 0.192
 var current_latitude: float = 0.6196
 
@@ -219,6 +221,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			_update_camera()
 		elif test_unit.is_selected:
 			_handle_hover(event.position)
+			
+		# Always update terrain HUD regardless of unit selection
+		_update_terrain_hover(event.position)
 
 func _update_camera() -> void:
 	var t = Transform3D.IDENTITY
@@ -276,7 +281,10 @@ func _load_cities() -> void:
 		if lat_deg != null and lon_deg != null:
 			# Radius 1.02 perfectly aligns the sprite on the unit layer hovering over the peaks
 			var pos = _lat_lon_to_vector3(deg_to_rad(lat_deg), deg_to_rad(lon_deg), radius * 1.02)
-			print("Placing City: ", city_name, " at Pos: ", pos)
+			var tile_id = _get_tile_from_vector3(pos)
+			city_tile_cache[tile_id] = city_name
+			
+			print("Placing City: ", city_name, " at Tile: ", tile_id)
 			
 			var city_node = Node3D.new()
 			add_child(city_node)
@@ -529,6 +537,29 @@ func _handle_hover(screen_pos: Vector2) -> void:
 			target_bracket.visible = true
 	else:
 		target_bracket.visible = false
+
+func _update_terrain_hover(screen_pos: Vector2) -> void:
+	var space_state = get_world_3d().direct_space_state
+	var ray_origin = camera.project_ray_origin(screen_pos)
+	var ray_end = ray_origin + camera.project_ray_normal(screen_pos) * 1000.0
+	
+	var query = PhysicsRayQueryParameters3D.create(ray_origin, ray_end)
+	query.collide_with_bodies = true
+	query.collide_with_areas = false
+	
+	var result = space_state.intersect_ray(query)
+	
+	if result and result.collider == map_collider:
+		var tile_id = _get_tile_from_vector3(result.position)
+		var terrain = map_data.get_terrain(tile_id)
+		var c_name = ""
+		if city_tile_cache.has(tile_id):
+			c_name = city_tile_cache[tile_id]
+			
+		hovered_tile_changed.emit(tile_id, terrain, c_name)
+	else:
+		# Cursor over deep space
+		hovered_tile_changed.emit("", "", "")
 
 func _get_tile_from_vector3(pos: Vector3) -> String:
 	# Convert a 3D coordinate point on the sphere back into the exact Face and XY coordinate it corresponds to on the underlying 181x181 matrices.
