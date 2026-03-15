@@ -244,13 +244,27 @@ func _load_cities() -> void:
 		
 	var cities_dict = json.data
 	
-	# Pre-load the city sprite texture directly via memory byte buffer
+	# Pre-load the full city spritesheet into memory
 	var img = Image.new()
-	if img.load("res://src/assets/city_sprite_raw.png") != OK:
-		push_error("GlobeView: Failed to load city_sprite_raw.png")
+	if img.load("res://src/assets/spritesheet.png") != OK:
+		push_error("GlobeView: Failed to load spritesheet.png")
 		return
-	var tex = ImageTexture.create_from_image(img)
-	print("Loaded city sprite successfully!")
+		
+	# Slice the 32x32 tiles
+	# Center Marker (Row 16, Col 1) -> y=480, x=0
+	var tex_center = ImageTexture.create_from_image(img.get_region(Rect2i(0, 480, 32, 32)))
+	
+	# Land Surrounds (Row 16, Col 2-9)
+	var tex_land: Array[ImageTexture] = []
+	for i in range(8):
+		tex_land.append(ImageTexture.create_from_image(img.get_region(Rect2i(32 + (i * 32), 480, 32, 32))))
+		
+	# Ocean Surrounds (Row 15, Col 2-9)
+	var tex_ocean: Array[ImageTexture] = []
+	for i in range(8):
+		tex_ocean.append(ImageTexture.create_from_image(img.get_region(Rect2i(32 + (i * 32), 448, 32, 32))))
+		
+	print("Loaded city spritesheet slices successfully!")
 		
 	for city_name in cities_dict:
 		var data = cities_dict[city_name]
@@ -265,16 +279,16 @@ func _load_cities() -> void:
 			var city_node = Node3D.new()
 			add_child(city_node)
 			
-			var sprite = Sprite3D.new()
-			sprite.texture = tex
+			var sprite_main = Sprite3D.new()
+			sprite_main.texture = tex_center
 			
 			# 0.006 is 1 tile width. 32px * 0.0001875 = 0.006 world units
-			sprite.pixel_size = 0.0001875
+			sprite_main.pixel_size = 0.0001875
 			# Turn off Billboard so the Sprite lays mathematically flat against the XYZ rotation of the `city_node` LookAt
-			sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
-			sprite.no_depth_test = true # Guarantee rendering over terrain
-			sprite.render_priority = 5 # Renters UNDER units (priority 10)
-			city_node.add_child(sprite)
+			sprite_main.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+			sprite_main.no_depth_test = true # Guarantee rendering over terrain
+			sprite_main.render_priority = 5 # Renters UNDER units (priority 10)
+			city_node.add_child(sprite_main)
 			
 			var lbl = Label3D.new()
 			lbl.text = city_name
@@ -291,6 +305,40 @@ func _load_cities() -> void:
 			city_node.position = pos
 			if pos.normalized().abs() != Vector3.UP:
 				city_node.look_at(Vector3.ZERO, Vector3.UP)
+				
+			# Generate the 8 surrounding subtiles based on dynamically queried grid geometry
+			# Order matches: NW, N, NE, E, SE, S, SW, W -> Index 0 to 7
+			var grid_offsets = [
+				Vector3(-0.006, 0.006, 0),  # 0: NW (Top-Left)
+				Vector3(0, 0.006, 0),       # 1: N  (Top)
+				Vector3(0.006, 0.006, 0),   # 2: NE (Top-Right)
+				Vector3(0.006, 0, 0),       # 3: E  (Right)
+				Vector3(0.006, -0.006, 0),  # 4: SE (Bottom-Right)
+				Vector3(0, -0.006, 0),      # 5: S  (Bottom)
+				Vector3(-0.006, -0.006, 0), # 6: SW (Bottom-Left)
+				Vector3(-0.006, 0, 0)       # 7: W  (Left)
+			]
+			
+			var o_idx = 0
+			for local_offset in grid_offsets:
+				# Convert the local XY tangent offset to true Godot global 3D space relative to the angled CityNode
+				var global_offset = city_node.to_global(local_offset)
+				# Reverse-project the global 3D coordinate back into the specific XYZ Face coordinate string of the map
+				var tile_id = _get_tile_from_vector3(global_offset)
+				# Query the memory dictionary to ascertain the biome
+				var is_ocean = map_data.get_terrain(tile_id) == "OCEAN"
+				
+				# Spawn the correct adjacent piece
+				var sub_sprite = Sprite3D.new()
+				sub_sprite.texture = tex_ocean[o_idx] if is_ocean else tex_land[o_idx]
+				sub_sprite.pixel_size = 0.0001875
+				sub_sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+				sub_sprite.no_depth_test = true
+				sub_sprite.render_priority = 5
+				sub_sprite.position = local_offset # We position it linearly off the center node
+				
+				city_node.add_child(sub_sprite)
+				o_idx += 1
 				
 			city_nodes.append(city_node)
 
