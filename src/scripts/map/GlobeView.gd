@@ -83,13 +83,19 @@ func _ready() -> void:
 	target_bracket.visible = false
 	add_child(target_bracket)
 
-	# Instantiate hover highlight
+	# Instantiate hover highlight (Hollow outline 1-tile size)
 	hover_highlight = Sprite3D.new()
-	var himg = Image.new()
-	if himg.load("res://src/assets/extracted_sprite.png") == OK:
-		hover_highlight.texture = ImageTexture.create_from_image(himg)
-		hover_highlight.modulate = Color(1.0, 1.0, 1.0, 0.4) # Translucent white
-	hover_highlight.pixel_size = 0.00065
+	var himg = Image.create(34, 34, false, Image.FORMAT_RGBA8)
+	for x in range(34):
+		for y in range(34):
+			if x <= 1 or x >= 32 or y <= 1 or y >= 32:
+				himg.set_pixel(x, y, Color.WHITE)
+			else:
+				himg.set_pixel(x, y, Color(0, 0, 0, 0))
+	
+	hover_highlight.texture = ImageTexture.create_from_image(himg)
+	hover_highlight.modulate = Color(1.0, 1.0, 1.0, 0.8) # Stronger white outline
+	hover_highlight.pixel_size = 0.0001875
 	hover_highlight.billboard = BaseMaterial3D.BILLBOARD_DISABLED
 	hover_highlight.render_priority = 11
 	hover_highlight.visible = false

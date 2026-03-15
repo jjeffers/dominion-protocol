@@ -9,6 +9,7 @@ extends Control
 @onready var terrain_name: Label = $TerrainSummaryPanel/TerrainNameLabel
 @onready var city_name: Label = $TerrainSummaryPanel/CityNameLabel
 
+var city_icon: TextureRect
 var map_data: MapData
 
 const TERRAIN_COLORS: Dictionary = {
@@ -41,6 +42,19 @@ func _ready() -> void:
 	
 	# Initialize HUD State
 	terrain_panel.hide()
+	
+	var city_texture = AtlasTexture.new()
+	var img = load("res://src/assets/spritesheet.png")
+	city_texture.atlas = img
+	city_texture.region = Rect2(0, 480, 32, 32)
+	
+	city_icon = TextureRect.new()
+	city_icon.texture = city_texture
+	city_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	city_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	city_icon.set_anchors_preset(Control.PRESET_FULL_RECT)
+	city_icon.hide()
+	terrain_color.add_child(city_icon)
 
 func _on_globe_hovered_tile_changed(tile_id: String, terrain: String, c_name: String) -> void:
 	if tile_id == "":
@@ -48,18 +62,27 @@ func _on_globe_hovered_tile_changed(tile_id: String, terrain: String, c_name: St
 		return
 		
 	terrain_panel.show()
-	terrain_name.text = terrain
 	
-	if TERRAIN_COLORS.has(terrain):
-		terrain_color.color = TERRAIN_COLORS[terrain]
-	else:
-		terrain_color.color = Color.BLACK
-		
 	if c_name != "":
 		city_name.text = c_name
 		city_name.show()
+		
+		# Show city icon and hide underlying terrain color
+		terrain_name.text = "CITY"
+		city_icon.show()
+		terrain_color.self_modulate = Color(1, 1, 1, 0)
 	else:
 		city_name.hide()
+		
+		# Show underlying terrain
+		terrain_name.text = terrain
+		city_icon.hide()
+		terrain_color.self_modulate = Color.WHITE
+		
+		if TERRAIN_COLORS.has(terrain):
+			terrain_color.color = TERRAIN_COLORS[terrain]
+		else:
+			terrain_color.color = Color.BLACK
 
 func _on_tactical_focus_changed(longitude: float, latitude: float) -> void:
 	# Stop echoing
