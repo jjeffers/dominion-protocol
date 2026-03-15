@@ -231,10 +231,10 @@ func _load_cities() -> void:
 		
 	var cities_dict = json.data
 	
-	# Pre-load the spritesheet texture directly
+	# Pre-load the city sprite texture directly
 	var img = Image.new()
-	if img.load("res://src/assets/spritesheet.png") != OK:
-		push_error("GlobeView: Failed to load spritesheet.png")
+	if img.load("res://src/assets/city_sprite_raw.png") != OK:
+		push_error("GlobeView: Failed to load city_sprite_raw.png")
 		return
 	var tex = ImageTexture.create_from_image(img)
 		
@@ -252,8 +252,6 @@ func _load_cities() -> void:
 			
 			var sprite = Sprite3D.new()
 			sprite.texture = tex
-			sprite.region_enabled = true
-			sprite.region_rect = Rect2(0, 240, 16, 16)
 			# 0.006 is 1 tile width. 16px * 0.000375 = 0.006 world units
 			sprite.pixel_size = 0.000375
 			sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
