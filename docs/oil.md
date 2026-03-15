@@ -6,7 +6,7 @@ Here is the algorithmic step-by-step for the **Global Resource Distributor** to 
 
 ## 1. The Distribution Algorithm
 
-Since you have a $7:1$ ratio, the first step is to count your total cities ($N$). You will then need to place $R = N / 7$ oil resources.
+Since you have a $6:1$ ratio, the first step is to count your total cities ($N$). You will then need to place $R = N / 6$ oil resources.
 
 ### Phase A: Candidate Filtering
 

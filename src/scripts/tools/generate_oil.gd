@@ -27,8 +27,8 @@ func _init() -> void:
 	var cities = json.data
 	print("Loaded ", cities.size(), " cities.")
 	
-	var quota = int(cities.size() / 7.0)
-	print("Calculated target Oil Quota: ", quota, " (based on 7:1 limit).")
+	var quota = int(cities.size() / 6.0)
+	print("Calculated target Oil Quota: ", quota, " (based on 6:1 limit).")
 	
 	# Phase A: Distance Calculation & Filtering
 	var city_tiles = _get_city_tiles(cities)

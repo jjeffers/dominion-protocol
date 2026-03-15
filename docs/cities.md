@@ -38,7 +38,6 @@ Helsinki
 Hamburg
 San Diego
 Phoenix
-Basel
 Montreal
 Madrid
 Miami
