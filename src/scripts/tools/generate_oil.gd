@@ -54,11 +54,25 @@ func _init() -> void:
 		quit(1)
 		return
 		
+	# Add Desert Bias by front-loading DESERT terrain over everything else
+	var desert_pool: Array[String] = []
+	var other_pool: Array[String] = []
+	for tile_id in high_priority_pool:
+		if map_data.get_terrain(tile_id) == "DESERT":
+			desert_pool.append(tile_id)
+		else:
+			other_pool.append(tile_id)
+			
+	desert_pool.shuffle()
+	other_pool.shuffle()
+	high_priority_pool = desert_pool + other_pool
+	
+	print("Found ", desert_pool.size(), " high priority DESERT tiles to bias.")
+		
 	var final_oil_tiles: Array[String] = []
 	
 	# Phase B: Cluster Generation
 	# We build 2 clusters of 3 (6 resources).
-	high_priority_pool.shuffle()
 	
 	for cluster_id in range(2):
 		if high_priority_pool.is_empty(): break
@@ -85,7 +99,6 @@ func _init() -> void:
 	# Phase C: Lone Scattering
 	# Scattering remaining quota targets
 	var scattered = 0
-	high_priority_pool.shuffle()
 	
 	for tile_id in high_priority_pool:
 		if final_oil_tiles.size() >= quota:
@@ -136,9 +149,15 @@ func _get_city_tiles(cities: Dictionary) -> Array[String]:
 		if lat_deg != null and lon_deg != null:
 			var lat = deg_to_rad(lat_deg)
 			var lon = deg_to_rad(lon_deg)
-			var x = r * cos(lat) * sin(lon)
-			var y = r * sin(lat)
-			var z = r * cos(lat) * cos(lon)
+			
+			# GlobeView/QuadBaker projection math
+			var u_base = (lon + PI) / (2.0 * PI)
+			var lon_baker = ((1.0 - u_base) * 2.0 * PI) - PI
+			var cos_lat = cos(lat)
+			var y = sin(lat)
+			var x = cos_lat * cos(lon_baker)
+			var z = cos_lat * sin(lon_baker)
+			
 			var v = Vector3(x, y, z)
 			var t_id = _get_tile_from_vector3(v)
 			if not tiles.has(t_id):
