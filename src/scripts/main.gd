@@ -1,8 +1,8 @@
 class_name MainScene
 extends Control
 
-@onready var tactical_view: TacticalView = $TacticalPanel/TacticalContainer/SubViewport/TacticalView
-@onready var globe_view: GlobeView = $GlobeContainer/SubViewport/GlobeView
+@onready var tactical_view = $TacticalPanel/TacticalContainer/SubViewport/TacticalView
+@onready var globe_view = $GlobeContainer/SubViewport/GlobeView
 
 @onready var terrain_panel: Panel = $TerrainSummaryPanel
 @onready var terrain_color: ColorRect = $TerrainSummaryPanel/TerrainColor
