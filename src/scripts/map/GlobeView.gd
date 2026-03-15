@@ -374,6 +374,8 @@ func _load_oil() -> void:
 		var pos_data = marker.get("position")
 		if pos_data and pos_data.has("x"):
 			var pos = Vector3(pos_data["x"], pos_data["y"], pos_data["z"])
+			var final_pos = pos.normalized() * (radius * 1.02)
+			print("Placing OIL at ", final_pos)
 			
 			var oil_node = Node3D.new()
 			add_child(oil_node)
@@ -381,8 +383,8 @@ func _load_oil() -> void:
 			var sprite = Sprite3D.new()
 			sprite.texture = tex_oil
 			
-			# Use the same exact metrics as City decals
-			sprite.pixel_size = 0.0001875
+			# Enlarged pixel size so the 32x32 sprite is slightly easier to spot than a city
+			sprite.pixel_size = 0.00035
 			sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
 			sprite.no_depth_test = true
 			sprite.render_priority = 5
@@ -390,9 +392,9 @@ func _load_oil() -> void:
 			oil_node.add_child(sprite)
 			
 			# Target coordinates generated from map_data.get_centroid, which is explicitly mathematical radius. Push by 1.02 multiplier matching Cities
-			var final_pos = pos.normalized() * (radius * 1.02)
 			oil_node.position = final_pos
-			oil_node.look_at_from_position(final_pos, Vector3.ZERO, Vector3.UP)
+			if final_pos.normalized().abs() != Vector3.UP:
+				oil_node.look_at(Vector3.ZERO, Vector3.UP)
 			
 			cullable_nodes.append(oil_node)
 
