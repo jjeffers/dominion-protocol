@@ -255,28 +255,26 @@ func _load_cities() -> void:
 			var sprite = Sprite3D.new()
 			sprite.texture = tex
 			
-			# 0.006 is 1 tile width. 16px * 0.000375 = 0.006 world units
-			# Let's double the size so it's clearly visible (0.00075)
-			sprite.pixel_size = 0.00075
-			sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
-			# Keep city marker flat against the terrain but render over it
+			sprite.pixel_size = 0.008 # Make drastically larger (approx 10x)
+			sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			sprite.no_depth_test = true # Guarantee rendering over terrain
 			sprite.render_priority = 10
 			city_node.add_child(sprite)
 			
 			var lbl = Label3D.new()
 			lbl.text = city_name
-			lbl.pixel_size = 0.001
-			lbl.font_size = 32
+			lbl.pixel_size = 0.005 # 5x larger text
+			lbl.font_size = 64
 			lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-			# Float the label slightly above and screen-facing so it's readable
-			lbl.offset = Vector2(0, 24)
-			# Ensure text sorts predictably
+			lbl.no_depth_test = true
+			lbl.offset = Vector2(0, -64)
 			lbl.render_priority = 10
 			city_node.add_child(lbl)
 			
 			# Orient the Node directly away from the core
-			city_node.global_position = pos
-			city_node.look_at(Vector3.ZERO, Vector3.UP)
+			city_node.position = pos
+			if pos.normalized().abs() != Vector3.UP:
+				city_node.look_at(Vector3.ZERO, Vector3.UP)
 
 func update_outline(min_lon: float, max_lon: float, min_lat: float, max_lat: float) -> void:
 	outline_immediate_mesh.clear_surfaces()
