@@ -37,6 +37,10 @@ var combat_timer: float = 0.0
 
 var faction_name: String = ""
 
+var entrenched: bool = false
+var time_motionless: float = 0.0
+var entrench_bar: MeshInstance3D
+
 func _init() -> void:
 	add_to_group("units")
 	# Keep base references intact before materials
@@ -70,6 +74,9 @@ func _init() -> void:
 
 	# Setup Health Bar
 	_setup_health_bar()
+	
+	# Setup Entrenchment Bar
+	_setup_entrench_bar()
 
 	# Setup Path Drawing
 	path_mesh_instance = MeshInstance3D.new()
@@ -160,6 +167,25 @@ func _setup_health_bar() -> void:
 	# Ensure it renders above the sprite
 	health_bar_bg.position.z = 0.0002
 	add_child(health_bar_bg)
+
+func _setup_entrench_bar() -> void:
+	entrench_bar = MeshInstance3D.new()
+	var entrench_mesh = BoxMesh.new()
+	entrench_mesh.size = Vector3(0.012, 0.0015, 0.001)
+	entrench_bar.mesh = entrench_mesh
+	
+	var entrench_mat = StandardMaterial3D.new()
+	entrench_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	entrench_mat.albedo_color = Color(0.0, 0.4, 0.0) # Dark green
+	entrench_mat.no_depth_test = true
+	entrench_mat.render_priority = 15
+	entrench_bar.material_override = entrench_mat
+	
+	# Position at the bottom of the unit sprite
+	entrench_bar.position.y = -0.006
+	entrench_bar.position.z = 0.0001
+	entrench_bar.visible = false
+	add_child(entrench_bar)
 
 func _update_health_bar() -> void:
 	if health_bar_fg and health_bar_bg:
@@ -271,6 +297,9 @@ func update_render_priorities() -> void:
 		
 	if health_bar_fg and health_bar_fg.material_override:
 		health_bar_fg.material_override.render_priority = base_render_priority + 6
+		
+	if entrench_bar and entrench_bar.material_override:
+		entrench_bar.material_override.render_priority = base_render_priority + 5
 
 func spawn(pos: Vector3) -> void:
 	current_position = pos.normalized() * radius
@@ -303,6 +332,9 @@ func clear_combat_target() -> void:
 func take_damage(amount: float) -> void:
 	if is_dead:
 		return
+		
+	if entrenched:
+		amount *= 0.5
 		
 	health -= amount
 	_update_health_bar()
@@ -380,6 +412,17 @@ func _process(delta: float) -> void:
 	var in_motion = false
 	if current_position.distance_to(target_position) > 0.0001:
 		in_motion = true
+		
+	if not in_motion:
+		time_motionless += delta
+		if time_motionless >= 30.0:
+			entrenched = true
+	else:
+		time_motionless = 0.0
+		entrenched = false
+		
+	if entrench_bar:
+		entrench_bar.visible = entrenched
 		
 	# 1. Evaluate Current Combat Lock 
 	if is_engaged:

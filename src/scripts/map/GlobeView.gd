@@ -970,6 +970,12 @@ func _spawn_unit(unit_def: Dictionary, faction_name: String, c_dict: Dictionary,
 		if unit.has_method("set_sizing"):
 			unit.set_sizing(tile_width)
 			
+		if unit_def.has("entrenched") and unit_def["entrenched"] == true:
+			unit.entrenched = true
+			unit.time_motionless = 30.0
+			if unit.entrench_bar:
+				unit.entrench_bar.visible = true
+			
 		unit.spawn(raw_pos)
 		units_list.append(unit)
 		cullable_nodes.append(unit)
@@ -1013,6 +1019,12 @@ func _spawn_unit(unit_def: Dictionary, faction_name: String, c_dict: Dictionary,
 					
 			if unit.has_method("set_sizing"):
 				unit.set_sizing(tile_width)
+
+			if unit_def.has("entrenched") and unit_def["entrenched"] == true:
+				unit.entrenched = true
+				unit.time_motionless = 30.0
+				if unit.entrench_bar:
+					unit.entrench_bar.visible = true
 				
 			unit.spawn(raw_pos)
 			units_list.append(unit)
@@ -1033,6 +1045,12 @@ func _spawn_unit(unit_def: Dictionary, faction_name: String, c_dict: Dictionary,
 				
 		if unit.has_method("set_sizing"):
 			unit.set_sizing(tile_width)
+			
+		if unit_def.has("entrenched") and unit_def["entrenched"] == true:
+			unit.entrenched = true
+			unit.time_motionless = 30.0
+			if unit.entrench_bar:
+				unit.entrench_bar.visible = true
 			
 		unit.spawn(raw_pos)
 		units_list.append(unit)
