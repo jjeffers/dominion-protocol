@@ -6,34 +6,57 @@ var click_area: Area3D
 var collision_shape: CollisionShape3D
 
 var is_selected: bool = false
+var base_render_priority: int = 10
 var current_tile_id: String = ""
+
+var health: float = 100.0
+var combat_target: GlobeUnit = null
+var is_engaged: bool = false
+var is_dead: bool = false
 
 var radius: float = 1.02
 var current_position: Vector3
 var target_position: Vector3
 
-# Given ~6.28 circumference mapped across 1024 tiles
-# 1 tile roughly equals 0.006 units
-var speed_units_per_sec: float = 0.006
+# 1 tile roughly equals 0.006 units. Move 1 width per 10 seconds.
+var speed_units_per_sec: float = 0.0006
 
 var path_mesh_instance: MeshInstance3D
 var path_immediate_mesh: ImmediateMesh
 
+var health_bar_bg: MeshInstance3D
+var health_bar_fg: MeshInstance3D
+
+var engagement_line: MeshInstance3D
+var engagement_mesh: ImmediateMesh
+var combat_arrow: MeshInstance3D
+
+var hit_audio: AudioStreamPlayer
+var flash_timer: float = 0.0
+var combat_timer: float = 0.0
+
+var faction_name: String = ""
+
 func _init() -> void:
+	add_to_group("units")
+	# Keep base references intact before materials
+	# Wait for children to instantiate before running update_render_priorities
 	# Setup Sprite
 	sprite = Sprite3D.new()
-	var img = Image.new()
-	if img.load("res://src/assets/extracted_sprite.png") == OK:
-		sprite.texture = ImageTexture.create_from_image(img)
+	var tex = load("res://src/assets/extracted_sprite.png") as Texture2D
+	if tex:
+		sprite.texture = tex
 	else:
 		push_error("GlobeUnit: Failed to load extracted_sprite.png")
 	
-	# 34x34 sprite. 3 tiles = 0.0184 units across. 0.0184 / 34 = 0.00054 pixel_size
-	sprite.pixel_size = 0.00054
+	# Initialize with a default, but GlobeView will override this with exact local map geometry
+	set_sizing(0.006)
 	sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
 	# Ensure the unit consistently renders above the path arrow and cities
 	sprite.render_priority = 10
 	add_child(sprite)
+	
+	_setup_shader()
 	
 	# Setup Clickable Area
 	click_area = Area3D.new()
@@ -44,6 +67,9 @@ func _init() -> void:
 	collision_shape.shape = shape
 	click_area.add_child(collision_shape)
 	add_child(click_area)
+
+	# Setup Health Bar
+	_setup_health_bar()
 
 	# Setup Path Drawing
 	path_mesh_instance = MeshInstance3D.new()
@@ -56,19 +82,195 @@ func _init() -> void:
 	path_mat.albedo_color = Color(1.0, 1.0, 0.5, 0.8)
 	path_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	path_mat.use_point_size = false
-	
-	# Force path rendering underneath Sprite3Ds (priority 10), but above Cities (priority 5)
 	path_mat.render_priority = 6
 	
-	# To make the line visible at varying distances, we use a thicker tube-like approach if standard line width isn't supported, but since ImmediateMesh line_strip thickness is fixed at 1px on most platforms, we just ensure it exists robustly.
 	path_mesh_instance.material_override = path_mat
-	
-	# Add the path mesh as a sibling to the unit so it doesn't rotate relative to the unit's local transform
-	# But wait, GlobeUnit IS a Node3D. If we add it as a child, its global position tracks the unit.
-	# We want the path to be drawn in global space so it stays fixed relative to the globe.
-	# The easiest way is to add it as a top-level child so it ignores the parent's transform:
 	path_mesh_instance.top_level = true
 	add_child(path_mesh_instance)
+	
+	# Setup Engagement Line Drawing
+	engagement_line = MeshInstance3D.new()
+	engagement_mesh = ImmediateMesh.new()
+	engagement_line.mesh = engagement_mesh
+	
+	var eng_mat = StandardMaterial3D.new()
+	eng_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	eng_mat.albedo_color = Color(1.0, 0.2, 0.2, 0.8) # Red laser line
+	eng_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	eng_mat.render_priority = 6
+	engagement_line.material_override = eng_mat
+	engagement_line.top_level = true
+	add_child(engagement_line)
+	
+	# Setup Target Arrow
+	combat_arrow = MeshInstance3D.new()
+	var arr_mesh = PrismMesh.new()
+	arr_mesh.size = Vector3(0.004, 0.005, 0.001)
+	combat_arrow.mesh = arr_mesh
+	
+	var arr_mat = StandardMaterial3D.new()
+	arr_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	arr_mat.albedo_color = Color(0.0, 0.0, 0.0) # Black
+	arr_mat.no_depth_test = true
+	arr_mat.render_priority = 15
+	combat_arrow.material_override = arr_mat
+	# Position onto left side of sprite (inside the unit footprint)
+	combat_arrow.position = Vector3(-0.004, 0.0, 0.0002)
+	combat_arrow.visible = false
+	add_child(combat_arrow)
+
+	# Setup Hit Audio
+	hit_audio = AudioStreamPlayer.new()
+	var sfx = load("res://src/assets/audio/land-combat.mp3") as AudioStream
+	if sfx:
+		hit_audio.stream = sfx
+	add_child(hit_audio)
+
+func _setup_health_bar() -> void:
+	health_bar_bg = MeshInstance3D.new()
+	var bg_mesh = BoxMesh.new()
+	bg_mesh.size = Vector3(0.012, 0.0015, 0.001)
+	health_bar_bg.mesh = bg_mesh
+	
+	var bg_mat = StandardMaterial3D.new()
+	bg_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	bg_mat.albedo_color = Color(0.2, 0.0, 0.0)
+	bg_mat.no_depth_test = true
+	bg_mat.render_priority = 15
+	health_bar_bg.material_override = bg_mat
+	
+	health_bar_fg = MeshInstance3D.new()
+	var fg_mesh = BoxMesh.new()
+	fg_mesh.size = Vector3(0.012, 0.0015, 0.001)
+	health_bar_fg.mesh = fg_mesh
+	
+	var fg_mat = StandardMaterial3D.new()
+	fg_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	fg_mat.albedo_color = Color(0.0, 0.8, 0.2)
+	fg_mat.no_depth_test = true
+	fg_mat.render_priority = 16
+	health_bar_fg.material_override = fg_mat
+	
+	health_bar_fg.position.z = 0.0001
+	
+	health_bar_bg.add_child(health_bar_fg)
+	
+	# Position health bar on the top part of the unit sprite, not entirely outside it
+	health_bar_bg.position.y = 0.006
+	# Ensure it renders above the sprite
+	health_bar_bg.position.z = 0.0002
+	add_child(health_bar_bg)
+
+func _update_health_bar() -> void:
+	if health_bar_fg and health_bar_bg:
+		var pct = clamp(health / 100.0, 0.0, 1.0)
+		# Scale the foreground mesh horizontally
+		health_bar_fg.scale.x = pct
+		# Shift X position to keep it left-aligned
+		health_bar_fg.position.x = -0.006 * (1.0 - pct)
+		
+		# Change color based on health
+		var mat = health_bar_fg.material_override as StandardMaterial3D
+		if pct > 0.5:
+			mat.albedo_color = Color(0.0, 0.8, 0.2) # Green
+		elif pct > 0.25:
+			mat.albedo_color = Color(0.8, 0.8, 0.0) # Yellow
+		else:
+			mat.albedo_color = Color(0.9, 0.1, 0.1) # Red
+
+func set_sizing(tile_width: float) -> void:
+	# Match the physical dimensions of the 3x3 City tiles exactly.
+	# The base texture is 34x34 pixels, creating a base denominator of 34.
+	# However, our Shader actively shrinks the visual texture down to create a 4px buffer (38/34 scale factor)
+	# so we must multiply the pixel size by the reverse of that factor to make the VISUAL content perfectly align
+	sprite.pixel_size = ((tile_width * 3.0) / 34.0) * (38.0 / 34.0)
+	
+func _setup_shader() -> void:
+	var outline_mat = ShaderMaterial.new()
+	var outline_shader = Shader.new()
+	outline_shader.code = """
+shader_type spatial;
+render_mode unshaded, depth_test_disabled;
+uniform sampler2D tex_albedo : source_color, filter_nearest;
+uniform vec4 outline_color : source_color = vec4(1.0, 1.0, 0.0, 1.0);
+uniform float outline_width = 2.0;
+
+void fragment() {
+	// Scale UV to create padding inside the 38x38 quad for the 34x34 sprite
+	float scale = 38.0 / 34.0;
+	vec2 uv = (UV - 0.5) * scale + 0.5;
+	
+	vec4 c = vec4(0.0);
+	if (uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0) {
+		c = texture(tex_albedo, uv);
+	}
+	
+	vec2 size = vec2(34.0, 34.0);
+	float o = 0.0;
+	
+	for (float x = -outline_width; x <= outline_width; x += 1.0) {
+		for (float y = -outline_width; y <= outline_width; y += 1.0) {
+			vec2 offset = vec2(x, y);
+			if (length(offset) > 0.0 && length(offset) <= outline_width + 0.5) {
+				vec2 sample_uv = uv + offset / size;
+				if (sample_uv.x >= 0.0 && sample_uv.x <= 1.0 && sample_uv.y >= 0.0 && sample_uv.y <= 1.0) {
+					o = max(o, texture(tex_albedo, sample_uv).a);
+				}
+			}
+		}
+	}
+	
+	if (c.a > 0.1) {
+		ALBEDO = c.rgb;
+		ALPHA = c.a;
+	} else if (o > 0.1) {
+		ALBEDO = outline_color.rgb;
+		ALPHA = 1.0;
+	} else {
+		ALPHA = 0.0;
+	}
+}
+"""
+	outline_mat.shader = outline_shader
+	outline_mat.resource_local_to_scene = true
+	outline_mat.set_shader_parameter("tex_albedo", sprite.texture)
+	# Default transparent outline so it does nothing if not explicitly set
+	outline_mat.set_shader_parameter("outline_color", Color(0, 0, 0, 0))
+	outline_mat.render_priority = 10
+	sprite.material_override = outline_mat
+
+## Sets the outline color of the unit indicating faction alignment. Hex string e.g. "#FF0000"
+func set_faction_color(hex_color: String) -> void:
+	if sprite.material_override is ShaderMaterial:
+		var c = Color(hex_color)
+		sprite.material_override.set_shader_parameter("outline_color", c)
+	update_render_priorities()
+
+func set_selected(selected: bool) -> void:
+	is_selected = selected
+	base_render_priority = 25 if is_selected else 10
+	update_render_priorities()
+
+func update_render_priorities() -> void:
+	if sprite:
+		sprite.render_priority = base_render_priority
+		if sprite.material_override:
+			sprite.material_override.render_priority = base_render_priority
+	
+	if path_mesh_instance and path_mesh_instance.material_override:
+		path_mesh_instance.material_override.render_priority = base_render_priority - 4
+		
+	if engagement_line and engagement_line.material_override:
+		engagement_line.material_override.render_priority = base_render_priority - 4
+		
+	if combat_arrow and combat_arrow.material_override:
+		combat_arrow.material_override.render_priority = base_render_priority + 5
+		
+	if health_bar_bg and health_bar_bg.material_override:
+		health_bar_bg.material_override.render_priority = base_render_priority + 5
+		
+	if health_bar_fg and health_bar_fg.material_override:
+		health_bar_fg.material_override.render_priority = base_render_priority + 6
 
 func spawn(pos: Vector3) -> void:
 	current_position = pos.normalized() * radius
@@ -77,29 +279,186 @@ func spawn(pos: Vector3) -> void:
 	
 	# Point -Z axis straight into the core, meaning the +Z face (sprite) aims perfectly upwards from the surface
 	look_at(Vector3.ZERO, Vector3.UP)
+	
+	update_render_priorities()
 
 func set_target(pos: Vector3) -> void:
 	target_position = pos.normalized() * radius
 
+func set_combat_target(target: GlobeUnit) -> void:
+	combat_target = target
+	is_engaged = true
+	# Reset timer so attacker has to wait 5 seconds for their first swing
+	combat_timer = 0.0
+
+func clear_combat_target() -> void:
+	combat_target = null
+	is_engaged = false
+	combat_timer = 0.0
+	if engagement_mesh:
+		engagement_mesh.clear_surfaces()
+	if combat_arrow:
+		combat_arrow.visible = false
+
+func take_damage(amount: float) -> void:
+	if is_dead:
+		return
+		
+	health -= amount
+	_update_health_bar()
+	
+	# Flash orange
+	sprite.modulate = Color(1.0, 0.5, 0.0)
+	flash_timer = 0.1
+	
+	if hit_audio and not hit_audio.playing:
+		hit_audio.play()
+		
+	if health <= 0.0:
+		is_dead = true
+		clear_combat_target()
+		
+		if path_immediate_mesh:
+			path_immediate_mesh.clear_surfaces()
+		if engagement_mesh:
+			engagement_mesh.clear_surfaces()
+			
+		var parent = get_parent()
+		if parent:
+			var death_node = Node3D.new()
+			parent.add_child(death_node)
+			death_node.global_position = global_position
+			death_node.global_transform.basis = global_transform.basis
+			
+			var death_sprite = Sprite3D.new()
+			var death_tex = load("res://src/assets/death.jpeg") as Texture2D
+			if death_tex:
+				death_sprite.texture = death_tex
+				var d_mat = StandardMaterial3D.new()
+				d_mat.albedo_texture = death_tex
+				d_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+				d_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+				d_mat.render_priority = 10
+				d_mat.no_depth_test = true
+				death_sprite.material_override = d_mat
+				
+				var expected_width = 34.0 * sprite.pixel_size
+				death_sprite.pixel_size = expected_width / float(death_tex.get_width())
+			
+			death_node.add_child(death_sprite)
+			
+			var death_audio = AudioStreamPlayer.new()
+			var death_sfx = load("res://src/assets/audio/death.mp3") as AudioStream
+			if death_sfx:
+				death_audio.stream = death_sfx
+			death_audio.volume_db = 0.0
+			death_audio.autoplay = true
+			death_node.add_child(death_audio)
+			
+			# Register for horizon culling in GlobeView
+			if parent.get("cullable_nodes") != null:
+				parent.cullable_nodes.append(death_node)
+			
+			# 5s hold, then 1s fade out
+			var tween = parent.get_tree().create_tween()
+			tween.bind_node(death_node)
+			tween.tween_interval(5.0)
+			if death_sprite.material_override:
+				var target_color = Color(1, 1, 1, 0)
+				tween.tween_property(death_sprite.material_override, "albedo_color", target_color, 1.0)
+			tween.tween_callback(death_node.queue_free)
+			
+		queue_free()
+
 func _process(delta: float) -> void:
+	# Handle Damage Flash
+	if flash_timer > 0.0:
+		flash_timer -= delta
+		if flash_timer <= 0.0:
+			sprite.modulate = Color(1.0, 1.0, 1.0)
+			
+	var in_motion = false
 	if current_position.distance_to(target_position) > 0.0001:
-		# Calculate angle between current and target
+		in_motion = true
+		
+	# 1. Evaluate Current Combat Lock 
+	if is_engaged:
+		if is_instance_valid(combat_target) and not combat_target.is_dead:
+			var dist = current_position.distance_to(combat_target.current_position)
+			if dist < 0.024:
+				# We have a valid overlap. Halt movement and process combat.
+				in_motion = false
+				
+				# Calculate direction to target in local space
+				var to_target = (combat_target.current_position - current_position).normalized()
+				var local_x = global_transform.basis.x.dot(to_target)
+				var local_y = global_transform.basis.y.dot(to_target)
+				var angle_to_target = atan2(local_y, local_x)
+				
+				combat_arrow.visible = true
+				combat_arrow.rotation.z = angle_to_target - (PI / 2.0)
+				_draw_engagement_line()
+				
+				combat_timer += delta
+				if combat_timer >= 5.0:
+					combat_timer -= 5.0
+					combat_target.take_damage(15.0)
+					
+				# Defender advantage
+				if not combat_target.is_engaged and not combat_target.is_dead:
+					combat_target.set_combat_target(self)
+					combat_target.combat_timer = 5.0
+			else:
+				# Target walked out of range. Drop the lock instantly.
+				clear_combat_target()
+		else:
+			# Target was deleted/died. Drop the lock instantly.
+			clear_combat_target()
+
+	# 2. Passive Scan (if not engaged after Step 1 evaluation)
+	if not is_engaged and not is_dead:
+		var all_units = get_tree().get_nodes_in_group("units")
+		for other in all_units:
+			if other != self and is_instance_valid(other) and not other.is_dead:
+				if other.faction_name != "" and self.faction_name != "" and other.faction_name != self.faction_name:
+					if current_position.distance_to(other.current_position) < 0.024:
+						set_combat_target(other)
+						in_motion = false # Instantly halt to fight
+						break
+						
+	# 3. Process Movement (if still slated to move after combat overrides)
+	if in_motion:
 		var angle = current_position.angle_to(target_position)
 		var distance = current_position.distance_to(target_position)
 		
 		# Move at constant speed along the arc
 		var step = (speed_units_per_sec * delta) / radius
-		var weight = min(step / angle, 1.0)
+		var weight = min(step / angle, 1.0) if angle > 0 else 1.0
 		
 		current_position = current_position.slerp(target_position, weight).normalized() * radius
 		global_position = current_position
-		
 		look_at(Vector3.ZERO, Vector3.UP)
-		
 		_draw_path(angle)
 	else:
-		# Arrived or stationary: clear path
-		path_immediate_mesh.clear_surfaces()
+		if path_immediate_mesh != null:
+			path_immediate_mesh.clear_surfaces()
+			
+		# Explicitly snap to target position if we arrived organically without combat overrides
+		if not is_engaged and current_position.distance_to(target_position) <= 0.0001:
+			target_position = current_position
+						
+func _draw_engagement_line() -> void:
+	if not engagement_mesh or not is_instance_valid(combat_target): return
+	
+	engagement_mesh.clear_surfaces()
+	engagement_mesh.surface_begin(Mesh.PRIMITIVE_LINES)
+	# Draw line slightly above the unit base
+	var p1 = current_position.normalized() * (radius * 1.015)
+	var p2 = combat_target.current_position.normalized() * (radius * 1.015)
+	
+	engagement_mesh.surface_add_vertex(p1)
+	engagement_mesh.surface_add_vertex(p2)
+	engagement_mesh.surface_end()
 
 func _draw_path(angle: float) -> void:
 	path_immediate_mesh.clear_surfaces()
