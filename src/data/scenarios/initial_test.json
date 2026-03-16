@@ -1,0 +1,104 @@
+{
+    "name": "Initial test",
+    "cold_war_minutes": 0,
+    "factions": {
+        "Blue": {
+            "color": "#0000FF",
+            "cities": [
+                "London",
+                "Paris",
+                "Luxembourg",
+                "Brussels",
+                "Marseille",
+                "Amsterdam",
+                "Bordeaux"
+            ],
+            "capitol": "Paris",
+            "oil": [],
+            "money": 0,
+            "fuel": 0,
+            "units": [
+                {
+                    "type": "infantry",
+                    "location": "London"
+                },
+                {
+                    "type": "infantry",
+                    "location": "Paris"
+                },
+                {
+                    "type": "infantry",
+                    "location": "Luxembourg"
+                },
+                {
+                    "type": "infantry",
+                    "location": "Brussels"
+                },
+                {
+                    "type": "infantry",
+                    "location": "Marseille"
+                },
+                {
+                    "type": "infantry",
+                    "location": "Amsterdam"
+                }
+            ]
+        },
+        "Red": {
+            "color": "#FF0000",
+            "cities": [
+                "Hamburg",
+                "Berlin",
+                "Munich",
+                "Prague",
+                "Königsberg"
+            ],
+            "capitol": "Berlin",
+            "oil": [],
+            "money": 0,
+            "fuel": 0,
+            "units": [
+                {
+                    "type": "infantry",
+                    "location": "Hamburg"
+                },
+                {
+                    "type": "infantry",
+                    "location": "Munich"
+                },
+                {
+                    "type": "infantry",
+                    "latitude": 48.8,
+                    "longitude": 9.2,
+                    "notes": "Near Stuttgart / Black Forest"
+                },
+                {
+                    "type": "infantry",
+                    "latitude": 49.0,
+                    "longitude": 8.4,
+                    "notes": "Near Karlsruhe"
+                },
+                {
+                    "type": "infantry",
+                    "latitude": 49.5,
+                    "longitude": 8.5,
+                    "notes": "Near Mannheim"
+                },
+                {
+                    "type": "infantry",
+                    "latitude": 50.1,
+                    "longitude": 8.7,
+                    "notes": "Near Frankfurt"
+                },
+                {
+                    "type": "infantry",
+                    "latitude": 50.9,
+                    "longitude": 7.0,
+                    "notes": "Near Cologne"
+                }
+            ]
+        }
+    },
+    "neutral_cities": [],
+    "neutral_oil": []
+}
