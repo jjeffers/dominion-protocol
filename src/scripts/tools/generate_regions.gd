@@ -61,7 +61,7 @@ class MinHeap:
 enum Face { FRONT, BACK, LEFT, RIGHT, TOP, BOTTOM }
 
 const RESOLUTION = 361
-const RADIUS = 1.015
+const RADIUS = 1.002
 
 var map_data: MapData
 

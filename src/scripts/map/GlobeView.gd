@@ -53,7 +53,7 @@ func _ready() -> void:
 	
 	var outline_mat = StandardMaterial3D.new()
 	outline_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	outline_mat.no_depth_test = true
+	outline_mat.render_priority = 2 # Draw over region borders
 	outline_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	outline_mat.vertex_color_use_as_albedo = true
 	outline_mesh_instance.material_override = outline_mat
@@ -84,6 +84,7 @@ func _ready() -> void:
 			var border_mat = StandardMaterial3D.new()
 			border_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 			border_mat.albedo_color = Color(0.2, 0.2, 0.2, 1.0) # Solid dark grey lines
+			border_mat.render_priority = 1 # Draw over globe, under faction borders
 			border_node.material_override = border_mat
 			add_child(border_node)
 	
