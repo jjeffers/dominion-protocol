@@ -11,6 +11,16 @@
     - Any city not listed in the faction or neutral list is ommitted from the game, and is not visible to any faction. It's associated region is also not conquerable.
     - Any oil not listed in the faction or neutral list is ommitted from the game, and is not visible to any faction. It's associated region is also not conquerable.
     
+## Victory
+
+- A faction wins when it controls all capitols of the other factions.
+- When a faction loses all of its capitols, it is eliminated from the game.
+    - All units of the eliminated faction are removed from the game.
+    - All remaining cities become neutral independent regions.
+- When only a single faction remains, it wins the game.
+- A victory screen will be displayed showing the winner, "RED WINS".
+
+
 ## Scenario: Initial test
 - Cold war: no
 - Factions:

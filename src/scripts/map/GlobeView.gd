@@ -317,6 +317,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		_update_terrain_hover(event.position)
 
 signal city_captured(city_name: String, new_faction: String, old_faction: String)
+signal victory_declared(winning_faction: String)
 
 var capture_timer: float = 0.0
 const CAPTURE_INTERVAL: float = 1.0
@@ -376,11 +377,49 @@ func sync_city_capture(city_name: String, new_faction: String, old_faction: Stri
 		if not active_scenario["factions"][new_faction]["cities"].has(city_name):
 			active_scenario["factions"][new_faction]["cities"].append(city_name)
 			
+	# Process Elimination
+	var faction_eliminated = false
+	if old_faction != "neutral" and active_scenario.has("factions") and active_scenario["factions"].has(old_faction):
+		var old_fac_data = active_scenario["factions"][old_faction]
+		if old_fac_data.has("capitol") and old_fac_data["capitol"] == city_name:
+			print("FACTION ELIMINATED: ", old_faction, " lost their capitol (", city_name, ")!")
+			faction_eliminated = true
+			old_fac_data["eliminated"] = true
+			
+			# Transfer remaining cities to neutral
+			if old_fac_data.has("cities"):
+				if not active_scenario.has("neutral_cities"):
+					active_scenario["neutral_cities"] = []
+				for rem_city in old_fac_data["cities"]:
+					active_scenario["neutral_cities"].append(rem_city)
+				old_fac_data["cities"].clear()
+				
+			# Destroy all units belonging to the eliminated faction
+			for u in units_list:
+				if is_instance_valid(u) and u.get("faction_name") == old_faction:
+					u.queue_free()
+
 	# Redraw borders
 	_generate_faction_borders()
 	
 	# Emit so HUD can update
 	city_captured.emit(city_name, new_faction, old_faction)
+	
+	# Process Victory Condition
+	if faction_eliminated and multiplayer.is_server():
+		var remaining_factions = []
+		for f_name in active_scenario["factions"].keys():
+			if not active_scenario["factions"][f_name].get("eliminated", false):
+				remaining_factions.append(f_name)
+				
+		if remaining_factions.size() == 1:
+			var winner = remaining_factions[0]
+			print("VICTORY CONDITION MET: ", winner, " is the last standing faction!")
+			rpc("sync_victory", winner)
+
+@rpc("authority", "call_local", "reliable")
+func sync_victory(winning_faction: String) -> void:
+	victory_declared.emit(winning_faction)
 
 func _update_camera() -> void:
 	var t = Transform3D.IDENTITY

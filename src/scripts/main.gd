@@ -21,6 +21,7 @@ const ECONOMY_INTERVAL: float = 60.0
 
 var capture_banner: Label
 var banner_timer: float = 0.0
+var victory_banner: Label
 
 const TERRAIN_COLORS: Dictionary = {
 	"OCEAN": Color("#1f679c"),
@@ -47,6 +48,7 @@ func _ready() -> void:
 	# 3. Connect focus synchronization signals
 	globe_view.hovered_tile_changed.connect(_on_globe_hovered_tile_changed)
 	globe_view.city_captured.connect(_on_city_captured)
+	globe_view.victory_declared.connect(_on_victory_declared)
 	
 	# Trigger initial generation and sync
 	globe_view._generate_mesh()
@@ -82,6 +84,18 @@ func _ready() -> void:
 	capture_banner.position.y = 120
 	capture_banner.hide()
 	add_child(capture_banner)
+
+	# Setup Victory Banner
+	victory_banner = Label.new()
+	victory_banner.set_anchors_preset(Control.PRESET_CENTER)
+	victory_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	victory_banner.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	victory_banner.add_theme_font_size_override("font_size", 96)
+	victory_banner.add_theme_color_override("font_color", Color.YELLOW)
+	victory_banner.add_theme_color_override("font_outline_color", Color.BLACK)
+	victory_banner.add_theme_constant_override("outline_size", 12)
+	victory_banner.hide()
+	add_child(victory_banner)
 
 func _on_globe_hovered_tile_changed(tile_id: String, terrain: String, c_name: String, region_name: String) -> void:
 	if tile_id == "":
@@ -157,6 +171,11 @@ func _on_city_captured(city_name: String, new_faction: String, old_faction: Stri
 	capture_banner.show()
 	banner_timer = 10.0
 	_update_economy_ui()
+
+func _on_victory_declared(winning_faction: String) -> void:
+	print(">>> GAME OVER: ", winning_faction, " IS VICTORIOUS!")
+	victory_banner.text = "%s WINS!" % winning_faction.to_upper()
+	victory_banner.show()
 
 func _process(delta: float) -> void:
 	if banner_timer > 0.0:
