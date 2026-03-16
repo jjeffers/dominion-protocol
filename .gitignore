@@ -12,3 +12,6 @@
 # System/OS
 .DS_Store
 Thumbs.db
+dp.*
+dp.console.exe
+
