@@ -385,7 +385,7 @@ func _process(delta: float) -> void:
 	if is_engaged:
 		if is_instance_valid(combat_target) and not combat_target.is_dead:
 			var dist = current_position.distance_to(combat_target.current_position)
-			if dist < 0.024:
+			if dist < 0.012:
 				# We have a valid overlap. Halt movement and process combat.
 				in_motion = false
 				
@@ -421,7 +421,7 @@ func _process(delta: float) -> void:
 		for other in all_units:
 			if other != self and is_instance_valid(other) and not other.is_dead:
 				if other.faction_name != "" and self.faction_name != "" and other.faction_name != self.faction_name:
-					if current_position.distance_to(other.current_position) < 0.024:
+					if current_position.distance_to(other.current_position) < 0.012:
 						set_combat_target(other)
 						in_motion = false # Instantly halt to fight
 						break
