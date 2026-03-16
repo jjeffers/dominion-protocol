@@ -11,10 +11,11 @@ var current_tile_id: String = ""
 
 var health: float = 100.0
 var combat_target: GlobeUnit = null
+var movement_target_unit: GlobeUnit = null
 var is_engaged: bool = false
 var is_dead: bool = false
 
-var radius: float = 1.02
+var radius: float = 1.0
 var current_position: Vector3
 var target_position: Vector3
 
@@ -64,6 +65,7 @@ func _init() -> void:
 	
 	# Setup Clickable Area
 	click_area = Area3D.new()
+	click_area.input_ray_pickable = false
 	collision_shape = CollisionShape3D.new()
 	var shape = SphereShape3D.new()
 	# Size is roughly half the width of the sprite
@@ -89,6 +91,7 @@ func _init() -> void:
 	path_mat.albedo_color = Color(1.0, 1.0, 0.5, 0.8)
 	path_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	path_mat.use_point_size = false
+	path_mat.no_depth_test = true
 	path_mat.render_priority = 6
 	
 	path_mesh_instance.material_override = path_mat
@@ -104,6 +107,7 @@ func _init() -> void:
 	eng_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	eng_mat.albedo_color = Color(1.0, 0.2, 0.2, 0.8) # Red laser line
 	eng_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	eng_mat.no_depth_test = true
 	eng_mat.render_priority = 6
 	engagement_line.material_override = eng_mat
 	engagement_line.top_level = true
@@ -277,6 +281,12 @@ func set_selected(selected: bool) -> void:
 	base_render_priority = 25 if is_selected else 10
 	update_render_priorities()
 
+func set_visibility(is_vis: bool) -> void:
+	sprite.visible = is_vis
+	if health_bar_bg: health_bar_bg.visible = is_vis
+	if entrench_bar: entrench_bar.visible = (is_vis and entrenched)
+	if combat_arrow: combat_arrow.visible = (is_vis and is_engaged)
+
 func update_render_priorities() -> void:
 	if sprite:
 		sprite.render_priority = base_render_priority
@@ -312,7 +322,11 @@ func spawn(pos: Vector3) -> void:
 	update_render_priorities()
 
 func set_target(pos: Vector3) -> void:
+	movement_target_unit = null
 	target_position = pos.normalized() * radius
+
+func set_movement_target_unit(target: GlobeUnit) -> void:
+	movement_target_unit = target
 
 func set_combat_target(target: GlobeUnit) -> void:
 	combat_target = target
@@ -422,6 +436,9 @@ func _process(delta: float) -> void:
 		if flash_timer <= 0.0:
 			sprite.modulate = Color(1.0, 1.0, 1.0)
 			
+	if is_instance_valid(movement_target_unit) and not movement_target_unit.is_dead:
+		target_position = movement_target_unit.current_position.normalized() * radius
+			
 	var in_motion = false
 	if current_position.distance_to(target_position) > 0.0001:
 		in_motion = true
@@ -462,8 +479,17 @@ func _process(delta: float) -> void:
 					
 				# Defender advantage
 				if not combat_target.is_engaged and not combat_target.is_dead:
-					combat_target.set_combat_target(self)
-					combat_target.combat_timer = 5.0
+					var tar_in_motion = combat_target.current_position.distance_to(combat_target.target_position) > 0.0001
+					var target_fleeing = false
+					if tar_in_motion:
+						var my_dist = current_position.distance_to(combat_target.current_position)
+						var target_dest_dist = current_position.distance_to(combat_target.target_position)
+						if target_dest_dist > my_dist:
+							target_fleeing = true
+							
+					if not target_fleeing:
+						combat_target.set_combat_target(self)
+						combat_target.combat_timer = 5.0
 			else:
 				# Target walked out of range. Drop the lock instantly.
 				clear_combat_target()
@@ -478,6 +504,13 @@ func _process(delta: float) -> void:
 			if other != self and is_instance_valid(other) and not other.is_dead:
 				if other.faction_name != "" and self.faction_name != "" and other.faction_name != self.faction_name:
 					if current_position.distance_to(other.current_position) < 0.012:
+						if in_motion:
+							# Only engage if we are actively moving towards them, not running away
+							var dist_now = current_position.distance_to(other.current_position)
+							var dist_target = target_position.distance_to(other.current_position)
+							if dist_target > dist_now:
+								continue # Moving away from this specific enemy, don't re-engage
+								
 						set_combat_target(other)
 						in_motion = false # Instantly halt to fight
 						break
@@ -508,9 +541,9 @@ func _draw_engagement_line() -> void:
 	
 	engagement_mesh.clear_surfaces()
 	engagement_mesh.surface_begin(Mesh.PRIMITIVE_LINES)
-	# Draw line slightly above the unit base
-	var p1 = current_position.normalized() * (radius * 1.015)
-	var p2 = combat_target.current_position.normalized() * (radius * 1.015)
+	# Draw line natively flush with surface
+	var p1 = current_position.normalized() * radius
+	var p2 = combat_target.current_position.normalized() * radius
 	
 	engagement_mesh.surface_add_vertex(p1)
 	engagement_mesh.surface_add_vertex(p2)
@@ -525,8 +558,8 @@ func _draw_path(angle: float) -> void:
 	
 	# ~1 tile width = 0.006 world units
 	var path_width = 0.006
-	# Float above the terrain peaks (1.01), but below the Unit Sprite (1.02)
-	var path_elevation = 1.015
+	# Natively flush with the surface since we have no_depth_test enabled
+	var path_elevation = 1.0
 	
 	# Calculate arrowhead proportion (fixed world unit length, converted to percentage of path)
 	var arrow_length_units = 0.02

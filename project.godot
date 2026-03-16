@@ -10,11 +10,16 @@ config_version=5
 
 [application]
 
-config/name="Global War"
-run/main_scene="res://src/scenes/main.tscn"
+config/name="Dominion Protocol"
+run/main_scene="res://src/scenes/MainMenu.tscn"
 config/features=PackedStringArray("4.6", "Forward Plus")
 
 [display]
 
 window/size/viewport_width=2440
 window/size/viewport_height=1600
+
+[autoload]
+DebugCombat="*res://src/scripts/singletons/DebugCombat.gd"
+
+NetworkManager="*res://src/scripts/singletons/NetworkManager.gd"

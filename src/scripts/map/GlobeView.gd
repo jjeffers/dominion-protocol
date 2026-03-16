@@ -37,6 +37,7 @@ var cullable_nodes: Array[Node3D] = []
 var map_collider: StaticBody3D
 
 var city_nodes: Array[Node3D] = []
+var friendly_city_positions: Array[Vector3] = []
 
 func _ready() -> void:
 	if not map_data:
@@ -58,6 +59,9 @@ func _ready() -> void:
 	outline_mesh_instance.material_override = outline_mat
 	
 	add_child(outline_mesh_instance)
+	
+	if NetworkManager:
+		NetworkManager.unit_target_synced.connect(_on_unit_target_synced)
 	
 	# Add physics collider matching the exact globe surface
 	map_collider = StaticBody3D.new()
@@ -86,16 +90,45 @@ func _ready() -> void:
 	# Instantiate targeting bracket
 	target_bracket = Sprite3D.new()
 	# Draw bracket using same spritesheet
-	var ttex = load("res://src/assets/extracted_sprite.png") as Texture2D
-	if ttex:
-		# Temporarily use the same sprite, tinted via modulate, scaled up by 1.2x to fit outside the unit
-		target_bracket.texture = ttex
-		target_bracket.modulate = Color(1.0, 1.0, 0.0, 0.5) # Translucent yellow
-	target_bracket.pixel_size = 0.00065
-	target_bracket.billboard = BaseMaterial3D.BILLBOARD_DISABLED
-	target_bracket.render_priority = 11
+	var t_tex = load("res://src/assets/extracted_sprite.png") as Texture2D
+	if t_tex:
+		target_bracket.texture = t_tex
+	else:
+		push_error("GlobeView: Failed to load extracted_sprite.png")
+	
+	var tb_mat = StandardMaterial3D.new()
+	tb_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	tb_mat.albedo_color = Color(1, 1, 0, 0.8) # Yellow
+	tb_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	tb_mat.no_depth_test = true # Ensure it draws over terrain
+	tb_mat.render_priority = 20 # Below selected unit
+	target_bracket.material_override = tb_mat
+	
 	target_bracket.visible = false
 	add_child(target_bracket)
+
+func _on_unit_target_synced(unit_name: String, target_pos: Vector3, enemy_target_name: String) -> void:
+	print("GlobeView handling _on_unit_target_synced for ", unit_name, " enemy: ", enemy_target_name)
+	var unit: Node3D = null
+	for u in units_list:
+		if u.name == unit_name:
+			unit = u
+			break
+			
+	if unit:
+		if enemy_target_name != "":
+			var enemy: Node3D = null
+			for u in units_list:
+				if u.name == enemy_target_name:
+					enemy = u
+					break
+			if enemy:
+				unit.clear_combat_target()
+				unit.set_movement_target_unit(enemy)
+		else:
+			# Manual coordinate movement
+			unit.clear_combat_target()
+			unit.set_target(target_pos)
 
 func _generate_mesh() -> void:
 	var mesh = load("res://src/data/globe_mesh.res")
@@ -114,6 +147,9 @@ func _generate_mesh() -> void:
 		push_error("GlobeView: Failed to load globe_mesh.res!")
 
 func _process(delta: float) -> void:
+	if not camera:
+		return
+		
 	# Handle Zoom Interpolation
 	if camera.transform.origin.z != target_zoom:
 		var new_z = lerpf(camera.transform.origin.z, target_zoom, 10.0 * delta)
@@ -121,29 +157,80 @@ func _process(delta: float) -> void:
 			new_z = target_zoom
 		camera.transform.origin.z = new_z
 		
-	# Handle Node Visibility (Horizon Culling)
+	# Handle Node Visibility (Horizon Culling & Fog of War)
 	# Because Sprites have no_depth_test to render clearly over terrain peaks, they punch through the globe.
 	# We dynamically hide them if they rotate out of hemispheric front-view.
 	var cam_pos = camera.global_position.normalized()
+	
+	# Compute friendly vision anchors for Fog of War
+	var local_faction = ""
+	if NetworkManager and multiplayer.has_multiplayer_peer():
+		var id = multiplayer.get_unique_id()
+		if NetworkManager.players.has(id):
+			local_faction = NetworkManager.players[id].get("faction", "")
+			
+	var friendly_unit_positions: Array[Vector3] = []
+	if local_faction != "":
+		for u in units_list:
+			if u.get("faction_name") == local_faction and u.get("is_dead") != true:
+				friendly_unit_positions.append(u.global_position)
+	
+	# Populate friendly_city_positions for Fog of War
+	friendly_city_positions.clear() # Clear previous frame's positions
+	if local_faction != "" and active_scenario.has("factions") and active_scenario["factions"].has(local_faction):
+		var faction_cities = active_scenario["factions"][local_faction].get("cities", [])
+		for city_node in city_nodes: # Iterate through existing city nodes
+			var city_name = city_node.name # Assuming city_node.name holds the city name
+			if city_name in faction_cities:
+				friendly_city_positions.append(city_node.global_position) # Use global_position of the city node
+	
 	var valid_nodes: Array[Node3D] = []
 	for node in cullable_nodes:
 		if not is_instance_valid(node):
 			continue
 			
 		valid_nodes.append(node)
+		
+		# Base Horizon Culling
+		var is_visible = false
 		# Use 0.15 threshold to cull them slightly before they clip exactly sideways over the mathematical edge
 		if node.position.normalized().dot(cam_pos) > 0.15:
-			node.show()
+			is_visible = true
+			
+		# Fog of War Distance Culling (only applies if we have a faction and node is an enemy unit)
+		if is_visible and local_faction != "" and node.get("faction_name") != null and node.get("faction_name") != local_faction:
+			is_visible = false
+			# 6x unit widths = 0.036 distance
+			var vision_range = 0.036
+			for f_pos in friendly_unit_positions:
+				if node.global_position.distance_to(f_pos) <= vision_range:
+					is_visible = true
+					break
+			if not is_visible:
+				for c_pos in friendly_city_positions:
+					if node.global_position.distance_to(c_pos) <= vision_range:
+						is_visible = true
+						break
+			
+		if is_visible:
+			if node.has_method("set_visibility"):
+				node.set_visibility(true)
+			else:
+				node.show()
 		else:
-			node.hide()
+			if node.has_method("set_visibility"):
+				node.set_visibility(false)
+			else:
+				node.hide()
 			
 	cullable_nodes = valid_nodes
 
 	# Keyboard Zoom Input (+/- or PageUp/PageDown)
-	if Input.is_physical_key_pressed(KEY_EQUAL) or Input.is_action_pressed("ui_page_up"):
-		target_zoom = clampf(target_zoom - 2.0 * delta, min_zoom, max_zoom)
-	if Input.is_physical_key_pressed(KEY_MINUS) or Input.is_action_pressed("ui_page_down"):
-		target_zoom = clampf(target_zoom + 2.0 * delta, min_zoom, max_zoom)
+	if camera:
+		if Input.is_physical_key_pressed(KEY_EQUAL) or Input.is_action_pressed("ui_page_up"):
+			target_zoom = clampf(target_zoom - 2.0 * delta, min_zoom, max_zoom)
+		if Input.is_physical_key_pressed(KEY_MINUS) or Input.is_action_pressed("ui_page_down"):
+			target_zoom = clampf(target_zoom + 2.0 * delta, min_zoom, max_zoom)
 
 	var lon_delta = 0.0
 	var lat_delta = 0.0
@@ -158,6 +245,8 @@ func _process(delta: float) -> void:
 		_update_camera()
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
+		print("RAW RIGHT CLICK EVENT RECEIVED IN GLOBEVIEW: ", event, " pressed: ", event.pressed)
 	if event.is_action_pressed("ui_cancel") or (event is InputEventKey and event.physical_keycode == KEY_ESCAPE and event.pressed):
 		if selected_unit:
 			selected_unit.set_selected(false)
@@ -180,6 +269,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				_is_dragging = false
 				
 		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+			print("Right click unhandled input block executes!")
 			if selected_unit:
 				# Issue Move Command via Right Click
 				_handle_click(event.position, false)
@@ -402,7 +492,9 @@ func _load_cities(active_cities: Array[String]) -> void:
 			var node_pixel_size = tile_width / 32.0
 			
 			var city_node = Node3D.new()
+			city_node.name = city_name
 			add_child(city_node)
+			city_nodes.append(city_node)
 			
 			var is_capitol = capitols.has(city_name)
 			
@@ -599,6 +691,7 @@ func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
 	query.collide_with_bodies = true
 	
 	var result = space_state.intersect_ray(query)
+	print("TESTING RIGHT CLICK Raycast hit target: ", result)
 	
 	if result:
 		var collider = result.collider
@@ -624,18 +717,29 @@ func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
 		elif not is_left_click and selected_unit:
 			# Right Click = Move unit to clicked position
 			if is_unit or collider == map_collider:
-				selected_unit.clear_combat_target()
+				if NetworkManager and NetworkManager.players.has(multiplayer.get_unique_id()):
+					# NetworkManager syncs targeted moves but not manual clear requests alone right now, so we clear it locally
+					# The RPC calls later will override the target unit appropriately
+					selected_unit.clear_combat_target()
+				else:
+					selected_unit.clear_combat_target()
 				
 				if is_unit and collider.get_parent() != selected_unit:
 					var target_enemy = collider.get_parent()
-					selected_unit.set_target(target_enemy.current_position)
+					if NetworkManager and NetworkManager.players.has(multiplayer.get_unique_id()):
+						NetworkManager.request_unit_move.rpc_id(1, selected_unit.name, Vector3.ZERO, target_enemy.name)
+					else:
+						selected_unit.set_movement_target_unit(target_enemy)
 					print("Unit Ordered to Travel to Enemy Position")
 				else:
 					var tile_id = _get_tile_from_vector3(hit_point)
 					var centroid = map_data.get_centroid(tile_id)
 					
 					if centroid != Vector3.ZERO:
-						selected_unit.set_target(centroid)
+						if NetworkManager and NetworkManager.players.has(multiplayer.get_unique_id()):
+							NetworkManager.request_unit_move.rpc_id(1, selected_unit.name, centroid, "")
+						else:
+							selected_unit.set_target(centroid)
 						print("Unit Ordered To Compute Travel to Centroid of Tile: ", tile_id)
 				
 				# Deselect unit instantly per user request
@@ -659,9 +763,9 @@ func _handle_hover(screen_pos: Vector2) -> void:
 		var centroid = map_data.get_centroid(tile_id)
 		
 		# Track the mouse position exactly instead of snapping to the centroid.
-		# Match the GlobeUnit's elevation (1.02) to prevent parallax offset.
+		# Match the GlobeUnit's elevation precisely to prevent parallax offset.
 		var raw_pos = result.position.normalized()
-		var snap_pos = raw_pos * (radius * 1.02)
+		var snap_pos = raw_pos * radius
 		
 		var tile_width = 0.006
 		var nbrs = map_data.get_neighbors(tile_id)
@@ -953,13 +1057,15 @@ func _spawn_unit(unit_def: Dictionary, faction_name: String, c_dict: Dictionary,
 	if unit_def.has("latitude") and unit_def.has("longitude"):
 		var lat = unit_def["latitude"]
 		var lon = unit_def["longitude"]
-		var raw_pos = _lat_lon_to_vector3(deg_to_rad(lat), deg_to_rad(lon), radius * 1.01)
+		var raw_pos = _lat_lon_to_vector3(deg_to_rad(lat), deg_to_rad(lon), radius)
 		
 		var tile_id = _get_tile_from_vector3(raw_pos)
 		var tile_width = _get_tile_width(tile_id)
 		
 		var unit = GlobeUnitScript.new()
-		unit.radius = radius * 1.01
+		# Snap exactly to globe bounds for zero-parallax since shader uses no_depth_test
+		unit.radius = radius
+		unit.name = "Unit_LatLon_" + str(int(lat * 10)) + "_" + str(int(lon * 10))
 		add_child(unit)
 		if faction_name != "":
 			unit.faction_name = faction_name
@@ -1003,13 +1109,14 @@ func _spawn_unit(unit_def: Dictionary, faction_name: String, c_dict: Dictionary,
 		var lat = c_dict[loc].get("latitude")
 		var lon = c_dict[loc].get("longitude")
 		if lat != null and lon != null:
-			var raw_pos = _lat_lon_to_vector3(deg_to_rad(lat), deg_to_rad(lon), radius * 1.01)
+			var raw_pos = _lat_lon_to_vector3(deg_to_rad(lat), deg_to_rad(lon), radius)
 			
 			var tile_id = _get_tile_from_vector3(raw_pos)
 			var tile_width = _get_tile_width(tile_id)
 			
 			var unit = GlobeUnitScript.new()
-			unit.radius = radius * 1.01
+			unit.radius = radius
+			unit.name = "Unit_City_" + loc
 			add_child(unit)
 			if faction_name != "":
 				unit.faction_name = faction_name
@@ -1030,12 +1137,13 @@ func _spawn_unit(unit_def: Dictionary, faction_name: String, c_dict: Dictionary,
 			units_list.append(unit)
 			cullable_nodes.append(unit) # GlobeUnit itself handles tracking/visibility or we use unit.sprite depending on logic
 	elif map_data.get_centroid(loc) != Vector3.ZERO:
-		var raw_pos = map_data.get_centroid(loc).normalized() * (radius * 1.01)
+		var raw_pos = map_data.get_centroid(loc).normalized() * radius
 		
 		var tile_width = _get_tile_width(loc)
 		
 		var unit = GlobeUnitScript.new()
-		unit.radius = radius * 1.01
+		unit.radius = radius
+		unit.name = "Unit_Region_" + loc
 		add_child(unit)
 		if faction_name != "":
 			unit.faction_name = faction_name
@@ -1092,10 +1200,11 @@ func _spawn_border_units(count: int, faction1: String, faction2: String, faction
 		var idx = (i * step) % border_tiles.size()
 		var tid = border_tiles[idx]
 		
-		var raw_pos = map_data.get_centroid(tid).normalized() * (radius * 1.01)
+		var raw_pos = map_data.get_centroid(tid).normalized() * radius
 		var tile_width = _get_tile_width(tid)
 		var unit = GlobeUnitScript.new()
-		unit.radius = radius * 1.01
+		unit.radius = radius
+		unit.name = "Unit_Border_" + owning_faction + "_" + str(i)
 		unit.faction_name = owning_faction
 		add_child(unit)
 		if faction_data.has("color"):

@@ -9,8 +9,15 @@ extends Control
 @onready var terrain_name: Label = $TerrainSummaryPanel/TerrainNameLabel
 @onready var city_name: Label = $TerrainSummaryPanel/CityNameLabel
 
+@onready var economy_panel: Panel = $EconomyStatusPanel
+@onready var credits_label: Label = $EconomyStatusPanel/CreditsLabel
+@onready var cities_label: Label = $EconomyStatusPanel/CitiesLabel
+
 var city_icon: TextureRect
 var map_data: MapData
+
+var economy_timer: float = 0.0
+const ECONOMY_INTERVAL: float = 60.0
 
 const TERRAIN_COLORS: Dictionary = {
 	"OCEAN": Color("#1f679c"),
@@ -27,6 +34,9 @@ func _ready() -> void:
 	
 	# Parse Scenario
 	_load_scenario()
+	
+	# Update Economy UI
+	_update_economy_ui()
 	
 	# 2. Inject Data into Views
 	globe_view.map_data = map_data
@@ -123,3 +133,53 @@ func _load_scenario() -> void:
 			
 	# We rely on GlobeView or MapData to discover the active regions from these cities and cull the rest.
 	# GlobeView handles projection, so we delay region culling until GlobeView processes it over in `_instantiate_scenario`.
+
+func _process(delta: float) -> void:
+	if multiplayer.has_multiplayer_peer() and multiplayer.is_server():
+		economy_timer += delta
+		if economy_timer >= ECONOMY_INTERVAL:
+			economy_timer -= ECONOMY_INTERVAL
+			_process_economy_tick()
+
+func _process_economy_tick() -> void:
+	if not scenario_data.has("factions"):
+		return
+		
+	var updated = false
+	for faction_name in scenario_data["factions"].keys():
+		var fac_data = scenario_data["factions"][faction_name]
+		if fac_data.has("cities"):
+			var city_count = fac_data["cities"].size()
+			var current_money = fac_data.get("money", 0.0)
+			# 1 Credit per 1 minute per city
+			fac_data["money"] = current_money + (city_count * 1.0)
+			updated = true
+			
+	if updated:
+		rpc("sync_economy", scenario_data)
+		# Local update for host
+		# sync_economy(scenario_data) - rpc with call_local already triggers it
+
+@rpc("authority", "call_local", "reliable")
+func sync_economy(new_scenario_data: Dictionary) -> void:
+	scenario_data = new_scenario_data
+	_update_economy_ui()
+
+func _update_economy_ui() -> void:
+	var local_id = multiplayer.get_unique_id() if multiplayer.has_multiplayer_peer() else 0
+	var local_faction = ""
+	if NetworkManager.players.has(local_id):
+		local_faction = NetworkManager.players[local_id].get("faction", "")
+		
+	var credits = 0.0
+	var controlled_cities = 0
+	var total_cities = active_cities.size()
+	
+	if local_faction != "" and scenario_data.has("factions") and scenario_data["factions"].has(local_faction):
+		var fac_data = scenario_data["factions"][local_faction]
+		credits = fac_data.get("money", 0.0)
+		if fac_data.has("cities"):
+			controlled_cities = fac_data["cities"].size()
+			
+	credits_label.text = "Credits: %.1f" % credits
+	cities_label.text = "Cities: %d/%d" % [controlled_cities, total_cities]
