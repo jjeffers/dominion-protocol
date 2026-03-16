@@ -73,7 +73,7 @@ func _init() -> void:
 		quit(1)
 		return
 		
-	var cities_path = "res://docs/city_data.json"
+	var cities_path = "res://src/data/city_data.json"
 	if not FileAccess.file_exists(cities_path):
 		push_error("Could not find city_data.json!")
 		quit(1)
