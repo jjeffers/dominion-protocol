@@ -436,9 +436,14 @@ func _process(delta: float) -> void:
 		if flash_timer <= 0.0:
 			sprite.modulate = Color(1.0, 1.0, 1.0)
 			
-	if is_instance_valid(movement_target_unit) and not movement_target_unit.is_dead:
-		if movement_target_unit.current_position != null:
-			target_position = movement_target_unit.current_position.normalized() * radius
+	if is_instance_valid(movement_target_unit):
+		if not movement_target_unit.is_dead:
+			if movement_target_unit.current_position != null:
+				target_position = movement_target_unit.current_position.normalized() * radius
+		else:
+			movement_target_unit = null
+			if current_position != null:
+				target_position = current_position
 			
 	var in_motion = false
 	if current_position != null and target_position != null and current_position.distance_to(target_position) > 0.0001:
@@ -453,7 +458,7 @@ func _process(delta: float) -> void:
 		entrenched = false
 		
 	if entrench_bar:
-		entrench_bar.visible = entrenched
+		entrench_bar.visible = (sprite.visible and entrenched)
 		
 	# 1. Evaluate Current Combat Lock 
 	if is_engaged:
@@ -461,8 +466,11 @@ func _process(delta: float) -> void:
 			if current_position != null and combat_target.current_position != null:
 				var dist = current_position.distance_to(combat_target.current_position)
 				if dist < 0.012:
-					# We have a valid overlap. Halt movement and process combat.
-					in_motion = false
+					# We have a valid overlap. Process combat.
+					
+					# Hard stop if we hit max overlap (center tile collision)
+					if dist < 0.004:
+						in_motion = false
 					
 					# Calculate direction to target in local space
 					var to_target = (combat_target.current_position - current_position).normalized()
@@ -514,7 +522,6 @@ func _process(delta: float) -> void:
 								continue # Moving away from this specific enemy, don't re-engage
 								
 						set_combat_target(other)
-						in_motion = false # Instantly halt to fight
 						break
 						
 	# 3. Process Movement (if still slated to move after combat overrides)
@@ -524,6 +531,9 @@ func _process(delta: float) -> void:
 		
 		# Move at constant speed along the arc
 		var step = (speed_units_per_sec * delta) / radius
+		if is_engaged:
+			step *= 0.25 # Move at 25% speed while engaged
+			
 		var weight = min(step / angle, 1.0) if angle > 0 else 1.0
 		
 		current_position = current_position.slerp(target_position, weight).normalized() * radius

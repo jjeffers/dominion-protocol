@@ -23,6 +23,7 @@
 - A unit that is taking damage will show a brief orange flash and a short sound.
 - A unit engaged with an enemy unit will show a small black arrow in the top left corner of the unit. The arrow will point in the direction of the engaged unit.
 - A land unit engaged in combat will move at 25% normal speed.
+- A land unit may not overlap the center tile of another unit, where the center tile is the center of the unit's 3x3 bounding box.
 
 
 ### Movement
