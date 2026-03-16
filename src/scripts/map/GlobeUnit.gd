@@ -333,10 +333,23 @@ func take_damage(amount: float) -> void:
 	if is_dead:
 		return
 		
+	# Base defensiveness modifications
+	var defense_modifier = 1.0
+	
 	if entrenched:
-		amount *= 0.5
+		defense_modifier -= 0.5
 		
-	health -= amount
+	# City defensiveness modification
+	var p = get_parent()
+	if p and p.has_method("_get_tile_from_vector3") and "city_tile_cache" in p:
+		var tile_id = p._get_tile_from_vector3(current_position)
+		if p.city_tile_cache.has(tile_id):
+			defense_modifier -= 0.25
+			
+	# Ensure damage never goes negative
+	defense_modifier = max(0.0, defense_modifier)
+	
+	health -= (amount * defense_modifier)
 	_update_health_bar()
 	
 	# Flash orange
