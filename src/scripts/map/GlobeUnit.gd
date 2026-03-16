@@ -437,10 +437,11 @@ func _process(delta: float) -> void:
 			sprite.modulate = Color(1.0, 1.0, 1.0)
 			
 	if is_instance_valid(movement_target_unit) and not movement_target_unit.is_dead:
-		target_position = movement_target_unit.current_position.normalized() * radius
+		if movement_target_unit.current_position != null:
+			target_position = movement_target_unit.current_position.normalized() * radius
 			
 	var in_motion = false
-	if current_position.distance_to(target_position) > 0.0001:
+	if current_position != null and target_position != null and current_position.distance_to(target_position) > 0.0001:
 		in_motion = true
 		
 	if not in_motion:
@@ -457,42 +458,43 @@ func _process(delta: float) -> void:
 	# 1. Evaluate Current Combat Lock 
 	if is_engaged:
 		if is_instance_valid(combat_target) and not combat_target.is_dead:
-			var dist = current_position.distance_to(combat_target.current_position)
-			if dist < 0.012:
-				# We have a valid overlap. Halt movement and process combat.
-				in_motion = false
-				
-				# Calculate direction to target in local space
-				var to_target = (combat_target.current_position - current_position).normalized()
-				var local_x = global_transform.basis.x.dot(to_target)
-				var local_y = global_transform.basis.y.dot(to_target)
-				var angle_to_target = atan2(local_y, local_x)
-				
-				combat_arrow.visible = true
-				combat_arrow.rotation.z = angle_to_target - (PI / 2.0)
-				_draw_engagement_line()
-				
-				combat_timer += delta
-				if combat_timer >= 5.0:
-					combat_timer -= 5.0
-					combat_target.take_damage(15.0)
+			if current_position != null and combat_target.current_position != null:
+				var dist = current_position.distance_to(combat_target.current_position)
+				if dist < 0.012:
+					# We have a valid overlap. Halt movement and process combat.
+					in_motion = false
 					
-				# Defender advantage
-				if not combat_target.is_engaged and not combat_target.is_dead:
-					var tar_in_motion = combat_target.current_position.distance_to(combat_target.target_position) > 0.0001
-					var target_fleeing = false
-					if tar_in_motion:
-						var my_dist = current_position.distance_to(combat_target.current_position)
-						var target_dest_dist = current_position.distance_to(combat_target.target_position)
-						if target_dest_dist > my_dist:
-							target_fleeing = true
-							
-					if not target_fleeing:
-						combat_target.set_combat_target(self)
-						combat_target.combat_timer = 5.0
-			else:
-				# Target walked out of range. Drop the lock instantly.
-				clear_combat_target()
+					# Calculate direction to target in local space
+					var to_target = (combat_target.current_position - current_position).normalized()
+					var local_x = global_transform.basis.x.dot(to_target)
+					var local_y = global_transform.basis.y.dot(to_target)
+					var angle_to_target = atan2(local_y, local_x)
+					
+					combat_arrow.visible = true
+					combat_arrow.rotation.z = angle_to_target - (PI / 2.0)
+					_draw_engagement_line()
+					
+					combat_timer += delta
+					if combat_timer >= 5.0:
+						combat_timer -= 5.0
+						combat_target.take_damage(15.0)
+						
+					# Defender advantage
+					if not combat_target.is_engaged and not combat_target.is_dead:
+						var tar_in_motion = combat_target.current_position.distance_to(combat_target.target_position) > 0.0001
+						var target_fleeing = false
+						if tar_in_motion:
+							var my_dist = current_position.distance_to(combat_target.current_position)
+							var target_dest_dist = current_position.distance_to(combat_target.target_position)
+							if target_dest_dist > my_dist:
+								target_fleeing = true
+								
+						if not target_fleeing:
+							combat_target.set_combat_target(self)
+							combat_target.combat_timer = 5.0
+				else:
+					# Target walked out of range. Drop the lock instantly.
+					clear_combat_target()
 		else:
 			# Target was deleted/died. Drop the lock instantly.
 			clear_combat_target()
@@ -533,11 +535,12 @@ func _process(delta: float) -> void:
 			path_immediate_mesh.clear_surfaces()
 			
 		# Explicitly snap to target position if we arrived organically without combat overrides
-		if not is_engaged and current_position.distance_to(target_position) <= 0.0001:
+		if not is_engaged and current_position != null and target_position != null and current_position.distance_to(target_position) <= 0.0001:
 			target_position = current_position
 						
 func _draw_engagement_line() -> void:
 	if not engagement_mesh or not is_instance_valid(combat_target): return
+	if current_position == null or combat_target.current_position == null: return
 	
 	engagement_mesh.clear_surfaces()
 	engagement_mesh.surface_begin(Mesh.PRIMITIVE_LINES)
@@ -550,6 +553,7 @@ func _draw_engagement_line() -> void:
 	engagement_mesh.surface_end()
 
 func _draw_path(angle: float) -> void:
+	if current_position == null or target_position == null or path_immediate_mesh == null: return
 	path_immediate_mesh.clear_surfaces()
 	path_immediate_mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
 	

@@ -111,6 +111,8 @@ func _on_unit_target_synced(unit_name: String, target_pos: Vector3, enemy_target
 	print("GlobeView handling _on_unit_target_synced for ", unit_name, " enemy: ", enemy_target_name)
 	var unit: Node3D = null
 	for u in units_list:
+		if not is_instance_valid(u):
+			continue
 		if u.name == unit_name:
 			unit = u
 			break
@@ -119,6 +121,8 @@ func _on_unit_target_synced(unit_name: String, target_pos: Vector3, enemy_target
 		if enemy_target_name != "":
 			var enemy: Node3D = null
 			for u in units_list:
+				if not is_instance_valid(u):
+					continue
 				if u.name == enemy_target_name:
 					enemy = u
 					break
@@ -164,7 +168,7 @@ func _process(delta: float) -> void:
 	
 	# Compute friendly vision anchors for Fog of War
 	var local_faction = ""
-	if NetworkManager and multiplayer.has_multiplayer_peer():
+	if NetworkManager and multiplayer.has_multiplayer_peer() and multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
 		var id = multiplayer.get_unique_id()
 		if NetworkManager.players.has(id):
 			local_faction = NetworkManager.players[id].get("faction", "")
@@ -172,6 +176,8 @@ func _process(delta: float) -> void:
 	var friendly_unit_positions: Array[Vector3] = []
 	if local_faction != "":
 		for u in units_list:
+			if not is_instance_valid(u):
+				continue
 			if u.get("faction_name") == local_faction and u.get("is_dead") != true:
 				friendly_unit_positions.append(u.global_position)
 	
@@ -242,6 +248,13 @@ func _process(delta: float) -> void:
 	if lon_delta != 0.0 or lat_delta != 0.0:
 		current_longitude = wrapf(current_longitude + lon_delta, -PI, PI)
 		current_latitude = clampf(current_latitude + lat_delta, -PI/2.1, PI/2.1)
+		
+	# Handle City Captures
+	if multiplayer.has_multiplayer_peer() and multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED and multiplayer.is_server():
+		capture_timer += delta
+		if capture_timer >= CAPTURE_INTERVAL:
+			capture_timer -= CAPTURE_INTERVAL
+			_process_city_captures()
 		_update_camera()
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -302,6 +315,72 @@ func _unhandled_input(event: InputEvent) -> void:
 		# Always update terrain HUD regardless of unit selection
 		_update_terrain_hover(event.position)
 
+signal city_captured(city_name: String, new_faction: String, old_faction: String)
+
+var capture_timer: float = 0.0
+const CAPTURE_INTERVAL: float = 1.0
+			
+func _process_city_captures() -> void:
+	for city_node in city_nodes:
+		var units_in_range: Array[Node3D] = []
+		for u in units_list:
+			if not is_instance_valid(u):
+				continue
+			if u.get("is_dead") != true:
+				var dist = city_node.position.distance_to(u.position) / radius
+				if dist <= 0.01:
+					units_in_range.append(u)
+					
+		if units_in_range.size() > 0:
+			var capturing_faction = units_in_range[0].get("faction_name")
+			var contested = false
+			
+			for u in units_in_range:
+				if u.get("faction_name") != capturing_faction:
+					contested = true
+					break
+					
+			if not contested and capturing_faction != "":
+				# Find current owner
+				var current_owner = ""
+				if active_scenario.has("factions"):
+					for f_name in active_scenario["factions"].keys():
+						if active_scenario["factions"][f_name].has("cities") and city_node.name in active_scenario["factions"][f_name]["cities"]:
+							current_owner = f_name
+							break
+				if current_owner == "":
+					current_owner = "neutral"
+					
+				# If ownership changed
+				if current_owner != capturing_faction:
+					rpc("sync_city_capture", city_node.name, capturing_faction, current_owner)
+
+@rpc("authority", "call_local", "reliable")
+func sync_city_capture(city_name: String, new_faction: String, old_faction: String) -> void:
+	print("City Capture: ", city_name, " captured by ", new_faction, " from ", old_faction)
+	
+	# Strip from old faction
+	if old_faction == "neutral":
+		if active_scenario.has("neutral_cities"):
+			active_scenario["neutral_cities"].erase(city_name)
+	else:
+		if active_scenario.has("factions") and active_scenario["factions"].has(old_faction):
+			if active_scenario["factions"][old_faction].has("cities"):
+				active_scenario["factions"][old_faction]["cities"].erase(city_name)
+				
+	# Add to new faction
+	if active_scenario.has("factions") and active_scenario["factions"].has(new_faction):
+		if not active_scenario["factions"][new_faction].has("cities"):
+			active_scenario["factions"][new_faction]["cities"] = []
+		if not active_scenario["factions"][new_faction]["cities"].has(city_name):
+			active_scenario["factions"][new_faction]["cities"].append(city_name)
+			
+	# Redraw borders
+	_generate_faction_borders()
+	
+	# Emit so HUD can update
+	city_captured.emit(city_name, new_faction, old_faction)
+
 func _update_camera() -> void:
 	var t = Transform3D.IDENTITY
 	t = t.rotated(Vector3.UP, current_longitude + PI)
@@ -337,7 +416,7 @@ func _instantiate_scenario(scenario_data: Dictionary) -> void:
 	var active_regions: Array[String] = []
 	var faction_regions: Dictionary = {}
 	
-	var path = "res://docs/city_data.json"
+	var path = "res://src/data/city_data.json"
 	var c_dict = {}
 	if FileAccess.file_exists(path):
 		var c_json = JSON.new()
@@ -407,7 +486,7 @@ func _instantiate_scenario(scenario_data: Dictionary) -> void:
 						_spawn_unit(unit_def, faction_name, c_dict, faction_regions)
 
 func _load_cities(active_cities: Array[String]) -> void:
-	var path = "res://docs/city_data.json"
+	var path = "res://src/data/city_data.json"
 	if not FileAccess.file_exists(path):
 		push_error("GlobeView: Could not find city_data.json")
 		return

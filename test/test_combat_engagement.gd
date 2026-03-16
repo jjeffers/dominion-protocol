@@ -9,19 +9,19 @@ var u1
 var u2
 
 func before_each():
-	var gv = load(GlobeViewPath)
-	mock_view = gv.new()
+	mock_view = GlobeView.new()
 	add_child(mock_view)
 	
-	var gu = load(GlobeUnitPath)
-	u1 = gu.new()
+	u1 = GlobeUnit.new()
 	u1.faction_name = "Blue"
-	u1.spawn(Vector3(1, 0, 0))
+	u1.current_position = Vector3(1, 0, 0)
+	u1.target_position = Vector3(1, 0, 0)
 	add_child(u1)
 	
-	u2 = gu.new()
+	u2 = GlobeUnit.new()
 	u2.faction_name = "Red"
-	u2.spawn(Vector3(0.999, 0, 0)) # Very close
+	u2.current_position = Vector3(0.999, 0, 0)
+	u2.target_position = Vector3(0.999, 0, 0)
 	add_child(u2)
 
 func after_each():

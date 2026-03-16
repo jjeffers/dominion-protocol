@@ -19,6 +19,9 @@ var map_data: MapData
 var economy_timer: float = 0.0
 const ECONOMY_INTERVAL: float = 60.0
 
+var capture_banner: Label
+var banner_timer: float = 0.0
+
 const TERRAIN_COLORS: Dictionary = {
 	"OCEAN": Color("#1f679c"),
 	"PLAINS": Color("#477a2d"),
@@ -43,6 +46,7 @@ func _ready() -> void:
 	
 	# 3. Connect focus synchronization signals
 	globe_view.hovered_tile_changed.connect(_on_globe_hovered_tile_changed)
+	globe_view.city_captured.connect(_on_city_captured)
 	
 	# Trigger initial generation and sync
 	globe_view._generate_mesh()
@@ -66,6 +70,18 @@ func _ready() -> void:
 	city_icon.set_anchors_preset(Control.PRESET_FULL_RECT)
 	city_icon.hide()
 	terrain_color.add_child(city_icon)
+	
+	# Setup Capture Banner
+	capture_banner = Label.new()
+	capture_banner.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	capture_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	capture_banner.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	capture_banner.add_theme_font_size_override("font_size", 48)
+	capture_banner.add_theme_color_override("font_outline_color", Color.BLACK)
+	capture_banner.add_theme_constant_override("outline_size", 8)
+	capture_banner.position.y = 120
+	capture_banner.hide()
+	add_child(capture_banner)
 
 func _on_globe_hovered_tile_changed(tile_id: String, terrain: String, c_name: String, region_name: String) -> void:
 	if tile_id == "":
@@ -134,8 +150,23 @@ func _load_scenario() -> void:
 	# We rely on GlobeView or MapData to discover the active regions from these cities and cull the rest.
 	# GlobeView handles projection, so we delay region culling until GlobeView processes it over in `_instantiate_scenario`.
 
+func _on_city_captured(city_name: String, new_faction: String, old_faction: String) -> void:
+	print(">>> CITY DOMAINS UPDATED: ", city_name, " is now under control of ", new_faction)
+	capture_banner.text = "%s CAPTURES %s!" % [new_faction.to_upper(), city_name.replace("Unit_City_", "").to_upper()]
+	capture_banner.modulate.a = 1.0
+	capture_banner.show()
+	banner_timer = 10.0
+	_update_economy_ui()
+
 func _process(delta: float) -> void:
-	if multiplayer.has_multiplayer_peer() and multiplayer.is_server():
+	if banner_timer > 0.0:
+		banner_timer -= delta
+		if banner_timer <= 0.0:
+			capture_banner.hide()
+		elif banner_timer <= 2.0:
+			capture_banner.modulate.a = banner_timer / 2.0
+
+	if multiplayer.has_multiplayer_peer() and multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED and multiplayer.is_server():
 		economy_timer += delta
 		if economy_timer >= ECONOMY_INTERVAL:
 			economy_timer -= ECONOMY_INTERVAL

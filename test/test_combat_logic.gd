@@ -1,9 +1,7 @@
 extends GutTest
 
-var globe_unit_scene = load("res://src/scripts/map/GlobeUnit.gd")
-
 func test_initialization():
-    var unit_a = globe_unit_scene.new()
+    var unit_a = GlobeUnit.new()
     unit_a.name = "UnitA"
     unit_a.faction_name = "Blue"
     unit_a.radius = 1.02
