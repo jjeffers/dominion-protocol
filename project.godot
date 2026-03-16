@@ -18,7 +18,3 @@ config/features=PackedStringArray("4.6", "Forward Plus")
 
 window/size/viewport_width=2440
 window/size/viewport_height=1600
-
-[rendering]
-
-renderer/rendering_method="forward_plus"
