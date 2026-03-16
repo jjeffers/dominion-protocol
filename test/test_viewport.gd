@@ -1,8 +1,8 @@
-extends Node3D
+extends GutTest
 
-func _ready():
+func test_viewport_load():
     var mesh_instance = MeshInstance3D.new()
-    add_child(mesh_instance)
+    add_child_autoqfree(mesh_instance)
     
     var mesh = SphereMesh.new()
     mesh.radius = 1.0
@@ -12,14 +12,11 @@ func _ready():
     var mat = StandardMaterial3D.new()
     mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
     
-    var img = Image.new()
-    var err = img.load("res://src/assets/biome_map.png")
-    if err == OK:
-        var tex = ImageTexture.create_from_image(img)
+    var tex = load("res://src/assets/biome_map.png")
+    assert_not_null(tex, "Should load biome_map.png without error")
+    if tex:
         mat.albedo_texture = tex
         mesh.material = mat
-        print("Test OK - assigned material directly to mesh")
-    else:
-        print("Test FAILED to load image")
         
-    get_tree().quit()
+    await wait_frames(1)
+    assert_not_null(mesh.material, "Material must be assigned to mesh")

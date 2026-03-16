@@ -1,79 +1,32 @@
-extends SceneTree
+extends GutTest
 
 var globe_view_scene = preload("res://src/scenes/map/GlobeView.tscn")
-var globe_view: Node3D
 
-func _init():
-	print("--- Running Camera Input Test ---")
-	globe_view = globe_view_scene.instantiate()
-	root.add_child(globe_view)
-	root.set_process(true)
+func test_camera_movement():
+	var globe_view = globe_view_scene.instantiate()
+	add_child_autoqfree(globe_view)
 	
 	# Wait for ready and a few frames initializing 
-	await process_frame
-	await process_frame
+	await wait_frames(5)
 	
 	var initial_lat = globe_view.current_latitude
 	var initial_lon = globe_view.current_longitude
 	
-	print("Initial lat/lon:", initial_lat, ", ", initial_lon)
-	print("Testing W key (up)")
-	var ev_w = InputEventKey.new()
-	ev_w.physical_keycode = KEY_W
-	ev_w.pressed = true
-	Input.parse_input_event(ev_w)
+	Input.action_press("ui_up")
+	await wait_frames(10)
+	Input.action_release("ui_up")
 	
-	await process_frame
-	await process_frame
-	
-	ev_w.pressed = false
-	Input.parse_input_event(ev_w)
-	
-	if globe_view.current_latitude > initial_lat:
-		print("PASS: W Key successfully increased camera latitude.")
-	else:
-		print("FAIL: W Key did not modify camera latitude! Old:", initial_lat, " New:", globe_view.current_latitude)
-		quit(1)
-		return
+	assert_gt(globe_view.current_latitude, initial_lat, "Up Action successfully increased camera latitude.")
 		
-	print("Testing D key (right)")
-	var ev_d = InputEventKey.new()
-	ev_d.physical_keycode = KEY_D
-	ev_d.pressed = true
-	Input.parse_input_event(ev_d)
+	Input.action_press("ui_right")
+	await wait_frames(10)
+	Input.action_release("ui_right")
 	
-	await process_frame
-	await process_frame
-	
-	ev_d.pressed = false
-	Input.parse_input_event(ev_d)
-	
-	if globe_view.current_longitude > initial_lon:
-		print("PASS: D Key successfully increased camera longitude.")
-	else:
-		print("FAIL: D Key did not modify camera longitude! Old:", initial_lon, " New:", globe_view.current_longitude)
-		quit(1)
-		return
+	assert_gt(globe_view.current_longitude, initial_lon, "Right Action successfully increased camera longitude.")
 
-	print("Testing arrow keys...")
 	var lat2 = globe_view.current_latitude
-	var ev_down = InputEventAction.new()
-	ev_down.action = "ui_down"
-	ev_down.pressed = true
-	Input.parse_input_event(ev_down)
+	Input.action_press("ui_down")
+	await wait_frames(10)
+	Input.action_release("ui_down")
 	
-	await process_frame
-	await process_frame
-	
-	ev_down.pressed = false
-	Input.parse_input_event(ev_down)
-	
-	if globe_view.current_latitude < lat2:
-		print("PASS: Down Arrow successfully decreased camera latitude.")
-	else:
-		print("FAIL: Down Arrow did not modify camera latitude! Old:", lat2, " New:", globe_view.current_latitude)
-		quit(1)
-		return
-
-	print("All camera input tests passed.")
-	quit(0)
+	assert_lt(globe_view.current_latitude, lat2, "Down Arrow successfully decreased camera latitude.")
