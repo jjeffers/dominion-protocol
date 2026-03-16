@@ -40,7 +40,9 @@ San Diego
 Phoenix
 Montreal
 Madrid
+Bordeaux
 Miami
+Königsberg
 Tel Aviv
 Prague
 Hong Kong
@@ -52,7 +54,6 @@ Warsaw
 Johannesburg
 New Delhi
 Buenos Aires
-Prague
 Constantinople
 Cairo
 Bandar Abbas

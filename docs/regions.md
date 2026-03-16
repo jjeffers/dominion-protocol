@@ -83,3 +83,9 @@ for tile in face_catalog.values():
         # Update UI/Shader to reflect the new color
 
 ```
+
+### 6. Region display/coloring
+- Color the region borders with the faction color, but only if the region border is not adjacent to a region of the same faction. (Don't color interior region borders.)
+- If the border is touching an ocean tile, the border should not be drawn.
+
+

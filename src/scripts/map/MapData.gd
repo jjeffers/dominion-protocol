@@ -40,6 +40,16 @@ func _load_data() -> void:
 		else:
 			push_error("MapData: Failed to parse Regions JSON!")
 
+## Purges all regions that are not present in the given active list
+func cull_regions(active_regions: Array[String]) -> void:
+	var keys = _region_map.keys()
+	var culled = 0
+	for tile_id in keys:
+		if not active_regions.has(_region_map[tile_id]):
+			_region_map.erase(tile_id)
+			culled += 1
+	print("MapData: Culled ", culled, " unused region tiles based on scenario configuration.")
+
 ## Returns the dictionary entry for a specific tile ID (e.g. 'FRONT_10_10')
 func get_tile(tile_id: String) -> Dictionary:
 	if _quad_faces.has(tile_id):

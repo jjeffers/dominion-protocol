@@ -25,6 +25,9 @@ func _ready() -> void:
 	# 1. Initialize Canonical Data
 	map_data = MapData.new()
 	
+	# Parse Scenario
+	_load_scenario()
+	
 	# 2. Inject Data into Views
 	globe_view.map_data = map_data
 	
@@ -34,6 +37,9 @@ func _ready() -> void:
 	# Trigger initial generation and sync
 	globe_view._generate_mesh()
 	globe_view._update_camera()
+	
+	# Ensure GlobeView explicitly relies on the scenario definitions to draw features
+	globe_view._instantiate_scenario(scenario_data)
 	
 	# Initialize HUD State
 	terrain_panel.hide()
@@ -85,3 +91,35 @@ func _on_globe_hovered_tile_changed(tile_id: String, terrain: String, c_name: St
 			terrain_color.color = Color.BLACK
 
 	pass
+
+var scenario_data: Dictionary = {}
+var active_cities: Array[String] = []
+var active_regions: Array[String] = []
+
+func _load_scenario() -> void:
+	var path = "res://src/data/scenarios/initial_test.json"
+	if not FileAccess.file_exists(path):
+		push_error("MainScene: Could not find scenario file at ", path)
+		return
+		
+	var file = FileAccess.open(path, FileAccess.READ)
+	var json = JSON.new()
+	if json.parse(file.get_as_text()) == OK:
+		scenario_data = json.data
+	else:
+		push_error("MainScene: Failed to parse scenario JSON")
+		return
+		
+	# Build active city list
+	if scenario_data.has("factions"):
+		for faction in scenario_data["factions"].values():
+			if faction.has("cities"):
+				for city in faction["cities"]:
+					active_cities.append(city)
+					
+	if scenario_data.has("neutral_cities"):
+		for city in scenario_data["neutral_cities"]:
+			active_cities.append(city)
+			
+	# We rely on GlobeView or MapData to discover the active regions from these cities and cull the rest.
+	# GlobeView handles projection, so we delay region culling until GlobeView processes it over in `_instantiate_scenario`.

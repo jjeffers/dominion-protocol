@@ -419,16 +419,7 @@ func _load_cities(active_cities: Array[String]) -> void:
 			sprite_main.render_priority = 5 # Renters UNDER units (priority 10)
 			city_node.add_child(sprite_main)
 			
-			var lbl = Label3D.new()
-			lbl.text = city_name
-			lbl.pixel_size = 0.0005
-			lbl.font_size = 32
-			# Keep Labels billboarded so the text is always readable to the player despite the rotation angle of the ground
-			lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-			lbl.no_depth_test = true
-			lbl.offset = Vector2(0, -32)
-			lbl.render_priority = 5
-			city_node.add_child(lbl)
+
 			
 			# Orient the Node directly away from the core
 			city_node.position = pos

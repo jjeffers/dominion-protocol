@@ -16,3 +16,12 @@ When placing 3D marker objects (like `Sprite3D` or `Label3D`) directly onto math
 ## 4. Facing Spherical Tangents (Sprite Axes)
 When telling a `Sprite3D` to lay flat against the surface of a globe by using `city_node.look_at(Vector3.ZERO)`, the default `Sprite3D` axis is `AXIS_Z`, which points through its planar face. This perfectly aligns it parallel wrapping the terrain. 
 * **Warning**: Attempting to "fix" the orientation by flipping it to `AXIS_Y` points its edge vector toward the core instead, standing it straight up paper-thin along the radial boundary, which renders it mathematically invisible width-wise to a top-down orbital camera. Always leave mapping overlays on `AXIS_Z` when looking at the core.
+
+## 5. Headless Asset Importing
+When generating new assets (like audio files or textures) programmatically via scripts or external tools while the game engine is running, Godot does not automatically generate the required `.import` metadata files if it is not running in editor mode.
+* **Fix**: If an asset is missing its loader or fails to load, close the game client and boot the engine briefly in headless editor mode (`godot --headless --editor --quit`). This forces the engine to scan the filesystem and generate all necessary `.import` files before booting the game binary again.
+
+## 6. Passive SceneTree Scanning and Programmatic Unit Loading
+When script-instantiating custom `Node3D` actor classes mathematically to plot them on a globe via `GlobeUnitScript.new()` and `add_child(unit)`, the engine's built in `_ready()` function may not consistently fire before those units are needed by early physics or passive scanning loops elsewhere in the scene. 
+* **Warning**: If units add themselves to necessary targeting or collision groups (e.g., `add_to_group("units")`) inside `_ready()`, they will be functionally invisible to organic `get_nodes_in_group` loops during their first few vital configuration frames.
+* **Fix**: Always assign fundamental group identifiers and initial variable scaffolding directly inside `_init()`.
