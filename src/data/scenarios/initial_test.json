@@ -20,26 +20,32 @@
             "units": [
                 {
                     "type": "infantry",
+                    "entrenched": true,
                     "location": "London"
                 },
                 {
                     "type": "infantry",
+                    "entrenched": true,
                     "location": "Paris"
                 },
                 {
                     "type": "infantry",
+                    "entrenched": true,
                     "location": "Luxembourg"
                 },
                 {
                     "type": "infantry",
+                    "entrenched": true,
                     "location": "Brussels"
                 },
                 {
                     "type": "infantry",
+                    "entrenched": true,
                     "location": "Marseille"
                 },
                 {
                     "type": "infantry",
+                    "entrenched": true,
                     "location": "Amsterdam"
                 }
             ]
@@ -60,38 +66,45 @@
             "units": [
                 {
                     "type": "infantry",
+                    "entrenched": true,
                     "location": "Hamburg"
                 },
                 {
                     "type": "infantry",
+                    "entrenched": true,
                     "location": "Munich"
                 },
                 {
                     "type": "infantry",
+                    "entrenched": true,
                     "latitude": 48.8,
                     "longitude": 9.2,
                     "notes": "Near Stuttgart / Black Forest"
                 },
                 {
                     "type": "infantry",
+                    "entrenched": true,
                     "latitude": 49.0,
                     "longitude": 8.4,
                     "notes": "Near Karlsruhe"
                 },
                 {
                     "type": "infantry",
+                    "entrenched": true,
                     "latitude": 49.5,
                     "longitude": 8.5,
                     "notes": "Near Mannheim"
                 },
                 {
                     "type": "infantry",
+                    "entrenched": true,
                     "latitude": 50.1,
                     "longitude": 8.7,
                     "notes": "Near Frankfurt"
                 },
                 {
                     "type": "infantry",
+                    "entrenched": true,
                     "latitude": 50.9,
                     "longitude": 7.0,
                     "notes": "Near Cologne"
