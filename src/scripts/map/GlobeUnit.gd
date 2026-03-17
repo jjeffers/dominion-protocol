@@ -466,8 +466,8 @@ func _process(delta: float) -> void:
 		if flash_timer <= 0.0:
 			sprite.modulate = Color(1.0, 1.0, 1.0)
 			
-	if is_instance_valid(movement_target_unit):
-		if not movement_target_unit.is_dead:
+	if movement_target_unit != null:
+		if is_instance_valid(movement_target_unit) and not movement_target_unit.is_dead:
 			if movement_target_unit.current_position != null:
 				target_position = movement_target_unit.current_position.normalized() * radius
 		else:
