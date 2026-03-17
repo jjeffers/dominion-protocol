@@ -946,6 +946,16 @@ func update_outline(min_lon: float, max_lon: float, min_lat: float, max_lat: flo
 		
 	outline_immediate_mesh.surface_end()
 func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
+	if not is_left_click and selected_unit:
+		# Verify ownership before issuing orders
+		var local_fac = _get_local_faction()
+		if local_fac != "" and selected_unit.get("faction_name") != local_fac:
+			selected_unit.set_selected(false)
+			selected_unit = null
+			if target_bracket:
+				target_bracket.visible = false
+			return
+			
 	var space_state = get_world_3d().direct_space_state
 	var ray_origin = camera.project_ray_origin(screen_pos)
 	var ray_end = ray_origin + camera.project_ray_normal(screen_pos) * 1000.0
