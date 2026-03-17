@@ -195,11 +195,24 @@ offset_right = 460.0
 offset_bottom = -60.0
 grow_vertical = 0
 
+[node name="UnitIcon" type="TextureRect" parent="UnitStatusPanel"]
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 20.0
+offset_top = -60.0
+offset_right = 140.0
+offset_bottom = 60.0
+grow_vertical = 2
+expand_mode = 1
+stretch_mode = 5
+
 [node name="UnitTypeLabel" type="Label" parent="UnitStatusPanel"]
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
-offset_left = 20.0
+offset_left = 160.0
 offset_top = 20.0
 offset_bottom = 60.0
 grow_horizontal = 2
@@ -210,7 +223,7 @@ text = "Infantry"
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
-offset_left = 20.0
+offset_left = 160.0
 offset_top = 70.0
 offset_bottom = 100.0
 grow_horizontal = 2
@@ -224,7 +237,7 @@ anchors_preset = 12
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 20.0
+offset_left = 160.0
 offset_top = -50.0
 offset_bottom = -20.0
 grow_horizontal = 2

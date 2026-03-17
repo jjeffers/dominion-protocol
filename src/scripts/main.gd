@@ -13,6 +13,7 @@ extends Control
 @onready var unit_type_label: Label = $UnitStatusPanel/UnitTypeLabel
 @onready var unit_terrain_label: Label = $UnitStatusPanel/UnitTerrainLabel
 @onready var unit_state_label: Label = $UnitStatusPanel/UnitStateLabel
+@onready var unit_icon: TextureRect = $UnitStatusPanel/UnitIcon
 
 var last_hovered_tile_id: String = ""
 
@@ -71,6 +72,8 @@ func _ready() -> void:
 	
 	# Initialize HUD State
 	terrain_panel.hide()
+	
+	unit_icon.texture = load("res://src/assets/extracted_sprite.png")
 	
 	var city_texture = AtlasTexture.new()
 	var img = load("res://src/assets/spritesheet.png")
