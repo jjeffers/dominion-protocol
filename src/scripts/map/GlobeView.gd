@@ -1036,36 +1036,57 @@ func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
 					target_bracket.visible = false
 		elif not is_left_click and selected_unit:
 			# Right Click = Move unit to clicked position
-			if is_unit or collider == map_collider:
+			# Perform a strict Raycast to the MAP to find the exact tile clicked, ignoring massive Area3D spheres
+			var map_query = PhysicsRayQueryParameters3D.create(ray_origin, ray_end)
+			map_query.collide_with_areas = false
+			map_query.collide_with_bodies = true
+			var map_result = space_state.intersect_ray(map_query)
+			
+			if map_result and map_result.collider == map_collider:
+				var map_hit_point = map_result.position
+				var tile_id = _get_tile_from_vector3(map_hit_point)
+				var exact_target_pos = map_hit_point.normalized() * radius
+				
+				# Determine if they clicked on a tile exactly containing an enemy
+				var intended_enemy = null
+				var all_units = get_tree().get_nodes_in_group("units")
+				var local_fac = _get_local_faction()
+				if local_fac == "" and NetworkManager.players.has(multiplayer.get_unique_id()):
+					local_fac = NetworkManager.players[multiplayer.get_unique_id()].get("faction", "")
+
+				for u in all_units:
+					if u != selected_unit and is_instance_valid(u) and not u.is_dead:
+						if u.get("faction_name") != local_fac: # Enemy
+							var u_tile = _get_tile_from_vector3(u.current_position)
+							if u_tile == tile_id:
+								intended_enemy = u
+								break
+				
 				if NetworkManager and NetworkManager.players.has(multiplayer.get_unique_id()):
-					# NetworkManager syncs targeted moves but not manual clear requests alone right now, so we clear it locally
-					# The RPC calls later will override the target unit appropriately
 					selected_unit.clear_combat_target()
 				else:
 					selected_unit.clear_combat_target()
-				
-				if is_unit and collider.get_parent() != selected_unit:
-					var target_enemy = collider.get_parent()
+					
+				if intended_enemy:
+					# Real intercept command against the exact enemy
 					if NetworkManager and NetworkManager.players.has(multiplayer.get_unique_id()):
-						NetworkManager.request_unit_move.rpc_id(1, selected_unit.name, Vector3.ZERO, target_enemy.name)
+						NetworkManager.request_unit_move.rpc_id(1, selected_unit.name, Vector3.ZERO, intended_enemy.name)
 					else:
-						selected_unit.set_movement_target_unit(target_enemy)
+						selected_unit.set_movement_target_unit(intended_enemy)
 					print("Unit Ordered to Travel to Enemy Position")
 				else:
-					var tile_id = _get_tile_from_vector3(hit_point)
-					var centroid = map_data.get_centroid(tile_id)
-					
-					if centroid != Vector3.ZERO:
-						if NetworkManager and NetworkManager.players.has(multiplayer.get_unique_id()):
-							NetworkManager.request_unit_move.rpc_id(1, selected_unit.name, centroid, "")
-						else:
-							selected_unit.set_target(centroid)
-						print("Unit Ordered To Compute Travel to Centroid of Tile: ", tile_id)
+					# Explicit geometric walk sequence, no snapping to centroids or overlapping areas
+					if NetworkManager and NetworkManager.players.has(multiplayer.get_unique_id()):
+						NetworkManager.request_unit_move.rpc_id(1, selected_unit.name, exact_target_pos, "")
+					else:
+						selected_unit.set_target(exact_target_pos)
+					print("Unit Ordered To Compute Travel to Exact Coordinate")
 				
 				# Deselect unit instantly per user request
 				selected_unit.set_selected(false)
 				selected_unit = null
-				target_bracket.visible = false
+				if target_bracket:
+					target_bracket.visible = false
 
 func _handle_hover(screen_pos: Vector2) -> void:
 	var space_state = get_world_3d().direct_space_state
