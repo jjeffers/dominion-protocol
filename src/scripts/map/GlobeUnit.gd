@@ -7,7 +7,7 @@ var collision_shape: CollisionShape3D
 
 var is_selected: bool = false
 var base_render_priority: int = 10
-var current_tile_id: String = ""
+var current_tile_id: int = -1
 
 var health: float = 100.0
 var unit_type: String = "Infantry"

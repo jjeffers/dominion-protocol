@@ -16,8 +16,7 @@ extends Control
 @onready var unit_icon: TextureRect = $UnitStatusPanel/VBoxContainer/IconMarginContainer/UnitIcon
 @onready var health_bar_fg: ColorRect = $UnitStatusPanel/VBoxContainer/IconMarginContainer/UnitIcon/HealthBarBg/HealthBarFg
 @onready var entrench_bar: ColorRect = $UnitStatusPanel/VBoxContainer/IconMarginContainer/UnitIcon/EntrenchBar
-
-var last_hovered_tile_id: String = ""
+var last_hovered_tile_id: int = -1
 
 @onready var economy_panel: Panel = $EconomyStatusPanel
 @onready var credits_label: Label = $EconomyStatusPanel/CreditsLabel
@@ -131,9 +130,9 @@ func _on_purchase_infantry() -> void:
 	purchase_menu.hide()
 	globe_view.start_deployment("Infantry", 10.0)
 
-func _on_globe_hovered_tile_changed(tile_id: String, terrain: String, c_name: String, region_name: String) -> void:
+func _on_globe_hovered_tile_changed(tile_id: int, terrain: String, c_name: String, region_name: String) -> void:
 	last_hovered_tile_id = tile_id
-	if tile_id == "":
+	if tile_id < 0:
 		terrain_panel.hide()
 		return
 		
@@ -280,7 +279,7 @@ func _process(delta: float) -> void:
 			health_bar_fg.color = Color(0.9, 0.1, 0.1)
 	else:
 		unit_panel.hide()
-		if last_hovered_tile_id != "":
+		if last_hovered_tile_id >= 0:
 			terrain_panel.show()
 
 	if multiplayer.has_multiplayer_peer() and multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED and multiplayer.is_server():

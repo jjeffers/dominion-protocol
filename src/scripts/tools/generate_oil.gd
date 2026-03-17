@@ -5,7 +5,7 @@ var map_data: MapData
 func _init() -> void:
 	print("--- Starting Oil Resource Generation ---")
 	map_data = MapData.new()
-	if map_data._quad_faces.is_empty():
+	if map_data._quad_data.is_empty():
 		push_error("MapData failed to load quad tiles!")
 		quit(1)
 		return
@@ -36,8 +36,8 @@ func _init() -> void:
 	
 	var tile_distances = _calculate_distances_from_cities(city_tiles)
 	
-	var high_priority_pool: Array[String] = []
-	var low_priority_pool: Array[String] = []
+	var high_priority_pool: Array[int] = []
+	var low_priority_pool: Array[int] = []
 	
 	for tile_id in tile_distances:
 		var dist = tile_distances[tile_id]
@@ -55,8 +55,8 @@ func _init() -> void:
 		return
 		
 	# Add Desert Bias by front-loading DESERT terrain over everything else
-	var desert_pool: Array[String] = []
-	var other_pool: Array[String] = []
+	var desert_pool: Array[int] = []
+	var other_pool: Array[int] = []
 	for tile_id in high_priority_pool:
 		if map_data.get_terrain(tile_id) == "DESERT":
 			desert_pool.append(tile_id)
@@ -69,7 +69,7 @@ func _init() -> void:
 	
 	print("Found ", desert_pool.size(), " high priority DESERT tiles to bias.")
 		
-	var final_oil_tiles: Array[String] = []
+	var final_oil_tiles: Array[int] = []
 	
 	# Phase B: Continent Seeds
 	# Ensure each continent gets at least 1 oil
@@ -80,14 +80,14 @@ func _init() -> void:
 		if final_oil_tiles.size() >= quota: break
 		
 		# Find highest priority tile that belongs to this continent
-		var seed_tile = ""
+		var seed_tile: int = -1
 		for t_id in high_priority_pool:
 			if c_dict.has(t_id):
 				seed_tile = t_id
 				break
 				
 		# Fallback to any tile in continent if no high priority exists
-		if seed_tile == "":
+		if seed_tile == -1:
 			seed_tile = c_dict.keys()[0]
 			
 		if _is_safe_distance(seed_tile, final_oil_tiles, 15):
@@ -171,8 +171,8 @@ func _init() -> void:
 	quit(0)
 
 
-func _get_city_tiles(cities: Dictionary) -> Array[String]:
-	var tiles: Array[String] = []
+func _get_city_tiles(cities: Dictionary) -> Array[int]:
+	var tiles: Array[int] = []
 	var r = 1.0 # Base radius for Quad matching
 	for city in cities.values():
 		var lat_deg = city.get("latitude")
@@ -193,7 +193,7 @@ func _get_city_tiles(cities: Dictionary) -> Array[String]:
 				tiles.append(t_id)
 	return tiles
 
-func _calculate_distances_from_cities(city_tiles: Array[String]) -> Dictionary:
+func _calculate_distances_from_cities(city_tiles: Array[int]) -> Dictionary:
 	var distances = {}
 	var queue = []
 	
@@ -223,15 +223,15 @@ func _calculate_distances_from_cities(city_tiles: Array[String]) -> Dictionary:
 				distances[n] = nd
 				queue.append({"id": n, "dist": nd})
 				
-	# If a land tile was never reached (dist > 20), we explicitly manually inject it so it isn't skipped during filtering
-	for face_id in map_data._quad_faces.keys():
+	var max_tiles = map_data._quad_data.size() / map_data.TILE_STRUCT_SIZE
+	for face_id in range(max_tiles):
 		if map_data.get_terrain(face_id) != "OCEAN" and not distances.has(face_id):
 			distances[face_id] = 21 # Safely "> 11" High Priority
 			
 	return distances
 
-func _find_cluster_members(lead: String, count: int) -> Array[String]:
-	var members: Array[String] = []
+func _find_cluster_members(lead: int, count: int) -> Array[int]:
+	var members: Array[int] = []
 	var visited = {lead: 0}
 	var queue = [{"id": lead, "dist": 0}]
 	var candidates = []
@@ -279,8 +279,8 @@ func _find_cluster_members(lead: String, count: int) -> Array[String]:
 func _build_continents() -> Array:
 	var continents = []
 	var visited = {}
-	
-	for tile_id in map_data._quad_faces.keys():
+	var max_tiles = map_data._quad_data.size() / map_data.TILE_STRUCT_SIZE
+	for tile_id in range(max_tiles):
 		if map_data.get_terrain(tile_id) != "OCEAN" and not visited.has(tile_id):
 			var blob = []
 			var q = [tile_id]
@@ -307,7 +307,7 @@ func _build_continents() -> Array:
 	print("Detected ", continents.size(), " major continents (>= 2000 tiles).")
 	return continents
 	
-func _is_safe_distance(candidate: String, existing_pool: Array[String], min_dist: int) -> bool:
+func _is_safe_distance(candidate: int, existing_pool: Array[int], min_dist: int) -> bool:
 	var visited = {candidate: 0}
 	var queue = [{"id": candidate, "dist": 0}]
 	
@@ -333,7 +333,7 @@ func _is_safe_distance(candidate: String, existing_pool: Array[String], min_dist
 				
 	return true
 
-func _get_tile_from_vector3(pos: Vector3) -> String:
+func _get_tile_from_vector3(pos: Vector3) -> int:
 	# Duplicate of GlobeView math
 	var n = pos.normalized()
 	var ax = abs(n.x)
@@ -358,4 +358,4 @@ func _get_tile_from_vector3(pos: Vector3) -> String:
 	var rx = clamp(int(((local_x + 1.0) / 2.0) * M), 0, M - 1)
 	var ry = clamp(int(((local_y + 1.0) / 2.0) * M), 0, M - 1)
 	var face_names = ["FRONT", "BACK", "LEFT", "RIGHT", "TOP", "BOTTOM"]
-	return "%s_%d_%d" % [face_names[face], rx, ry]
+	return map_data.get_id_from_coords(face_names[face], rx, ry)

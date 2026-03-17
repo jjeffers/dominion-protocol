@@ -7,9 +7,22 @@ const TOPOGRAPHY_IMAGE_PATH = "res://src/assets/Topography.jpg"
 const LANDMASK_IMAGE_PATH = "res://src/assets/etopo-landmask.png"
 const NDVI_IMAGE_PATH = "res://src/assets/NDVI_84.bw.png"
 const OUT_MESH_PATH = "res://src/data/quadsphere_globe.res"
-const OUT_JSON_PATH = "res://src/data/quad_data.json"
+const OUT_BIN_PATH = "res://src/data/map_data.bin"
 
 enum Face { FRONT, BACK, LEFT, RIGHT, TOP, BOTTOM }
+enum Terrain { OCEAN=0, PLAINS=1, DESERT=2, FOREST=3, MOUNTAINS=4 }
+
+func _get_uuid(face: int, x: int, y: int) -> int:
+	return face * (RESOLUTION * RESOLUTION) + y * RESOLUTION + x
+
+func _get_terrain_id(terrain_str: String) -> int:
+	match terrain_str:
+		"OCEAN": return Terrain.OCEAN
+		"PLAINS": return Terrain.PLAINS
+		"DESERT": return Terrain.DESERT
+		"FOREST": return Terrain.FOREST
+		"MOUNTAINS": return Terrain.MOUNTAINS
+	return Terrain.OCEAN
 
 func _init() -> void:
 	print("Starting Quad-Sphere Baker (R=", RESOLUTION, ")...")
@@ -44,7 +57,9 @@ func _bake() -> void:
 	noise.seed = 42
 	noise.frequency = 2.0
 	
-	var all_tiles = {}
+	# Open binary file for writing
+	var bin_file = FileAccess.open(OUT_BIN_PATH, FileAccess.WRITE)
+	
 	var surface_array = []
 	surface_array.resize(Mesh.ARRAY_MAX)
 	var verts = PackedVector3Array()
@@ -76,23 +91,22 @@ func _bake() -> void:
 				var veg = terrain_data[1]
 				var tile_color = _get_terrain_debug_color(terrain, veg)
 				
-				# Build Tile Dictionary Data
-				# We store coordinates as "FACE_X_Y" string ID, so we skip redundancies
-				var tile_id = "%s_%d_%d" % [face_name, x, y]
-				
-				var tile_dict = {
-					"world_x": snapped(centroid.x, 0.0001),
-					"world_y": snapped(centroid.y, 0.0001),
-					"world_z": snapped(centroid.z, 0.0001)
-				}
-				
-				if terrain != "OCEAN":
-					tile_dict["terrain"] = terrain
-					
+				# Build Tile Struct Data
+				var t_id = _get_terrain_id(terrain)
 				var neighbors = _get_neighbors(face, x, y)
-				tile_dict["n"] = [neighbors.get("N", ""), neighbors.get("E", ""), neighbors.get("S", ""), neighbors.get("W", "")]
-					
-				all_tiles[tile_id] = tile_dict
+				
+				# Write 32-byte struct tightly packed
+				bin_file.store_float(centroid.x) # Bytes 0-3
+				bin_file.store_float(centroid.y) # Bytes 4-7
+				bin_file.store_float(centroid.z) # Bytes 8-11
+				bin_file.store_32(neighbors[0])  # Bytes 12-15 (N)
+				bin_file.store_32(neighbors[1])  # Bytes 16-19 (E)
+				bin_file.store_32(neighbors[2])  # Bytes 20-23 (S)
+				bin_file.store_32(neighbors[3])  # Bytes 24-27 (W)
+				bin_file.store_8(t_id)           # Byte 28
+				bin_file.store_8(0)              # Byte 29 (padding/flags)
+				bin_file.store_8(0)              # Byte 30 (padding/flags)
+				bin_file.store_8(0)              # Byte 31 (padding/flags)
 				
 				# Build Mesh Geometry for this tile (A quad = 2 triangles = 4 verts)
 				var v00 = _get_sphere_point(face, (float(x) / RESOLUTION) * 2.0 - 1.0, (float(y) / RESOLUTION) * 2.0 - 1.0).normalized() * RADIUS
@@ -157,11 +171,9 @@ func _bake() -> void:
 	ResourceSaver.save(mesh, OUT_MESH_PATH)
 	print("Saved Quad-Sphere Mesh to: ", OUT_MESH_PATH)
 	
-	# Save JSON Data
-	var file = FileAccess.open(OUT_JSON_PATH, FileAccess.WRITE)
-	file.store_string(JSON.stringify(all_tiles, "\t"))
-	file.close()
-	print("Saved Quad Dictionary to: ", OUT_JSON_PATH)
+	# Close Binary File
+	bin_file.close()
+	print("Saved Quad Binary Map to: ", OUT_BIN_PATH)
 
 func _get_uv(v: Vector3) -> Vector2:
 	var n = v.normalized()
@@ -190,69 +202,70 @@ func _get_sphere_point(face: int, local_x: float, local_y: float) -> Vector3:
 		_: return Vector3.ZERO
 
 
-func _get_neighbors(face: int, x: int, y: int) -> Dictionary:
-	var neighbors = {}
+func _get_neighbors(face: int, x: int, y: int) -> Array[int]:
+	# Array matches [N, E, S, W] order
+	var neighbors: Array[int] = [0, 0, 0, 0]
 	
 	# NORTH
-	if y > 0: neighbors["N"] = "%s_%d_%d" % [Face.keys()[face], x, y - 1]
-	else: neighbors["N"] = _get_edge_neighbor(face, x, y, "N")
-		
-	# SOUTH
-	if y < RESOLUTION - 1: neighbors["S"] = "%s_%d_%d" % [Face.keys()[face], x, y + 1]
-	else: neighbors["S"] = _get_edge_neighbor(face, x, y, "S")
-		
-	# WEST
-	if x > 0: neighbors["W"] = "%s_%d_%d" % [Face.keys()[face], x - 1, y]
-	else: neighbors["W"] = _get_edge_neighbor(face, x, y, "W")
+	if y > 0: neighbors[0] = _get_uuid(face, x, y - 1)
+	else: neighbors[0] = _get_edge_neighbor(face, x, y, "N")
 		
 	# EAST
-	if x < RESOLUTION - 1: neighbors["E"] = "%s_%d_%d" % [Face.keys()[face], x + 1, y]
-	else: neighbors["E"] = _get_edge_neighbor(face, x, y, "E")
+	if x < RESOLUTION - 1: neighbors[1] = _get_uuid(face, x + 1, y)
+	else: neighbors[1] = _get_edge_neighbor(face, x, y, "E")
+	
+	# SOUTH
+	if y < RESOLUTION - 1: neighbors[2] = _get_uuid(face, x, y + 1)
+	else: neighbors[2] = _get_edge_neighbor(face, x, y, "S")
+		
+	# WEST
+	if x > 0: neighbors[3] = _get_uuid(face, x - 1, y)
+	else: neighbors[3] = _get_edge_neighbor(face, x, y, "W")
 
 	return neighbors
 
 
-func _get_edge_neighbor(face: int, x: int, y: int, dir: String) -> String:
+func _get_edge_neighbor(face: int, x: int, y: int, dir: String) -> int:
 	# This handles the complex topology mapping where cube faces meet.
 	# It translates coordinates from the current face edge to the adjoining face edge.
 	var M = RESOLUTION - 1
-	var f_name = ""
+	var f_name: int = Face.FRONT
 	var nx = 0
 	var ny = 0
 	
 	match face:
 		Face.FRONT:
-			if dir == "N": f_name = "TOP"; nx = x; ny = M
-			elif dir == "S": f_name = "BOTTOM"; nx = x; ny = 0
-			elif dir == "E": f_name = "RIGHT"; nx = 0; ny = y
-			elif dir == "W": f_name = "LEFT"; nx = M; ny = y
+			if dir == "N": f_name = Face.TOP; nx = x; ny = M
+			elif dir == "S": f_name = Face.BOTTOM; nx = x; ny = 0
+			elif dir == "E": f_name = Face.RIGHT; nx = 0; ny = y
+			elif dir == "W": f_name = Face.LEFT; nx = M; ny = y
 		Face.BACK:
-			if dir == "N": f_name = "TOP"; nx = M - x; ny = 0
-			elif dir == "S": f_name = "BOTTOM"; nx = M - x; ny = M
-			elif dir == "E": f_name = "LEFT"; nx = 0; ny = y
-			elif dir == "W": f_name = "RIGHT"; nx = M; ny = y
+			if dir == "N": f_name = Face.TOP; nx = M - x; ny = 0
+			elif dir == "S": f_name = Face.BOTTOM; nx = M - x; ny = M
+			elif dir == "E": f_name = Face.LEFT; nx = 0; ny = y
+			elif dir == "W": f_name = Face.RIGHT; nx = M; ny = y
 		Face.LEFT:
-			if dir == "N": f_name = "TOP"; nx = 0; ny = x
-			elif dir == "S": f_name = "BOTTOM"; nx = 0; ny = M - x
-			elif dir == "E": f_name = "FRONT"; nx = 0; ny = y
-			elif dir == "W": f_name = "BACK"; nx = M; ny = y
+			if dir == "N": f_name = Face.TOP; nx = 0; ny = x
+			elif dir == "S": f_name = Face.BOTTOM; nx = 0; ny = M - x
+			elif dir == "E": f_name = Face.FRONT; nx = 0; ny = y
+			elif dir == "W": f_name = Face.BACK; nx = M; ny = y
 		Face.RIGHT:
-			if dir == "N": f_name = "TOP"; nx = M; ny = M - x
-			elif dir == "S": f_name = "BOTTOM"; nx = M; ny = x
-			elif dir == "E": f_name = "BACK"; nx = 0; ny = y
-			elif dir == "W": f_name = "FRONT"; nx = M; ny = y
+			if dir == "N": f_name = Face.TOP; nx = M; ny = M - x
+			elif dir == "S": f_name = Face.BOTTOM; nx = M; ny = x
+			elif dir == "E": f_name = Face.BACK; nx = 0; ny = y
+			elif dir == "W": f_name = Face.FRONT; nx = M; ny = y
 		Face.TOP:
-			if dir == "N": f_name = "BACK"; nx = M - x; ny = 0
-			elif dir == "S": f_name = "FRONT"; nx = x; ny = 0
-			elif dir == "E": f_name = "RIGHT"; nx = M - y; ny = 0
-			elif dir == "W": f_name = "LEFT"; nx = y; ny = 0
+			if dir == "N": f_name = Face.BACK; nx = M - x; ny = 0
+			elif dir == "S": f_name = Face.FRONT; nx = x; ny = 0
+			elif dir == "E": f_name = Face.RIGHT; nx = M - y; ny = 0
+			elif dir == "W": f_name = Face.LEFT; nx = y; ny = 0
 		Face.BOTTOM:
-			if dir == "N": f_name = "FRONT"; nx = x; ny = M
-			elif dir == "S": f_name = "BACK"; nx = M - x; ny = M
-			elif dir == "E": f_name = "RIGHT"; nx = y; ny = M
-			elif dir == "W": f_name = "LEFT"; nx = M - y; ny = M
+			if dir == "N": f_name = Face.FRONT; nx = x; ny = M
+			elif dir == "S": f_name = Face.BACK; nx = M - x; ny = M
+			elif dir == "E": f_name = Face.RIGHT; nx = y; ny = M
+			elif dir == "W": f_name = Face.LEFT; nx = M - y; ny = M
 			
-	return "%s_%d_%d" % [f_name, nx, ny]
+	return _get_uuid(f_name, nx, ny)
 
 
 func _sample_terrain(centroid: Vector3, img: Image, img_w: int, img_h: int, mask: Image, mask_w: int, mask_h: int, ndvi: Image, ndvi_w: int, ndvi_h: int, noise: FastNoiseLite) -> Array:

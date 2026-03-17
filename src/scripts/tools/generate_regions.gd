@@ -2,9 +2,9 @@ extends SceneTree
 
 class PQItem:
 	var cost: float
-	var id: String
+	var id: int
 	var origin: String
-	func _init(c: float, i: String, o: String):
+	func _init(c: float, i: int, o: String):
 		cost = c
 		id = i
 		origin = o
@@ -68,7 +68,7 @@ var map_data: MapData
 func _init() -> void:
 	print("--- Starting Regional Partition Generation ---")
 	map_data = MapData.new()
-	if map_data._quad_faces.is_empty():
+	if map_data._quad_data.is_empty():
 		push_error("MapData failed to load quad tiles!")
 		quit(1)
 		return
@@ -208,7 +208,7 @@ func _lat_lon_to_vector3(lat: float, lon: float, r: float) -> Vector3:
 	var nz = cos_lat * -cos(lon)
 	return Vector3(nx, ny, nz) * r
 
-func _get_tile_from_vector3(pos: Vector3) -> String:
+func _get_tile_from_vector3(pos: Vector3) -> int:
 	var n = pos.normalized()
 	var ax = abs(n.x)
 	var ay = abs(n.y)
@@ -250,14 +250,13 @@ func _get_tile_from_vector3(pos: Vector3) -> String:
 	var ty = clamp(int(((local_y + 1.0) / 2.0) * M), 0, M - 1)
 	
 	var face_names = ["FRONT", "BACK", "LEFT", "RIGHT", "TOP", "BOTTOM"]
-	return "%s_%d_%d" % [face_names[face], tx, ty]
+	return map_data.get_id_from_coords(face_names[face], tx, ty)
 
-func _get_global_corners(tile_id: String) -> Array[Vector3]:
-	var parts = tile_id.split("_")
-	var face_str = parts[0]
-	var x = parts[1].to_int()
-	var y = parts[2].to_int()
-	var face = Face.get(face_str)
+func _get_global_corners(tile_id: int) -> Array[Vector3]:
+	var coords = map_data.get_coords_from_id(tile_id)
+	var face = coords["face"]
+	var x = coords["x"]
+	var y = coords["y"]
 	
 	var cx1 = (float(x) / RESOLUTION) * 2.0 - 1.0
 	var cx2 = (float(x + 1) / RESOLUTION) * 2.0 - 1.0

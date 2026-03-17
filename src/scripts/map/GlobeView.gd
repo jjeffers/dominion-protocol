@@ -2,7 +2,7 @@ class_name GlobeView
 extends Node3D
 
 signal focus_changed(longitude: float, latitude: float)
-signal hovered_tile_changed(tile_id: String, terrain: String, city_name: String, region_name: String)
+signal hovered_tile_changed(tile_id: int, terrain: String, city_name: String, region_name: String)
 
 @onready var mesh_instance: MeshInstance3D = $MeshInstance3D
 @onready var camera_pivot: Node3D = $CameraPivot
@@ -1209,7 +1209,7 @@ func _update_terrain_hover(screen_pos: Vector2) -> void:
 		# Cursor over deep space
 		hovered_tile_changed.emit("", "", "", "")
 
-func _get_tile_from_vector3(pos: Vector3) -> String:
+func _get_tile_from_vector3(pos: Vector3) -> int:
 	# Convert a 3D coordinate point on the sphere back into the exact Face and XY coordinate it corresponds to on the underlying 361x361 matrices.
 	var n = pos.normalized()
 	
@@ -1258,10 +1258,9 @@ func _get_tile_from_vector3(pos: Vector3) -> String:
 	
 	var x = clamp(int(((local_x + 1.0) / 2.0) * M), 0, M - 1)
 	var y = clamp(int(((local_y + 1.0) / 2.0) * M), 0, M - 1)
-	
-	# Array of names must match Face enum from Baker: FRONT, BACK, LEFT, RIGHT, TOP, BOTTOM
 	var face_names = ["FRONT", "BACK", "LEFT", "RIGHT", "TOP", "BOTTOM"]
-	return "%s_%d_%d" % [face_names[face], x, y]
+	return map_data.get_id_from_coords(face_names[face], x, y)
+	
 func _lat_lon_to_vector3(lat: float, lon: float, r: float) -> Vector3:
 	var cos_lat = cos(lat)
 	var ny = sin(lat)
@@ -1269,7 +1268,7 @@ func _lat_lon_to_vector3(lat: float, lon: float, r: float) -> Vector3:
 	var nz = cos_lat * -cos(lon)
 	return Vector3(nx, ny, nz) * r
 
-func _get_tile_width(tile_id: String) -> float:
+func _get_tile_width(tile_id: int) -> float:
 	var tile_width = 0.006
 	var centroid = map_data.get_centroid(tile_id)
 	var nbrs = map_data.get_neighbors(tile_id)
@@ -1395,18 +1394,11 @@ func _generate_faction_borders() -> void:
 	for f in edges_by_faction.keys():
 		print(" - Faction: ", f, " edges: ", edges_by_faction[f].size())
 
-func _get_global_corners(tile_id: String) -> Array[Vector3]:
-	var parts = tile_id.split("_")
-	if parts.size() < 3: return []
-	
-	var face_str = parts[0]
-	var x = parts[1].to_int()
-	var y = parts[2].to_int()
-	var face = -1
-	
-	var face_names = ["FRONT", "BACK", "LEFT", "RIGHT", "TOP", "BOTTOM"]
-	face = face_names.find(face_str)
-	if face == -1: return []
+func _get_global_corners(tile_id: int) -> Array[Vector3]:
+	var coords = map_data.get_coords_from_id(tile_id)
+	var face = coords["face"]
+	var x = coords["x"]
+	var y = coords["y"]
 	
 	var RESOLUTION = 361
 	var cx1 = (float(x) / RESOLUTION) * 2.0 - 1.0
