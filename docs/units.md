@@ -1,6 +1,7 @@
 # Summary of Units and Unit Behavior
 
-## UI 
+## UI
+- Factions may only issue orders to units they own.
 - Each unit can be selected by clicking on it.
 - When a unit is selected, a path can be drawn to a target location by right clicking on the globe.
 - The path will be drawn as a yellow line.

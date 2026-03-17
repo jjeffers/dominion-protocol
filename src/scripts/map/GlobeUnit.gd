@@ -27,12 +27,11 @@ var current_terrain_modifier: float = 1.0
 var path_mesh_instance: MeshInstance3D
 var path_immediate_mesh: ImmediateMesh
 
-var health_bar_bg: MeshInstance3D
-var health_bar_fg: MeshInstance3D
+
 
 var engagement_line: MeshInstance3D
 var engagement_mesh: ImmediateMesh
-var combat_arrow: MeshInstance3D
+
 
 var hit_audio: AudioStreamPlayer
 var flash_timer: float = 0.0
@@ -44,7 +43,6 @@ var last_damage_time: float = 0.0
 
 var entrenched: bool = false
 var time_motionless: float = 0.0
-var entrench_bar: MeshInstance3D
 
 func _init() -> void:
 	add_to_group("units")
@@ -78,11 +76,7 @@ func _init() -> void:
 	click_area.add_child(collision_shape)
 	add_child(click_area)
 
-	# Setup Health Bar
-	_setup_health_bar()
-	
-	# Setup Entrenchment Bar
-	_setup_entrench_bar()
+
 
 	# Setup Path Drawing
 	path_mesh_instance = MeshInstance3D.new()
@@ -117,23 +111,7 @@ func _init() -> void:
 	engagement_line.top_level = true
 	add_child(engagement_line)
 	
-	# Setup Target Arrow
-	combat_arrow = MeshInstance3D.new()
-	var arr_mesh = PrismMesh.new()
-	arr_mesh.size = Vector3(0.004, 0.005, 0.001)
-	combat_arrow.mesh = arr_mesh
-	
-	var arr_mat = StandardMaterial3D.new()
-	arr_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	arr_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	arr_mat.albedo_color = Color(0.0, 0.0, 0.0) # Black
-	arr_mat.no_depth_test = true
-	arr_mat.render_priority = 15
-	combat_arrow.material_override = arr_mat
-	# Position onto left side of sprite (inside the unit footprint)
-	combat_arrow.position = Vector3(-0.004, 0.0, 0.0002)
-	combat_arrow.visible = false
-	add_child(combat_arrow)
+
 
 	# Setup Hit Audio
 	hit_audio = AudioStreamPlayer.new()
@@ -142,79 +120,10 @@ func _init() -> void:
 		hit_audio.stream = sfx
 	add_child(hit_audio)
 
-func _setup_health_bar() -> void:
-	health_bar_bg = MeshInstance3D.new()
-	var bg_mesh = BoxMesh.new()
-	bg_mesh.size = Vector3(0.012, 0.0015, 0.001)
-	health_bar_bg.mesh = bg_mesh
-	
-	var bg_mat = StandardMaterial3D.new()
-	bg_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	bg_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	bg_mat.albedo_color = Color(0.2, 0.0, 0.0)
-	bg_mat.no_depth_test = true
-	bg_mat.render_priority = 15
-	health_bar_bg.material_override = bg_mat
-	
-	health_bar_fg = MeshInstance3D.new()
-	var fg_mesh = BoxMesh.new()
-	fg_mesh.size = Vector3(0.012, 0.0015, 0.001)
-	health_bar_fg.mesh = fg_mesh
-	
-	var fg_mat = StandardMaterial3D.new()
-	fg_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	fg_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	fg_mat.albedo_color = Color(0.0, 0.8, 0.2)
-	fg_mat.no_depth_test = true
-	fg_mat.render_priority = 16
-	health_bar_fg.material_override = fg_mat
-	
-	health_bar_fg.position.z = 0.0001
-	
-	health_bar_bg.add_child(health_bar_fg)
-	
-	# Position health bar on the top part of the unit sprite, not entirely outside it
-	health_bar_bg.position.y = 0.006
-	# Ensure it renders above the sprite
-	health_bar_bg.position.z = 0.0002
-	add_child(health_bar_bg)
-
-func _setup_entrench_bar() -> void:
-	entrench_bar = MeshInstance3D.new()
-	var entrench_mesh = BoxMesh.new()
-	entrench_mesh.size = Vector3(0.012, 0.0015, 0.001)
-	entrench_bar.mesh = entrench_mesh
-	
-	var entrench_mat = StandardMaterial3D.new()
-	entrench_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	entrench_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	entrench_mat.albedo_color = Color(0.0, 0.4, 0.0) # Dark green
-	entrench_mat.no_depth_test = true
-	entrench_mat.render_priority = 15
-	entrench_bar.material_override = entrench_mat
-	
-	# Position at the bottom of the unit sprite
-	entrench_bar.position.y = -0.006
-	entrench_bar.position.z = 0.0001
-	entrench_bar.visible = false
-	add_child(entrench_bar)
-
 func _update_health_bar() -> void:
-	if health_bar_fg and health_bar_bg:
+	if sprite and sprite.material_override is ShaderMaterial:
 		var pct = clamp(health / 100.0, 0.0, 1.0)
-		# Scale the foreground mesh horizontally
-		health_bar_fg.scale.x = pct
-		# Shift X position to keep it left-aligned
-		health_bar_fg.position.x = -0.006 * (1.0 - pct)
-		
-		# Change color based on health
-		var mat = health_bar_fg.material_override as StandardMaterial3D
-		if pct > 0.5:
-			mat.albedo_color = Color(0.0, 0.8, 0.2) # Green
-		elif pct > 0.25:
-			mat.albedo_color = Color(0.8, 0.8, 0.0) # Yellow
-		else:
-			mat.albedo_color = Color(0.9, 0.1, 0.1) # Red
+		sprite.material_override.set_shader_parameter("health_pct", pct)
 
 func set_sizing(tile_width: float) -> void:
 	# Match the physical dimensions of the 3x3 City tiles exactly.
@@ -233,11 +142,17 @@ uniform sampler2D tex_albedo : source_color, filter_nearest;
 uniform vec4 outline_color : source_color = vec4(1.0, 1.0, 0.0, 1.0);
 uniform float outline_width = 2.0;
 
+uniform float health_pct = 1.0;
+uniform bool is_entrenched = false;
+uniform bool is_engaged = false;
+uniform float engagement_angle = 0.0;
+
 void fragment() {
 	// Scale UV to create padding inside the 38x38 quad for the 34x34 sprite
 	float scale = 38.0 / 34.0;
 	vec2 uv = (UV - 0.5) * scale + 0.5;
 	
+	// Default base color
 	vec4 c = vec4(0.0);
 	if (uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0) {
 		c = texture(tex_albedo, uv);
@@ -258,20 +173,77 @@ void fragment() {
 		}
 	}
 	
-	if (c.a > 0.1) {
-		ALBEDO = c.rgb;
-		ALPHA = c.a;
-	} else if (o > 0.1) {
-		ALBEDO = outline_color.rgb;
+	// Evaluate custom UI extensions
+	// True bounds of the visual 34x34 icon map to uv (0.0 to 1.0)
+	bool hit_ui = false;
+	
+	// Health bar background: Top 4 pixels of the 34x34 area (UV.y = 0.0 is TOP). Flush against the absolute top edge.
+	if (uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 0.12) {
+		hit_ui = true;
+		// Foreground bar logic
+		if (uv.x <= health_pct) {
+			if (health_pct > 0.5) {
+				ALBEDO = vec3(0.0, 0.8, 0.2); // Green
+			} else if (health_pct > 0.25) {
+				ALBEDO = vec3(0.8, 0.8, 0.0); // Yellow
+			} else {
+				ALBEDO = vec3(0.9, 0.1, 0.1); // Red
+			}
+		} else {
+			ALBEDO = vec3(0.2, 0.0, 0.0); // Background Red
+		}
 		ALPHA = 1.0;
-	} else {
-		ALPHA = 0.0;
+	}
+	
+	// Entrenchment bar: Bottom 4 pixels (UV.y = 1.0 is BOTTOM). Flush against the absolute bottom edge.
+	if (is_entrenched && !hit_ui && uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.88 && uv.y <= 1.0) {
+		hit_ui = true;
+		ALBEDO = vec3(0.0, 0.4, 0.0); // Dark green
+		ALPHA = 1.0;
+	}
+	
+	// Engagement arrow (Points towards target)
+	if (is_engaged && !hit_ui) {
+		vec2 center = vec2(0.2, 0.5); // Center on the left side
+		vec2 p = uv - center;
+		p.y = -p.y; // Standard Y-up orientation for math
+
+		float ca = cos(engagement_angle);
+		float sa = sin(engagement_angle);
+		// Rotate local UV offset to match engagement_angle
+		vec2 rp = vec2(ca * p.x + sa * p.y, -sa * p.x + ca * p.y);
+		
+		// Draw right-pointing generic arrow logic
+		if (rp.x > -0.1 && rp.x < 0.1) {
+			float y_lim = (0.1 - rp.x) * 0.6; // Scale down height
+			if (abs(rp.y) <= y_lim) {
+				hit_ui = true;
+				ALBEDO = vec3(0.0, 0.0, 0.0); // Black arrow
+				ALPHA = 1.0;
+			}
+		}
+	}
+	
+	if (!hit_ui) {
+		if (c.a > 0.1) {
+			ALBEDO = c.rgb;
+			ALPHA = c.a;
+		} else if (o > 0.1) {
+			ALBEDO = outline_color.rgb;
+			ALPHA = 1.0;
+		} else {
+			ALPHA = 0.0;
+		}
 	}
 }
 """
 	outline_mat.shader = outline_shader
 	outline_mat.resource_local_to_scene = true
 	outline_mat.set_shader_parameter("tex_albedo", sprite.texture)
+	outline_mat.set_shader_parameter("health_pct", 1.0)
+	outline_mat.set_shader_parameter("is_entrenched", false)
+	outline_mat.set_shader_parameter("is_engaged", false)
+	outline_mat.set_shader_parameter("engagement_angle", 0.0)
 	# Default transparent outline so it does nothing if not explicitly set
 	outline_mat.set_shader_parameter("outline_color", Color(0, 0, 0, 0))
 	outline_mat.render_priority = 10
@@ -302,9 +274,6 @@ func _recalc_base_priority() -> void:
 
 func set_visibility(is_vis: bool) -> void:
 	sprite.visible = is_vis
-	if health_bar_bg: health_bar_bg.visible = is_vis
-	if entrench_bar: entrench_bar.visible = (is_vis and entrenched)
-	if combat_arrow: combat_arrow.visible = (is_vis and is_engaged)
 
 func update_render_priorities() -> void:
 	if sprite:
@@ -317,18 +286,6 @@ func update_render_priorities() -> void:
 		
 	if engagement_line and engagement_line.material_override:
 		engagement_line.material_override.render_priority = base_render_priority - 1
-		
-	if combat_arrow and combat_arrow.material_override:
-		combat_arrow.material_override.render_priority = base_render_priority + 1
-		
-	if health_bar_bg and health_bar_bg.material_override:
-		health_bar_bg.material_override.render_priority = base_render_priority + 1
-		
-	if health_bar_fg and health_bar_fg.material_override:
-		health_bar_fg.material_override.render_priority = base_render_priority + 2
-		
-	if entrench_bar and entrench_bar.material_override:
-		entrench_bar.material_override.render_priority = base_render_priority + 1
 
 func spawn(pos: Vector3) -> void:
 	current_position = pos.normalized() * radius
@@ -351,17 +308,19 @@ func set_movement_target_unit(target: GlobeUnit) -> void:
 func set_combat_target(target: GlobeUnit) -> void:
 	combat_target = target
 	is_engaged = true
+	if sprite and sprite.material_override is ShaderMaterial:
+		sprite.material_override.set_shader_parameter("is_engaged", true)
 	# Reset timer so attacker has to wait 5 seconds for their first swing
 	combat_timer = 0.0
 
 func clear_combat_target() -> void:
 	combat_target = null
 	is_engaged = false
+	if sprite and sprite.material_override is ShaderMaterial:
+		sprite.material_override.set_shader_parameter("is_engaged", false)
 	combat_timer = 0.0
 	if engagement_mesh:
 		engagement_mesh.clear_surfaces()
-	if combat_arrow:
-		combat_arrow.visible = false
 
 func take_damage(amount: float) -> void:
 	if is_dead:
@@ -483,12 +442,16 @@ func _process(delta: float) -> void:
 		time_motionless += delta
 		if time_motionless >= 30.0:
 			entrenched = true
+			if sprite and sprite.material_override is ShaderMaterial:
+				sprite.material_override.set_shader_parameter("is_entrenched", true)
 	else:
 		time_motionless = 0.0
-		entrenched = false
+		if entrenched:
+			entrenched = false
+			if sprite and sprite.material_override is ShaderMaterial:
+				sprite.material_override.set_shader_parameter("is_entrenched", false)
 		
-	if entrench_bar:
-		entrench_bar.visible = (sprite.visible and entrenched)
+
 		
 	# 1. Evaluate Current Combat Lock 
 	if is_engaged:
@@ -508,8 +471,9 @@ func _process(delta: float) -> void:
 					var local_y = global_transform.basis.y.dot(to_target)
 					var angle_to_target = atan2(local_y, local_x)
 					
-					combat_arrow.visible = true
-					combat_arrow.rotation.z = angle_to_target - (PI / 2.0)
+					if sprite and sprite.material_override is ShaderMaterial:
+						sprite.material_override.set_shader_parameter("engagement_angle", angle_to_target)
+					
 					_draw_engagement_line()
 					
 					combat_timer += delta
