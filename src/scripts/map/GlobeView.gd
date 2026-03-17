@@ -98,14 +98,18 @@ func _ready() -> void:
 	target_bracket = Sprite3D.new()
 	# Draw bracket using same spritesheet
 	var t_tex = load("res://src/assets/extracted_sprite.png") as Texture2D
-	if t_tex:
-		target_bracket.texture = t_tex
+	
+	var bracket_tex = load("res://src/assets/target_bracket.png") as Texture2D
+	if bracket_tex:
+		target_bracket.texture = bracket_tex
 	else:
-		push_error("GlobeView: Failed to load extracted_sprite.png")
+		push_error("GlobeView: Failed to load target_bracket.png")
 	
 	var tb_mat = StandardMaterial3D.new()
+	if bracket_tex:
+		tb_mat.albedo_texture = bracket_tex
 	tb_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	tb_mat.albedo_color = Color(1, 1, 0, 0.8) # Yellow
+	tb_mat.albedo_color = Color(1.0, 1.0, 1.0, 1.0) # White, opaque lines
 	tb_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	tb_mat.no_depth_test = true # Ensure it draws over terrain
 	tb_mat.render_priority = 20 # Below selected unit
@@ -1087,7 +1091,13 @@ func _handle_hover(screen_pos: Vector2) -> void:
 			tile_width = c1.distance_to(c2) * (radius * 1.02)
 			
 		# Match GlobeUnit sizing exactly
-		target_bracket.pixel_size = ((tile_width * 3.0) / 34.0) * (38.0 / 34.0)
+		var base_pixel_size = ((tile_width * 3.0) / 34.0) * (38.0 / 34.0)
+		var tex_width = 128.0
+		if target_bracket.texture:
+			tex_width = float(target_bracket.texture.get_width())
+		
+		# Scale the pixel size to account for the larger image dimensions (128px vs 34px)
+		target_bracket.pixel_size = base_pixel_size * (34.0 / tex_width)
 		
 		if snap_pos != Vector3.ZERO:
 			target_bracket.position = snap_pos
