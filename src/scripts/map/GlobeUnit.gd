@@ -26,6 +26,7 @@ var current_terrain_modifier: float = 1.0
 
 var path_mesh_instance: MeshInstance3D
 var path_immediate_mesh: ImmediateMesh
+var destination_bracket: Sprite3D
 
 
 
@@ -86,7 +87,7 @@ func _init() -> void:
 	var path_mat = StandardMaterial3D.new()
 	# Glowing Yellow/White
 	path_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	path_mat.albedo_color = Color(1.0, 1.0, 0.5, 0.8)
+	path_mat.albedo_color = Color(1.0, 1.0, 0.5, 0.5) # 50% opacity
 	path_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	path_mat.use_point_size = false
 	path_mat.no_depth_test = true
@@ -95,6 +96,26 @@ func _init() -> void:
 	path_mesh_instance.material_override = path_mat
 	path_mesh_instance.top_level = true
 	add_child(path_mesh_instance)
+	
+	# Setup Destination Bracket
+	destination_bracket = Sprite3D.new()
+	var bracket_tex = load("res://src/assets/target_bracket.png") as Texture2D
+	if bracket_tex:
+		destination_bracket.texture = bracket_tex
+		var tb_mat = StandardMaterial3D.new()
+		tb_mat.albedo_texture = bracket_tex
+		tb_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		tb_mat.albedo_color = Color(1.0, 1.0, 1.0, 1.0)
+		tb_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		tb_mat.no_depth_test = true
+		tb_mat.render_priority = 20
+		destination_bracket.material_override = tb_mat
+		# Initial sizing will be overridden by set_sizing() later based on map data
+		destination_bracket.pixel_size = (0.006 * 3.0) / 128.0
+	
+	destination_bracket.visible = false
+	destination_bracket.top_level = true
+	add_child(destination_bracket)
 	
 	# Setup Engagement Line Drawing
 	engagement_line = MeshInstance3D.new()
@@ -131,6 +152,8 @@ func set_sizing(tile_width: float) -> void:
 	# However, our Shader actively shrinks the visual texture down to create a 4px buffer (38/34 scale factor)
 	# so we must multiply the pixel size by the reverse of that factor to make the VISUAL content perfectly align
 	sprite.pixel_size = ((tile_width * 3.0) / 34.0) * (38.0 / 34.0)
+	if destination_bracket:
+		destination_bracket.pixel_size = (tile_width * 3.0) / 128.0
 	
 func _setup_shader() -> void:
 	var outline_mat = ShaderMaterial.new()
@@ -274,6 +297,15 @@ func _recalc_base_priority() -> void:
 
 func set_visibility(is_vis: bool) -> void:
 	sprite.visible = is_vis
+	var is_local_owned = is_vis
+	if multiplayer.has_multiplayer_peer():
+		var id = multiplayer.get_unique_id()
+		if NetworkManager.players.has(id) and NetworkManager.players[id].has("faction"):
+			is_local_owned = is_vis and faction_name == NetworkManager.players[id]["faction"]
+	if path_mesh_instance:
+		path_mesh_instance.visible = is_local_owned
+	if destination_bracket:
+		destination_bracket.visible = is_local_owned and target_position != null and current_position != null and current_position.distance_to(target_position) > 0.0001
 
 func update_render_priorities() -> void:
 	if sprite:
@@ -438,6 +470,23 @@ func _process(delta: float) -> void:
 	if current_position != null and target_position != null and current_position.distance_to(target_position) > 0.0001:
 		in_motion = true
 		
+		var is_local_owned = true
+		if multiplayer.has_multiplayer_peer():
+			var id = multiplayer.get_unique_id()
+			if NetworkManager.players.has(id) and NetworkManager.players[id].has("faction"):
+				is_local_owned = faction_name == NetworkManager.players[id]["faction"]
+			
+		if destination_bracket and is_local_owned and sprite.visible:
+			destination_bracket.position = target_position
+			var up_vec = Vector3.UP
+			var norm_target = target_position.normalized()
+			if abs(norm_target.y) > 0.99:
+				up_vec = Vector3.FORWARD
+			destination_bracket.look_at(Vector3.ZERO, up_vec)
+			destination_bracket.visible = true
+	else:
+		if destination_bracket:
+			destination_bracket.visible = false
 	if not in_motion:
 		time_motionless += delta
 		if time_motionless >= 30.0:
@@ -589,7 +638,7 @@ func _draw_path(angle: float) -> void:
 	var path_elevation = 1.0
 	
 	# Calculate arrowhead proportion (fixed world unit length, converted to percentage of path)
-	var arrow_length_units = 0.02
+	var arrow_length_units = 0.01
 	var total_distance = current_position.distance_to(target_position)
 	var arrow_fraction = min(arrow_length_units / total_distance, 0.5) if total_distance > 0 else 0.5
 	
@@ -644,8 +693,8 @@ func _draw_path(angle: float) -> void:
 		path_immediate_mesh.surface_add_vertex(br)
 
 	# Draw the Arrowhead (spanning from arrow_start_segment to the target_position)
-	# The base of the arrow should be twice as wide as the path
-	var arrow_width = path_width * 3.0
+	# The base of the arrow should match the uniform path width
+	var arrow_width = path_width
 	
 	var arrow_base_w = arrow_start_segment / float(segments)
 	var arrow_base_p = current_position.slerp(target_position, arrow_base_w).normalized()

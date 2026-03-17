@@ -16,3 +16,11 @@
     - units "below" other units are partially obscured to the viewer
     - obscured unit icons (and any associated components) will be visually masked by other unit icons
     - it's possible that unit interaction, like selection by a user or that unit taking damage, will "pop" that unit to the top of the visual rendering order 
+
+
+## Movement Indicators
+- Units that have been given an order will project a movement arrow showing their current movement target.
+- The target of a movement order (a position on the map) will be indicated by the target bracket, which is centered on the map over the movement target.
+- The movement arrow is a semi-transparent line that extends from the unit to its target.
+- The movment arrow is no more than 1/3 of a unit icon in width.
+- Factions only see movement arrows for their own units.

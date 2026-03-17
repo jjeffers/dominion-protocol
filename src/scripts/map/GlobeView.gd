@@ -1090,14 +1090,13 @@ func _handle_hover(screen_pos: Vector2) -> void:
 			var c2 = map_data.get_centroid(nbrs[0]).normalized()
 			tile_width = c1.distance_to(c2) * (radius * 1.02)
 			
-		# Match GlobeUnit sizing exactly
-		var base_pixel_size = ((tile_width * 3.0) / 34.0) * (38.0 / 34.0)
+		# Scale unit-relative pixel size for 128x128 graphic. Visual matching of tile_width * 3.0
 		var tex_width = 128.0
 		if target_bracket.texture:
 			tex_width = float(target_bracket.texture.get_width())
 		
-		# Scale the pixel size to account for the larger image dimensions (128px vs 34px)
-		target_bracket.pixel_size = base_pixel_size * (34.0 / tex_width)
+		# Set pixel scale so texture fits directly over 3x3 tile block 
+		target_bracket.pixel_size = (tile_width * 3.0) / tex_width
 		
 		if snap_pos != Vector3.ZERO:
 			target_bracket.position = snap_pos
