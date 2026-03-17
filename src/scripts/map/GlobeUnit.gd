@@ -23,6 +23,7 @@ var target_position: Vector3
 # 1 tile roughly equals 0.006 units. Move 1 width per 10 seconds.
 var speed_units_per_sec: float = 0.0006
 var current_terrain_modifier: float = 1.0
+var is_seaborne: bool = false
 
 var path_mesh_instance: MeshInstance3D
 var path_immediate_mesh: ImmediateMesh
@@ -165,6 +166,9 @@ uniform sampler2D tex_albedo : source_color, filter_nearest;
 uniform vec4 outline_color : source_color = vec4(1.0, 1.0, 0.0, 1.0);
 uniform float outline_width = 2.0;
 
+uniform bool use_bg_color = false;
+uniform vec4 bg_color_override : source_color = vec4(0.0);
+
 uniform float health_pct = 1.0;
 uniform bool is_entrenched = false;
 uniform bool is_engaged = false;
@@ -179,6 +183,11 @@ void fragment() {
 	vec4 c = vec4(0.0);
 	if (uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0) {
 		c = texture(tex_albedo, uv);
+		
+		// Sea Transport: Replace white background with ocean color
+		if (use_bg_color && c.r > 0.9 && c.g > 0.9 && c.b > 0.9 && c.a > 0.9) {
+			c = bg_color_override;
+		}
 	}
 	
 	vec2 size = vec2(34.0, 34.0);
@@ -582,13 +591,25 @@ func _process(delta: float) -> void:
 			var tile_id = p._get_tile_from_vector3(current_position)
 			if p.city_tile_cache.has(tile_id):
 				current_terrain_modifier = 1.0
+				_set_seaborne(false)
 			else:
 				var terrain = p.map_data.get_terrain(tile_id)
 				match terrain:
-					"FOREST", "DESERT": current_terrain_modifier = 0.5
-					"JUNGLE", "POLAR": current_terrain_modifier = 0.25
-					"MOUNTAIN": current_terrain_modifier = 0.1
-					_: current_terrain_modifier = 1.0
+					"OCEAN", "LAKE": 
+						current_terrain_modifier = 1.5
+						_set_seaborne(true)
+					"FOREST", "DESERT": 
+						current_terrain_modifier = 0.5
+						_set_seaborne(false)
+					"JUNGLE", "POLAR": 
+						current_terrain_modifier = 0.25
+						_set_seaborne(false)
+					"MOUNTAIN": 
+						current_terrain_modifier = 0.1
+						_set_seaborne(false)
+					_: 
+						current_terrain_modifier = 1.0
+						_set_seaborne(false)
 					
 		step *= current_terrain_modifier
 		
@@ -603,6 +624,20 @@ func _process(delta: float) -> void:
 		_draw_path(angle)
 	else:
 		current_terrain_modifier = 1.0
+		# Evaluate terrain at organic rest to ensure graphics adhere.
+		if current_position != null:
+			var p = get_parent()
+			if p and p.has_method("_get_tile_from_vector3"):
+				var tile_id = p._get_tile_from_vector3(current_position)
+				if not p.city_tile_cache.has(tile_id):
+					var terrain = p.map_data.get_terrain(tile_id)
+					if terrain == "OCEAN" or terrain == "LAKE":
+						_set_seaborne(true)
+					else:
+						_set_seaborne(false)
+				else:
+					_set_seaborne(false)
+						
 		if path_immediate_mesh != null:
 			path_immediate_mesh.clear_surfaces()
 			
@@ -714,3 +749,13 @@ func _draw_path(angle: float) -> void:
 	path_immediate_mesh.surface_add_vertex(arrow_base_right)
 	
 	path_immediate_mesh.surface_end()
+
+func _set_seaborne(status: bool) -> void:
+	if is_seaborne == status:
+		return
+	is_seaborne = status
+	if sprite and sprite.material_override is ShaderMaterial:
+		sprite.material_override.set_shader_parameter("use_bg_color", is_seaborne)
+		# Setting to #1f679c (OCEAN Color)
+		sprite.material_override.set_shader_parameter("bg_color_override", Color("#1f679c"))
+

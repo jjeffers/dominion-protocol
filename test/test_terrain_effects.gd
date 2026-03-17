@@ -59,3 +59,16 @@ func test_terrain_city_modifier():
 	mock_view.city_tile_cache["mock_tile_id"] = "test_city"
 	unit._process(0.1)
 	assert_eq(unit.current_terrain_modifier, 1.0, "City should override underlying terrain with 1.0 modifier")
+
+func test_terrain_ocean_modifier():
+	mock_view.mock_terrain = "OCEAN"
+	unit._process(0.1)
+	assert_eq(unit.current_terrain_modifier, 1.5, "Ocean should have 1.5 modifier")
+	assert_true(unit.is_seaborne, "Unit should be marked as seaborne on Ocean")
+
+func test_terrain_lake_modifier():
+	mock_view.mock_terrain = "LAKE"
+	unit._process(0.1)
+	assert_eq(unit.current_terrain_modifier, 1.5, "Lake should have 1.5 modifier")
+	assert_true(unit.is_seaborne, "Unit should be marked as seaborne on Lake")
+
