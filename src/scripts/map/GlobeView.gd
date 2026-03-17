@@ -168,11 +168,7 @@ func _process(delta: float) -> void:
 	var cam_pos = camera.global_position.normalized()
 	
 	# Compute friendly vision anchors for Fog of War
-	var local_faction = ""
-	if NetworkManager and multiplayer.has_multiplayer_peer() and multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
-		var id = multiplayer.get_unique_id()
-		if NetworkManager.players.has(id):
-			local_faction = NetworkManager.players[id].get("faction", "")
+	var local_faction = _get_local_faction()
 			
 	var friendly_unit_positions: Array[Vector3] = []
 	if local_faction != "":
@@ -1188,6 +1184,7 @@ func _spawn_unit(unit_def: Dictionary, faction_name: String, c_dict: Dictionary,
 		add_child(unit)
 		if faction_name != "":
 			unit.faction_name = faction_name
+			unit.is_friendly = (faction_name == _get_local_faction())
 			var faction = _get_faction_data(faction_name)
 			if faction.has("color"):
 				unit.set_faction_color(faction["color"])
@@ -1239,6 +1236,7 @@ func _spawn_unit(unit_def: Dictionary, faction_name: String, c_dict: Dictionary,
 			add_child(unit)
 			if faction_name != "":
 				unit.faction_name = faction_name
+				unit.is_friendly = (faction_name == _get_local_faction())
 				var faction = _get_faction_data(faction_name)
 				if faction.has("color"):
 					unit.set_faction_color(faction["color"])
@@ -1266,6 +1264,7 @@ func _spawn_unit(unit_def: Dictionary, faction_name: String, c_dict: Dictionary,
 		add_child(unit)
 		if faction_name != "":
 			unit.faction_name = faction_name
+			unit.is_friendly = (faction_name == _get_local_faction())
 			var faction = _get_faction_data(faction_name)
 			if faction.has("color"):
 				unit.set_faction_color(faction["color"])
@@ -1288,6 +1287,13 @@ func _get_faction_data(faction_name: String) -> Dictionary:
 		if active_scenario["factions"].has(faction_name):
 			return active_scenario["factions"][faction_name]
 	return {}
+
+func _get_local_faction() -> String:
+	if NetworkManager and multiplayer.has_multiplayer_peer() and multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
+		var id = multiplayer.get_unique_id()
+		if NetworkManager.players.has(id):
+			return NetworkManager.players[id].get("faction", "")
+	return ""
 
 func _spawn_border_units(count: int, faction1: String, faction2: String, faction_regions: Dictionary, owning_faction: String) -> void:
 	var f1_regs = faction_regions[faction1]
@@ -1325,6 +1331,7 @@ func _spawn_border_units(count: int, faction1: String, faction2: String, faction
 		unit.radius = radius
 		unit.name = "Unit_Border_" + owning_faction + "_" + str(i)
 		unit.faction_name = owning_faction
+		unit.is_friendly = (owning_faction == _get_local_faction())
 		add_child(unit)
 		if faction_data.has("color"):
 			unit.set_faction_color(faction_data["color"])

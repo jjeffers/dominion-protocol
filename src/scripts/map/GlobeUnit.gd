@@ -37,6 +37,8 @@ var flash_timer: float = 0.0
 var combat_timer: float = 0.0
 
 var faction_name: String = ""
+var is_friendly: bool = false
+var last_damage_time: float = 0.0
 
 var entrenched: bool = false
 var time_motionless: float = 0.0
@@ -120,6 +122,7 @@ func _init() -> void:
 	combat_arrow.mesh = arr_mesh
 	
 	var arr_mat = StandardMaterial3D.new()
+	arr_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	arr_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	arr_mat.albedo_color = Color(0.0, 0.0, 0.0) # Black
 	arr_mat.no_depth_test = true
@@ -144,6 +147,7 @@ func _setup_health_bar() -> void:
 	health_bar_bg.mesh = bg_mesh
 	
 	var bg_mat = StandardMaterial3D.new()
+	bg_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	bg_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	bg_mat.albedo_color = Color(0.2, 0.0, 0.0)
 	bg_mat.no_depth_test = true
@@ -156,6 +160,7 @@ func _setup_health_bar() -> void:
 	health_bar_fg.mesh = fg_mesh
 	
 	var fg_mat = StandardMaterial3D.new()
+	fg_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	fg_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	fg_mat.albedo_color = Color(0.0, 0.8, 0.2)
 	fg_mat.no_depth_test = true
@@ -179,6 +184,7 @@ func _setup_entrench_bar() -> void:
 	entrench_bar.mesh = entrench_mesh
 	
 	var entrench_mat = StandardMaterial3D.new()
+	entrench_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	entrench_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	entrench_mat.albedo_color = Color(0.0, 0.4, 0.0) # Dark green
 	entrench_mat.no_depth_test = true
@@ -278,8 +284,19 @@ func set_faction_color(hex_color: String) -> void:
 
 func set_selected(selected: bool) -> void:
 	is_selected = selected
-	base_render_priority = 25 if is_selected else 10
+	_recalc_base_priority()
 	update_render_priorities()
+
+func _recalc_base_priority() -> void:
+	if is_selected:
+		base_render_priority = 50
+	elif is_friendly:
+		if (Time.get_ticks_msec() / 1000.0) - last_damage_time < 3.0:
+			base_render_priority = 30
+		else:
+			base_render_priority = 20
+	else:
+		base_render_priority = 10
 
 func set_visibility(is_vis: bool) -> void:
 	sprite.visible = is_vis
@@ -294,22 +311,22 @@ func update_render_priorities() -> void:
 			sprite.material_override.render_priority = base_render_priority
 	
 	if path_mesh_instance and path_mesh_instance.material_override:
-		path_mesh_instance.material_override.render_priority = base_render_priority - 4
+		path_mesh_instance.material_override.render_priority = base_render_priority - 1
 		
 	if engagement_line and engagement_line.material_override:
-		engagement_line.material_override.render_priority = base_render_priority - 4
+		engagement_line.material_override.render_priority = base_render_priority - 1
 		
 	if combat_arrow and combat_arrow.material_override:
-		combat_arrow.material_override.render_priority = base_render_priority + 5
+		combat_arrow.material_override.render_priority = base_render_priority + 1
 		
 	if health_bar_bg and health_bar_bg.material_override:
-		health_bar_bg.material_override.render_priority = base_render_priority + 5
+		health_bar_bg.material_override.render_priority = base_render_priority + 1
 		
 	if health_bar_fg and health_bar_fg.material_override:
-		health_bar_fg.material_override.render_priority = base_render_priority + 6
+		health_bar_fg.material_override.render_priority = base_render_priority + 2
 		
 	if entrench_bar and entrench_bar.material_override:
-		entrench_bar.material_override.render_priority = base_render_priority + 5
+		entrench_bar.material_override.render_priority = base_render_priority + 1
 
 func spawn(pos: Vector3) -> void:
 	current_position = pos.normalized() * radius
@@ -319,6 +336,7 @@ func spawn(pos: Vector3) -> void:
 	# Point -Z axis straight into the core, meaning the +Z face (sprite) aims perfectly upwards from the surface
 	look_at(Vector3.ZERO, Vector3.UP)
 	
+	_recalc_base_priority()
 	update_render_priorities()
 
 func set_target(pos: Vector3) -> void:
@@ -365,6 +383,11 @@ func take_damage(amount: float) -> void:
 	
 	health -= (amount * defense_modifier)
 	_update_health_bar()
+	
+	if is_friendly:
+		last_damage_time = Time.get_ticks_msec() / 1000.0
+		_recalc_base_priority()
+		update_render_priorities()
 	
 	# Flash orange
 	sprite.modulate = Color(1.0, 0.5, 0.0)
@@ -430,6 +453,11 @@ func take_damage(amount: float) -> void:
 		queue_free()
 
 func _process(delta: float) -> void:
+	if is_friendly and base_render_priority == 30:
+		if (Time.get_ticks_msec() / 1000.0) - last_damage_time >= 3.0:
+			_recalc_base_priority()
+			update_render_priorities()
+
 	# Handle Damage Flash
 	if flash_timer > 0.0:
 		flash_timer -= delta
