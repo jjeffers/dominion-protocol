@@ -10,10 +10,10 @@ extends Control
 @onready var city_name: Label = $TerrainSummaryPanel/CityNameLabel
 
 @onready var unit_panel: Panel = $UnitStatusPanel
-@onready var unit_type_label: Label = $UnitStatusPanel/UnitTypeLabel
-@onready var unit_terrain_label: Label = $UnitStatusPanel/UnitTerrainLabel
-@onready var unit_state_label: Label = $UnitStatusPanel/UnitStateLabel
-@onready var unit_icon: TextureRect = $UnitStatusPanel/UnitIcon
+@onready var unit_type_label: Label = $UnitStatusPanel/VBoxContainer/UnitTypeLabel
+@onready var unit_terrain_label: Label = $UnitStatusPanel/VBoxContainer/UnitTerrainLabel
+@onready var unit_state_label: Label = $UnitStatusPanel/VBoxContainer/UnitStateLabel
+@onready var unit_icon: TextureRect = $UnitStatusPanel/VBoxContainer/UnitIcon
 
 var last_hovered_tile_id: String = ""
 
