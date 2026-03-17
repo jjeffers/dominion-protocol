@@ -50,3 +50,39 @@ func test_combat_engagement_locks_target():
 	# Assert: It stopped moving entirely to fight
 	assert_true(u1.is_engaged)
 	assert_eq(u1.combat_target, u2)
+
+func test_right_click_bypasses_unit_area():
+	# Let physics space sync so Map collider is ready
+	await wait_physics_frames(2)
+	
+	# Setup mock network manager to safely evaluate local faction without RPC exceptions in test
+	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+	var local_id = multiplayer.get_unique_id()
+	NetworkManager.players[local_id] = {"faction": "Blue"}
+	
+	mock_view.selected_unit = u1
+	mock_view.target_bracket = Sprite3D.new()
+	mock_view.add_child(mock_view.target_bracket)
+	mock_view.target_bracket.visible = true
+	
+	# Camera is at (0, 0, 3) looking down Z axis at origin.
+	# Center of screen raycast hits exact globe geometric map surface at (0, 0, 1.0)
+	# Position enemy u2 slightly off-center (x=0.008), 
+	# which is close enough that its Area3D (radius 0.0092) physically intersects the exact center screen raycast.
+	u2.global_position = Vector3(0.008, 0, 1.0)
+	u2.current_position = Vector3(0.008, 0, 1.0)
+	
+	# Issue right click (false = right) exactly in the center of the screen
+	var center = mock_view.camera.get_viewport().size / 2.0
+	mock_view._handle_click(center, false)
+	
+	# Assert: Because the raycast bypassed Area3Ds, it hit the raw map coordinate (0, 0, 1.0).
+	# Because u2 is located at (0.008...) which is a different map tile, it should NOT snap to target u2.
+	assert_null(u1.movement_target_unit, "Unit should not be targeting enemy.")
+	assert_not_null(u1.target_position, "Unit should have geometric movement target.")
+	assert_gt(u1.target_position.distance_to(u2.current_position), 0.001, "Unit geometric target should not strictly match enemy position.")
+	
+	# Teardown local network mock
+	multiplayer.multiplayer_peer = null
+	if NetworkManager.players.has(local_id):
+		NetworkManager.players.erase(local_id)
