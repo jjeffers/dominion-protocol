@@ -810,7 +810,8 @@ func _update_city_highlights(active: bool) -> void:
 					var has_city = fac_data.has("cities") and fac_data["cities"].has(c_name)
 					var has_money = fac_data.get("money", 0.0) >= deploying_unit_cost
 					var on_cooldown = city_cooldowns.has(c_name)
-					if has_city and has_money and not on_cooldown:
+					var is_full = _is_city_full(c_name)
+					if has_city and has_money and not on_cooldown and not is_full:
 						is_valid = true
 						
 			if is_valid:
@@ -975,7 +976,8 @@ func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
 						var has_city = fac_data.has("cities") and fac_data["cities"].has(c_name)
 						var has_money = fac_data.get("money", 0.0) >= deploying_unit_cost
 						var on_cooldown = city_cooldowns.has(c_name)
-						if has_city and has_money and not on_cooldown:
+						var is_full = _is_city_full(c_name)
+						if has_city and has_money and not on_cooldown and not is_full:
 							is_valid = true
 							
 				if is_valid:
@@ -1111,7 +1113,8 @@ func _handle_hover(screen_pos: Vector2) -> void:
 						var has_city = fac_data.has("cities") and fac_data["cities"].has(c_name)
 						var has_money = fac_data.get("money", 0.0) >= deploying_unit_cost
 						var on_cooldown = city_cooldowns.has(c_name)
-						if has_city and has_money and not on_cooldown:
+						var is_full = _is_city_full(c_name)
+						if has_city and has_money and not on_cooldown and not is_full:
 							is_valid = true
 							
 				if is_valid:
@@ -1448,10 +1451,28 @@ func _spawn_unit(unit_def: Dictionary, faction_name: String, c_dict: Dictionary,
 		var lat = c_dict[loc].get("latitude")
 		var lon = c_dict[loc].get("longitude")
 		if lat != null and lon != null:
-			var raw_pos = _lat_lon_to_vector3(deg_to_rad(lat), deg_to_rad(lon), radius)
+			var base_raw_pos = _lat_lon_to_vector3(deg_to_rad(lat), deg_to_rad(lon), radius)
 			
-			var tile_id = _get_tile_from_vector3(raw_pos)
+			var tile_id = _get_tile_from_vector3(base_raw_pos)
 			var tile_width = _get_tile_width(tile_id)
+			
+			var candidates = [tile_id]
+			candidates.append_array(map_data.get_neighbors(tile_id))
+			
+			var final_raw_pos = base_raw_pos
+			
+			for candidate_id in candidates:
+				var candidate_pos = map_data.get_centroid(candidate_id).normalized() * radius
+				var is_occupied = false
+				
+				for existing_unit in units_list:
+					if is_instance_valid(existing_unit) and existing_unit.position.distance_to(candidate_pos) < (tile_width * 0.5):
+						is_occupied = true
+						break
+				
+				if not is_occupied:
+					final_raw_pos = candidate_pos
+					break
 			
 			var unit = GlobeUnitScript.new()
 			unit.radius = radius
@@ -1473,7 +1494,7 @@ func _spawn_unit(unit_def: Dictionary, faction_name: String, c_dict: Dictionary,
 				if unit.entrench_bar:
 					unit.entrench_bar.visible = true
 				
-			unit.spawn(raw_pos)
+			unit.spawn(final_raw_pos)
 			units_list.append(unit)
 			cullable_nodes.append(unit) # GlobeUnit itself handles tracking/visibility or we use unit.sprite depending on logic
 	elif map_data.get_centroid(loc) != Vector3.ZERO:
@@ -1565,3 +1586,32 @@ func _spawn_border_units(count: int, faction1: String, faction2: String, faction
 		unit.spawn(raw_pos)
 		units_list.append(unit)
 		cullable_nodes.append(unit)
+
+func _is_city_full(c_name: String) -> bool:
+	if not active_scenario.has("cities") or not active_scenario["cities"].has(c_name):
+		return false
+		
+	var city_data = active_scenario["cities"][c_name]
+	var lat = city_data.get("latitude")
+	var lon = city_data.get("longitude")
+	if lat == null or lon == null:
+		return false
+		
+	var base_raw_pos = _lat_lon_to_vector3(deg_to_rad(lat), deg_to_rad(lon), radius)
+	var tile_id = _get_tile_from_vector3(base_raw_pos)
+	var tile_width = _get_tile_width(tile_id)
+	
+	var candidates = [tile_id]
+	candidates.append_array(map_data.get_neighbors(tile_id))
+	
+	var occupied_count = 0
+	
+	for candidate_id in candidates:
+		var candidate_pos = map_data.get_centroid(candidate_id).normalized() * radius
+		
+		for existing_unit in units_list:
+			if is_instance_valid(existing_unit) and existing_unit.position.distance_to(candidate_pos) < (tile_width * 0.5):
+				occupied_count += 1
+				break
+				
+	return occupied_count >= candidates.size()
