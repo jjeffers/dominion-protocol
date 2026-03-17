@@ -13,6 +13,9 @@ extends Control
 @onready var credits_label: Label = $EconomyStatusPanel/CreditsLabel
 @onready var cities_label: Label = $EconomyStatusPanel/CitiesLabel
 
+@onready var purchase_menu: Panel = $PurchaseMenu
+@onready var purchase_infantry_btn: Button = $PurchaseMenu/VBoxContainer/InfantryRow/PurchaseInfantryBtn
+
 var city_icon: TextureRect
 var map_data: MapData
 
@@ -57,6 +60,8 @@ func _ready() -> void:
 	# Ensure GlobeView explicitly relies on the scenario definitions to draw features
 	globe_view._instantiate_scenario(scenario_data)
 	
+	purchase_infantry_btn.pressed.connect(_on_purchase_infantry)
+	
 	# Initialize HUD State
 	terrain_panel.hide()
 	
@@ -96,6 +101,23 @@ func _ready() -> void:
 	victory_banner.add_theme_constant_override("outline_size", 12)
 	victory_banner.hide()
 	add_child(victory_banner)
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed:
+		if event.physical_keycode == KEY_P:
+			if purchase_menu.visible:
+				purchase_menu.hide()
+			else:
+				# Don't open if they're actively deploying something
+				if globe_view.get("deploying_unit_type") == "":
+					purchase_menu.show()
+		elif event.physical_keycode == KEY_ESCAPE:
+			if purchase_menu.visible:
+				purchase_menu.hide()
+
+func _on_purchase_infantry() -> void:
+	purchase_menu.hide()
+	globe_view.start_deployment("Infantry", 10.0)
 
 func _on_globe_hovered_tile_changed(tile_id: String, terrain: String, c_name: String, region_name: String) -> void:
 	if tile_id == "":
@@ -213,6 +235,8 @@ func _process_economy_tick() -> void:
 @rpc("authority", "call_local", "reliable")
 func sync_economy(new_scenario_data: Dictionary) -> void:
 	scenario_data = new_scenario_data
+	if globe_view:
+		globe_view.active_scenario = scenario_data
 	_update_economy_ui()
 
 func _update_economy_ui() -> void:
@@ -233,3 +257,6 @@ func _update_economy_ui() -> void:
 			
 	credits_label.text = "Credits: %.1f" % credits
 	cities_label.text = "Cities: %d/%d" % [controlled_cities, total_cities]
+	
+	# Update Purchase Availability
+	purchase_infantry_btn.disabled = credits < 10.0

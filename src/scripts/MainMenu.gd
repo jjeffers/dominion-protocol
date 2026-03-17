@@ -22,6 +22,7 @@ func _ready():
 	NetworkManager.connection_failed.connect(_on_connection_failed)
 	
 	var args = OS.get_cmdline_args()
+	print("MainMenu Args: ", args)
 	for arg in args:
 		if arg == "--host":
 			_on_host_pressed()

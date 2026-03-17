@@ -39,6 +39,12 @@ var map_collider: StaticBody3D
 var city_nodes: Array[Node3D] = []
 var friendly_city_positions: Array[Vector3] = []
 
+# Deployment State
+var deploying_unit_type: String = ""
+var deploying_unit_cost: float = 0.0
+var city_cooldowns: Dictionary = {}
+var deployment_ghost: Sprite3D
+
 func _ready() -> void:
 	if not map_data:
 		# Create a dummy map for testing if none provided
@@ -107,6 +113,35 @@ func _ready() -> void:
 	
 	target_bracket.visible = false
 	add_child(target_bracket)
+	
+	# Instantiate deployment ghost
+	deployment_ghost = Sprite3D.new()
+	if t_tex:
+		deployment_ghost.texture = t_tex
+	deployment_ghost.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+	
+	var dep_mat = StandardMaterial3D.new()
+	dep_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	dep_mat.albedo_color = Color(1.0, 1.0, 1.0, 0.5) # Semi-transparent white
+	dep_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	dep_mat.no_depth_test = true
+	dep_mat.render_priority = 30
+	deployment_ghost.material_override = dep_mat
+	deployment_ghost.visible = false
+	add_child(deployment_ghost)
+
+func start_deployment(unit_type: String, cost: float) -> void:
+	deploying_unit_type = unit_type
+	deploying_unit_cost = cost
+	
+	# Deselect any active units
+	if selected_unit:
+		selected_unit.set_selected(false)
+		selected_unit = null
+		target_bracket.visible = false
+		
+	deployment_ghost.visible = true
+	_update_city_highlights(true)
 
 func _on_unit_target_synced(unit_name: String, target_pos: Vector3, enemy_target_name: String) -> void:
 	print("GlobeView handling _on_unit_target_synced for ", unit_name, " enemy: ", enemy_target_name)
@@ -246,7 +281,6 @@ func _process(delta: float) -> void:
 		current_longitude = wrapf(current_longitude + lon_delta, -PI, PI)
 		current_latitude = clampf(current_latitude + lat_delta, -PI/2.1, PI/2.1)
 		
-	# Handle City Captures
 	if multiplayer.has_multiplayer_peer() and multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED and multiplayer.is_server():
 		capture_timer += delta
 		if capture_timer >= CAPTURE_INTERVAL:
@@ -254,14 +288,27 @@ func _process(delta: float) -> void:
 			_process_city_captures()
 		_update_camera()
 
+	# Process deployment cooldowns
+	var to_erase = []
+	for city in city_cooldowns.keys():
+		city_cooldowns[city] -= delta
+		if city_cooldowns[city] <= 0:
+			to_erase.append(city)
+	for city in to_erase:
+		city_cooldowns.erase(city)
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
 		print("RAW RIGHT CLICK EVENT RECEIVED IN GLOBEVIEW: ", event, " pressed: ", event.pressed)
-	if event.is_action_pressed("ui_cancel") or (event is InputEventKey and event.physical_keycode == KEY_ESCAPE and event.pressed):
+	if (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed) or event.is_action_pressed("ui_cancel") or (event is InputEventKey and event.physical_keycode == KEY_ESCAPE and event.pressed):
 		if selected_unit:
 			selected_unit.set_selected(false)
 			selected_unit = null
 			target_bracket.visible = false
+		if deploying_unit_type != "":
+			deploying_unit_type = ""
+			deployment_ghost.visible = false
+			_update_city_highlights(false)
 			
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
@@ -424,6 +471,52 @@ func _update_camera() -> void:
 	camera_pivot.transform = t
 	
 	focus_changed.emit(current_longitude, current_latitude)
+
+@rpc("any_peer", "call_local", "reliable")
+func sync_unit_purchase(city_name: String, unit_type: String, faction: String, cost: float) -> void:
+	print("Unit Purchase: ", faction, " bought ", unit_type, " at ", city_name, " for ", cost)
+	
+	if active_scenario.has("factions") and active_scenario["factions"].has(faction):
+		var money = active_scenario["factions"][faction].get("money", 0.0)
+		active_scenario["factions"][faction]["money"] = money - cost
+		
+	# Ensure the unit definition is formally recorded in the active scenario data so it syncs and saves properly
+	if not active_scenario["factions"][faction].has("units"):
+		active_scenario["factions"][faction]["units"] = []
+	
+	var unit_def = {
+		"type": unit_type,
+		"location": city_name,
+		"status": "active"
+	}
+	
+	active_scenario["factions"][faction]["units"].append(unit_def)
+	
+	# If we are the host, immediately broadcast the updated economy down to the clients so their UI updates
+	if multiplayer.is_server() and has_node("/root/Main"):
+		var main_node = get_node("/root/Main")
+		if main_node.has_method("sync_economy"):
+			main_node.rpc("sync_economy", active_scenario)
+			main_node.sync_economy(active_scenario)
+			
+	# Add 5 minute (300 second) cooldown to the city
+	city_cooldowns[city_name] = 300.0
+	
+	# Spawning logic handles attaching it to the scene locally
+	var path = "res://src/data/city_data.json"
+	var c_dict = {}
+	if FileAccess.file_exists(path):
+		var c_json = JSON.new()
+		if c_json.parse(FileAccess.open(path, FileAccess.READ).get_as_text()) == OK:
+			c_dict = c_json.data
+	
+	# Force it as friendly if the buyer is the local player
+	var local_id = multiplayer.get_unique_id() if multiplayer.has_multiplayer_peer() else 0
+	var local_faction = ""
+	if NetworkManager and NetworkManager.players.has(local_id):
+		local_faction = NetworkManager.players[local_id].get("faction", "")
+	
+	_spawn_unit(unit_def, faction, c_dict, {})
 
 func _instantiate_scenario(scenario_data: Dictionary) -> void:
 	if scenario_data.is_empty():
@@ -673,7 +766,57 @@ func _load_cities(active_cities: Array[String]) -> void:
 				city_node.add_child(sub_sprite)
 				o_idx += 1
 				
+			var hl_tex = load("res://src/assets/extracted_sprite.png") as Texture2D
+			if hl_tex:
+				var highlight_sprite = Sprite3D.new()
+				highlight_sprite.texture = hl_tex
+				highlight_sprite.pixel_size = node_pixel_size * (96.0 / 34.0)
+				var hl_mat = StandardMaterial3D.new()
+				hl_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+				hl_mat.albedo_color = Color(1.0, 1.0, 1.0, 0.4)
+				hl_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+				hl_mat.no_depth_test = true
+				hl_mat.render_priority = 25
+				highlight_sprite.material_override = hl_mat
+				highlight_sprite.visible = false
+				highlight_sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+				highlight_sprite.name = "HighlightRing"
+				
+				# Place it exactly at the center of the city node to prevent any parallax shifting 
+				# (Render priority 25 ensures it still draws on top)
+				highlight_sprite.position = Vector3.ZERO
+				city_node.add_child(highlight_sprite)
+
 			cullable_nodes.append(city_node)
+
+func _update_city_highlights(active: bool) -> void:
+	var local_id = multiplayer.get_unique_id() if multiplayer.has_multiplayer_peer() else 0
+	var local_faction = ""
+	if NetworkManager and NetworkManager.players.has(local_id):
+		local_faction = NetworkManager.players[local_id].get("faction", "")
+		
+	for city_node in city_nodes:
+		var hr = city_node.get_node_or_null("HighlightRing")
+		if hr:
+			if not active:
+				hr.visible = false
+				continue
+				
+			var c_name = city_node.name
+			var is_valid = false
+			if c_name != "" and local_faction != "":
+				if active_scenario.has("factions") and active_scenario["factions"].has(local_faction):
+					var fac_data = active_scenario["factions"][local_faction]
+					var has_city = fac_data.has("cities") and fac_data["cities"].has(c_name)
+					var has_money = fac_data.get("money", 0.0) >= deploying_unit_cost
+					var on_cooldown = city_cooldowns.has(c_name)
+					if has_city and has_money and not on_cooldown:
+						is_valid = true
+						
+			if is_valid:
+				hr.visible = true
+			else:
+				hr.visible = false
 
 func _load_oil(active_oil: Array[String]) -> void:
 	var path = "res://src/data/oil_data.json"
@@ -816,6 +959,42 @@ func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
 		# print("DEBUG CLICKED COLLIDER: ", collider.name if collider else "NULL", " of class ", collider.get_class() if collider else "None")
 		
 		if is_left_click:
+			if deploying_unit_type != "":
+				var tile_id = _get_tile_from_vector3(hit_point)
+				var c_name = city_tile_cache.get(tile_id, "")
+				
+				var local_id = multiplayer.get_unique_id() if multiplayer.has_multiplayer_peer() else 0
+				var local_faction = ""
+				if NetworkManager.players.has(local_id):
+					local_faction = NetworkManager.players[local_id].get("faction", "")
+					
+				var is_valid = false
+				if c_name != "" and local_faction != "":
+					if active_scenario.has("factions") and active_scenario["factions"].has(local_faction):
+						var fac_data = active_scenario["factions"][local_faction]
+						var has_city = fac_data.has("cities") and fac_data["cities"].has(c_name)
+						var has_money = fac_data.get("money", 0.0) >= deploying_unit_cost
+						var on_cooldown = city_cooldowns.has(c_name)
+						if has_city and has_money and not on_cooldown:
+							is_valid = true
+							
+				if is_valid:
+					var cost = deploying_unit_cost
+					var u_type = deploying_unit_type
+					
+					# Immediately apply local cooldown to stop UI double-clicks
+					city_cooldowns[c_name] = 300.0
+					
+					deploying_unit_type = ""
+					deployment_ghost.visible = false
+					_update_city_highlights(false)
+					
+					if NetworkManager and multiplayer.has_multiplayer_peer():
+						rpc("sync_unit_purchase", c_name, u_type, local_faction, cost)
+					else:
+						sync_unit_purchase(c_name, u_type, local_faction, cost)
+				return
+				
 			if is_unit:
 				var unit = collider.get_parent()
 				if selected_unit and selected_unit != unit:
@@ -898,6 +1077,50 @@ func _handle_hover(screen_pos: Vector2) -> void:
 			target_bracket.visible = true
 	else:
 		target_bracket.visible = false
+
+	if deploying_unit_type != "":
+		# Handle the ghost positioning similarly but checking for valid city deployment
+		if result and result.collider == map_collider:
+			var tile_id = _get_tile_from_vector3(result.position)
+			var centroid = map_data.get_centroid(tile_id)
+			var snap_pos = centroid.normalized() * (radius * 1.05)
+			var c_name = city_tile_cache.get(tile_id, "")
+			
+			if snap_pos != Vector3.ZERO:
+				var tile_width = 0.006
+				var nbrs = map_data.get_neighbors(tile_id)
+				if nbrs.size() > 0:
+					var c1 = centroid.normalized()
+					var c2 = map_data.get_centroid(nbrs[0]).normalized()
+					tile_width = c1.distance_to(c2) * (radius * 1.02)
+				
+				deployment_ghost.pixel_size = (tile_width * 3.0) / 34.0
+				deployment_ghost.position = snap_pos
+				deployment_ghost.look_at(Vector3.ZERO, Vector3.UP)
+				
+				# Determine validity for coloring
+				var is_valid = false
+				var local_id = multiplayer.get_unique_id() if multiplayer.has_multiplayer_peer() else 0
+				var local_faction = ""
+				if NetworkManager.players.has(local_id):
+					local_faction = NetworkManager.players[local_id].get("faction", "")
+					
+				if c_name != "" and local_faction != "":
+					if active_scenario.has("factions") and active_scenario["factions"].has(local_faction):
+						var fac_data = active_scenario["factions"][local_faction]
+						var has_city = fac_data.has("cities") and fac_data["cities"].has(c_name)
+						var has_money = fac_data.get("money", 0.0) >= deploying_unit_cost
+						var on_cooldown = city_cooldowns.has(c_name)
+						if has_city and has_money and not on_cooldown:
+							is_valid = true
+							
+				if is_valid:
+					deployment_ghost.material_override.albedo_color = Color(1.0, 1.0, 1.0, 0.7) # White valid
+				else:
+					deployment_ghost.material_override.albedo_color = Color(1.0, 0.0, 0.0, 0.7) # Red invalid
+					
+		else:
+			deployment_ghost.position = Vector3(0, 0, 0) # hide somewhat safely
 
 func _update_terrain_hover(screen_pos: Vector2) -> void:
 	var space_state = get_world_3d().direct_space_state

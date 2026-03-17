@@ -15,7 +15,7 @@
             ],
             "capitol": "Paris",
             "oil": [],
-            "money": 0,
+            "money": 10,
             "fuel": 0,
             "units": [
                 {
@@ -61,7 +61,7 @@
             ],
             "capitol": "Berlin",
             "oil": [],
-            "money": 0,
+            "money": 10,
             "fuel": 0,
             "units": [
                 {
