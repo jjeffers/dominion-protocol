@@ -1404,6 +1404,9 @@ func _spawn_unit(unit_def: Dictionary, faction_name: String, c_dict: Dictionary,
 		var tile_width = _get_tile_width(tile_id)
 		
 		var unit = GlobeUnitScript.new()
+		if unit_def.has("type"):
+			unit.unit_type = str(unit_def["type"]).capitalize()
+			
 		# Snap exactly to globe bounds for zero-parallax since shader uses no_depth_test
 		unit.radius = radius
 		unit.name = "Unit_LatLon_" + str(int(lat * 10)) + "_" + str(int(lon * 10))
@@ -1475,6 +1478,9 @@ func _spawn_unit(unit_def: Dictionary, faction_name: String, c_dict: Dictionary,
 					break
 			
 			var unit = GlobeUnitScript.new()
+			if unit_def.has("type"):
+				unit.unit_type = str(unit_def["type"]).capitalize()
+				
 			unit.radius = radius
 			unit.name = "Unit_City_" + loc
 			add_child(unit)
@@ -1503,6 +1509,9 @@ func _spawn_unit(unit_def: Dictionary, faction_name: String, c_dict: Dictionary,
 		var tile_width = _get_tile_width(loc)
 		
 		var unit = GlobeUnitScript.new()
+		if unit_def.has("type"):
+			unit.unit_type = str(unit_def["type"]).capitalize()
+			
 		unit.radius = radius
 		unit.name = "Unit_Region_" + loc
 		add_child(unit)

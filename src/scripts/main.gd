@@ -9,6 +9,13 @@ extends Control
 @onready var terrain_name: Label = $TerrainSummaryPanel/TerrainNameLabel
 @onready var city_name: Label = $TerrainSummaryPanel/CityNameLabel
 
+@onready var unit_panel: Panel = $UnitStatusPanel
+@onready var unit_type_label: Label = $UnitStatusPanel/UnitTypeLabel
+@onready var unit_terrain_label: Label = $UnitStatusPanel/UnitTerrainLabel
+@onready var unit_state_label: Label = $UnitStatusPanel/UnitStateLabel
+
+var last_hovered_tile_id: String = ""
+
 @onready var economy_panel: Panel = $EconomyStatusPanel
 @onready var credits_label: Label = $EconomyStatusPanel/CreditsLabel
 @onready var cities_label: Label = $EconomyStatusPanel/CitiesLabel
@@ -120,11 +127,16 @@ func _on_purchase_infantry() -> void:
 	globe_view.start_deployment("Infantry", 10.0)
 
 func _on_globe_hovered_tile_changed(tile_id: String, terrain: String, c_name: String, region_name: String) -> void:
+	last_hovered_tile_id = tile_id
 	if tile_id == "":
 		terrain_panel.hide()
 		return
 		
-	terrain_panel.show()
+	# Only show terrain panel if we aren't looking at a unit
+	if globe_view == null or globe_view.selected_unit == null:
+		terrain_panel.show()
+	else:
+		terrain_panel.hide()
 	
 	if c_name != "":
 		city_name.text = c_name
@@ -206,6 +218,39 @@ func _process(delta: float) -> void:
 			capture_banner.hide()
 		elif banner_timer <= 2.0:
 			capture_banner.modulate.a = banner_timer / 2.0
+
+	# Unit Status UI Updates
+	if globe_view and globe_view.selected_unit != null:
+		terrain_panel.hide()
+		unit_panel.show()
+		
+		var su = globe_view.selected_unit
+		unit_type_label.text = su.unit_type
+		
+		# Terrain Lookup
+		var u_tile = globe_view._get_tile_from_vector3(su.current_position)
+		var u_terrain = map_data.get_terrain(u_tile)
+		if globe_view.city_tile_cache.has(u_tile):
+			unit_terrain_label.text = "Terrain: CITY"
+			unit_terrain_label.add_theme_color_override("font_color", Color(1.0, 0.84, 0.0))
+		else:
+			unit_terrain_label.text = "Terrain: " + u_terrain
+			unit_terrain_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
+			
+		# State Computation
+		var states = ["Health: " + str(int(su.health)) + "%"]
+		if su.is_engaged:
+			states.append("ENGAGED")
+		elif su.current_position != null and su.target_position != null and su.current_position.distance_to(su.target_position) > 0.0001:
+			states.append("MOVING")
+		elif su.entrenched:
+			states.append("ENTRENCHED")
+			
+		unit_state_label.text = " | ".join(states)
+	else:
+		unit_panel.hide()
+		if last_hovered_tile_id != "":
+			terrain_panel.show()
 
 	if multiplayer.has_multiplayer_peer() and multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED and multiplayer.is_server():
 		economy_timer += delta

@@ -10,6 +10,7 @@ var base_render_priority: int = 10
 var current_tile_id: String = ""
 
 var health: float = 100.0
+var unit_type: String = "Infantry"
 var combat_target: GlobeUnit = null
 var movement_target_unit: GlobeUnit = null
 var is_engaged: bool = false
