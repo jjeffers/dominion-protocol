@@ -70,9 +70,10 @@ func get_neighbors(tile_id: String) -> Array[String]:
 		return []
 	
 	var neighbors: Array[String] = []
-	var n_dict = tile.get("neighbors", {})
-	for dir in n_dict.values():
-		neighbors.append(dir)
+	var n_arr = tile.get("n", [])
+	for dir in n_arr:
+		if dir != "":
+			neighbors.append(dir)
 	return neighbors
 
 ## Returns the 3D local centroid of the tile

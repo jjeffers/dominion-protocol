@@ -77,20 +77,22 @@ func _bake() -> void:
 				var tile_color = _get_terrain_debug_color(terrain, veg)
 				
 				# Build Tile Dictionary Data
-				# We store coordinates as "FACE_X_Y" string ID
+				# We store coordinates as "FACE_X_Y" string ID, so we skip redundancies
 				var tile_id = "%s_%d_%d" % [face_name, x, y]
-				all_tiles[tile_id] = {
-					"face": face_name,
-					"coord_x": x,
-					"coord_y": y,
+				
+				var tile_dict = {
 					"world_x": snapped(centroid.x, 0.0001),
 					"world_y": snapped(centroid.y, 0.0001),
-					"world_z": snapped(centroid.z, 0.0001),
-					"terrain": terrain,
-					"neighbors": _get_neighbors(face, x, y),
-					"is_port": false,
-					"base_id": -1
+					"world_z": snapped(centroid.z, 0.0001)
 				}
+				
+				if terrain != "OCEAN":
+					tile_dict["terrain"] = terrain
+					
+				var neighbors = _get_neighbors(face, x, y)
+				tile_dict["n"] = [neighbors.get("N", ""), neighbors.get("E", ""), neighbors.get("S", ""), neighbors.get("W", "")]
+					
+				all_tiles[tile_id] = tile_dict
 				
 				# Build Mesh Geometry for this tile (A quad = 2 triangles = 4 verts)
 				var v00 = _get_sphere_point(face, (float(x) / RESOLUTION) * 2.0 - 1.0, (float(y) / RESOLUTION) * 2.0 - 1.0).normalized() * RADIUS
