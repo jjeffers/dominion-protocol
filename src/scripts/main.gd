@@ -247,7 +247,11 @@ func _process(delta: float) -> void:
 		if su.is_engaged:
 			states.append("ENGAGED")
 		elif su.current_position != null and su.target_position != null and su.current_position.distance_to(su.target_position) > 0.0001:
-			states.append("MOVING")
+			var move_state = "MOVING"
+			if su.current_terrain_modifier < 1.0:
+				var penalty_pct = int((1.0 - su.current_terrain_modifier) * 100.0)
+				move_state += " (-" + str(penalty_pct) + "% Spd)"
+			states.append(move_state)
 			
 		if su.entrenched:
 			states.append("ENTRENCHED")

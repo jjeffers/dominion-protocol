@@ -39,7 +39,7 @@
 - The base rate of movement on land will be 1 unit width per 10 seconds.
 - A land unit may not overlap the center tile of another unit, where the center tile is the center of the unit's 3x3 bounding box.
 
-#### Terrain Effects on Movement
+#### Terrain Effects Chart (TEC)
 Unit | Terrain | Movement Modifier
 ---|---|---
 Infantry | Plains | 1

@@ -22,6 +22,7 @@ var target_position: Vector3
 
 # 1 tile roughly equals 0.006 units. Move 1 width per 10 seconds.
 var speed_units_per_sec: float = 0.0006
+var current_terrain_modifier: float = 1.0
 
 var path_mesh_instance: MeshInstance3D
 var path_immediate_mesh: ImmediateMesh
@@ -560,6 +561,24 @@ func _process(delta: float) -> void:
 		
 		# Move at constant speed along the arc
 		var step = (speed_units_per_sec * delta) / radius
+		
+		# Terrain Effects Modification
+		current_terrain_modifier = 1.0
+		var p = get_parent()
+		if p and p.has_method("_get_tile_from_vector3"):
+			var tile_id = p._get_tile_from_vector3(current_position)
+			if p.city_tile_cache.has(tile_id):
+				current_terrain_modifier = 1.0
+			else:
+				var terrain = p.map_data.get_terrain(tile_id)
+				match terrain:
+					"FOREST", "DESERT": current_terrain_modifier = 0.5
+					"JUNGLE", "POLAR": current_terrain_modifier = 0.25
+					"MOUNTAIN": current_terrain_modifier = 0.1
+					_: current_terrain_modifier = 1.0
+					
+		step *= current_terrain_modifier
+		
 		if is_engaged:
 			step *= 0.25 # Move at 25% speed while engaged
 			
@@ -570,6 +589,7 @@ func _process(delta: float) -> void:
 		look_at(Vector3.ZERO, Vector3.UP)
 		_draw_path(angle)
 	else:
+		current_terrain_modifier = 1.0
 		if path_immediate_mesh != null:
 			path_immediate_mesh.clear_surfaces()
 			
