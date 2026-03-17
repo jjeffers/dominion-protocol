@@ -174,7 +174,11 @@ func _on_unit_target_synced(unit_name: String, target_pos: Vector3, enemy_target
 			unit.clear_combat_target()
 			unit.set_target(target_pos)
 
+static var skip_mesh_generation: bool = false
+
 func _generate_mesh() -> void:
+	if skip_mesh_generation: return
+	
 	var mesh = load("res://src/data/globe_mesh.res")
 	if mesh:
 		mesh_instance.mesh = mesh

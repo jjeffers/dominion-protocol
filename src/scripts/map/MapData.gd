@@ -9,10 +9,17 @@ const REGIONS_PATH = "res://src/data/region_data.json"
 var _quad_faces: Dictionary = {}
 var _region_map: Dictionary = {}
 
+static var use_mock_data: bool = false
+
 func _init() -> void:
 	_load_data()
 	
 func _load_data() -> void:
+	if use_mock_data:
+		_quad_faces = {"FRONT_0_0": {"terrain": "PLAINS", "world_x": 0, "world_y": 0, "world_z": 1}}
+		_region_map = {"FRONT_0_0": "TestRegion"}
+		return
+		
 	# Load Quadrilateral Grid Metadata
 	if not FileAccess.file_exists(DATA_PATH):
 		push_error("MapData: Quad-Sphere dictionary not found at ", DATA_PATH)

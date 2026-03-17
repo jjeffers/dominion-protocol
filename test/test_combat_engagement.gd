@@ -8,8 +8,17 @@ var mock_view
 var u1
 var u2
 
+func before_all():
+	MapData.use_mock_data = true
+	GlobeView.skip_mesh_generation = true
+
+func after_all():
+	MapData.use_mock_data = false
+	GlobeView.skip_mesh_generation = false
+
 func before_each():
-	mock_view = GlobeView.new()
+	var gv_scene = load("res://src/scenes/map/GlobeView.tscn")
+	mock_view = gv_scene.instantiate()
 	add_child(mock_view)
 	
 	u1 = GlobeUnit.new()
