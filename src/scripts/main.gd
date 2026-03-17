@@ -13,7 +13,9 @@ extends Control
 @onready var unit_type_label: Label = $UnitStatusPanel/VBoxContainer/UnitTypeLabel
 @onready var unit_terrain_label: Label = $UnitStatusPanel/VBoxContainer/UnitTerrainLabel
 @onready var unit_state_label: Label = $UnitStatusPanel/VBoxContainer/UnitStateLabel
-@onready var unit_icon: TextureRect = $UnitStatusPanel/VBoxContainer/UnitIcon
+@onready var unit_icon: TextureRect = $UnitStatusPanel/VBoxContainer/IconMarginContainer/UnitIcon
+@onready var health_bar_fg: ColorRect = $UnitStatusPanel/VBoxContainer/IconMarginContainer/UnitIcon/HealthBarBg/HealthBarFg
+@onready var entrench_bar: ColorRect = $UnitStatusPanel/VBoxContainer/IconMarginContainer/UnitIcon/EntrenchBar
 
 var last_hovered_tile_id: String = ""
 
@@ -246,10 +248,25 @@ func _process(delta: float) -> void:
 			states.append("ENGAGED")
 		elif su.current_position != null and su.target_position != null and su.current_position.distance_to(su.target_position) > 0.0001:
 			states.append("MOVING")
-		elif su.entrenched:
+			
+		if su.entrenched:
 			states.append("ENTRENCHED")
+			entrench_bar.show()
+		else:
+			entrench_bar.hide()
 			
 		unit_state_label.text = " | ".join(states)
+		
+		# Update Health Bar
+		var pct = clamp(su.health / 100.0, 0.0, 1.0)
+		health_bar_fg.anchor_right = pct
+		health_bar_fg.offset_right = 0
+		if pct > 0.5:
+			health_bar_fg.color = Color(0.0, 0.8, 0.2)
+		elif pct > 0.25:
+			health_bar_fg.color = Color(0.8, 0.8, 0.0)
+		else:
+			health_bar_fg.color = Color(0.9, 0.1, 0.1)
 	else:
 		unit_panel.hide()
 		if last_hovered_tile_id != "":

@@ -207,11 +207,48 @@ offset_bottom = -10.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="UnitIcon" type="TextureRect" parent="UnitStatusPanel/VBoxContainer"]
+[node name="IconMarginContainer" type="MarginContainer" parent="UnitStatusPanel/VBoxContainer"]
 layout_mode = 2
 size_flags_vertical = 3
+theme_override_constants/margin_left = 30
+theme_override_constants/margin_top = 30
+theme_override_constants/margin_right = 30
+theme_override_constants/margin_bottom = 30
+
+[node name="UnitIcon" type="TextureRect" parent="UnitStatusPanel/VBoxContainer/IconMarginContainer"]
+layout_mode = 2
 expand_mode = 1
 stretch_mode = 5
+
+[node name="HealthBarBg" type="ColorRect" parent="UnitStatusPanel/VBoxContainer/IconMarginContainer/UnitIcon"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = -15.0
+offset_bottom = -5.0
+grow_horizontal = 2
+color = Color(0.2, 0, 0, 1)
+
+[node name="HealthBarFg" type="ColorRect" parent="UnitStatusPanel/VBoxContainer/IconMarginContainer/UnitIcon/HealthBarBg"]
+layout_mode = 1
+anchors_preset = 9
+anchor_bottom = 1.0
+offset_right = 50.0
+grow_vertical = 2
+color = Color(0, 0.8, 0.2, 1)
+
+[node name="EntrenchBar" type="ColorRect" parent="UnitStatusPanel/VBoxContainer/IconMarginContainer/UnitIcon"]
+visible = false
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = 5.0
+offset_bottom = 15.0
+grow_horizontal = 2
+grow_vertical = 0
+color = Color(0, 0.4, 0, 1)
 
 [node name="UnitTypeLabel" type="Label" parent="UnitStatusPanel/VBoxContainer"]
 layout_mode = 2
