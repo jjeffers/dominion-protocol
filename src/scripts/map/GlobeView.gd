@@ -300,11 +300,17 @@ func _process(delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
 		print("RAW RIGHT CLICK EVENT RECEIVED IN GLOBEVIEW: ", event, " pressed: ", event.pressed)
-	if (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed) or event.is_action_pressed("ui_cancel") or (event is InputEventKey and event.physical_keycode == KEY_ESCAPE and event.pressed):
+	if event.is_action_pressed("ui_cancel") or (event is InputEventKey and event.physical_keycode == KEY_ESCAPE and event.pressed):
 		if selected_unit:
 			selected_unit.set_selected(false)
 			selected_unit = null
 			target_bracket.visible = false
+		if deploying_unit_type != "":
+			deploying_unit_type = ""
+			deployment_ghost.visible = false
+			_update_city_highlights(false)
+			
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 		if deploying_unit_type != "":
 			deploying_unit_type = ""
 			deployment_ghost.visible = false
