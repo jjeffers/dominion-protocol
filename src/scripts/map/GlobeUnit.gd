@@ -469,7 +469,16 @@ func _process(delta: float) -> void:
 	if movement_target_unit != null:
 		if is_instance_valid(movement_target_unit) and not movement_target_unit.is_dead:
 			if movement_target_unit.current_position != null:
-				target_position = movement_target_unit.current_position.normalized() * radius
+				var p = get_parent()
+				if p and p.has_method("_get_tile_from_vector3"):
+					var tile_id = p._get_tile_from_vector3(movement_target_unit.current_position)
+					var centroid = p.map_data.get_centroid(tile_id)
+					if centroid != Vector3.ZERO:
+						target_position = centroid.normalized() * radius
+					else:
+						target_position = movement_target_unit.current_position.normalized() * radius
+				else:
+					target_position = movement_target_unit.current_position.normalized() * radius
 		else:
 			movement_target_unit = null
 			if current_position != null:
