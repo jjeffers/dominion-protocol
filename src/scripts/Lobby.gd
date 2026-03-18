@@ -57,7 +57,7 @@ func _update_ui():
 		elif faction_str == "Red":
 			red_taken = true
 			
-		var display_text = "Player %d - %s" % [id, faction_str]
+		var display_text = "%s - %s" % [p_info.get("name", "Player " + str(id)), faction_str]
 		if id == multiplayer.get_unique_id():
 			display_text += " (You)"
 			

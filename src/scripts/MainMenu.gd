@@ -1,5 +1,7 @@
 extends Control
 
+@onready var player_name_input = $CenterContainer/VBoxContainer/PlayerSettings/HBoxContainer/PlayerNameInput
+
 @onready var host_port_input = $CenterContainer/VBoxContainer/HostSection/HBoxContainer/HostPortInput
 @onready var host_btn = $CenterContainer/VBoxContainer/HostSection/HostButton
 
@@ -35,16 +37,20 @@ func _load_config():
 	if config.load(CONFIG_PATH) == OK:
 		var last_ip = config.get_value("Network", "last_ip", "127.0.0.1")
 		var last_port = config.get_value("Network", "last_port", "7001")
+		var last_name = config.get_value("Network", "player_name", "Commander")
 		
 		join_ip_input.text = last_ip
 		host_port_input.text = str(last_port)
 		join_port_input.text = str(last_port)
+		player_name_input.text = last_name
 
 
 func _save_config(ip: String, port: String):
 	config.set_value("Network", "last_ip", ip)
 	config.set_value("Network", "last_port", port)
+	config.set_value("Network", "player_name", player_name_input.text)
 	config.save(CONFIG_PATH)
+	NetworkManager.local_player_name = player_name_input.text
 
 
 func _on_host_pressed():

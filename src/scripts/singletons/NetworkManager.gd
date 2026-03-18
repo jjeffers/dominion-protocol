@@ -2,6 +2,7 @@ extends Node
 
 var peer = ENetMultiplayerPeer.new()
 var is_host = false
+var local_player_name: String = ""
 
 signal connection_succeeded
 signal connection_failed
@@ -34,7 +35,7 @@ func host_game(port: int) -> Error:
 		print("Hosting on port %d" % port)
 		
 		# Register Host
-		players[1] = { "name": "Host", "faction": "" }
+		players[1] = { "name": local_player_name, "faction": "" }
 		connection_succeeded.emit()
 	else:
 		print("Error hosting on port %d: %d" % [port, error])
@@ -54,6 +55,7 @@ func join_game(ip: String, port: int) -> Error:
 
 func _on_connected_ok():
 	print("Connected to server successfully! Self ID: ", multiplayer.get_unique_id())
+	rpc_id(1, "register_name", local_player_name)
 	connection_succeeded.emit()
 
 func _on_connected_fail():
@@ -105,11 +107,23 @@ func _update_window_title():
 	var id = multiplayer.get_unique_id()
 	if players.has(id):
 		var fac = players[id]["faction"]
+		var disp_name = players[id]["name"]
 		if fac == "":
 			fac = "Unassigned"
-		DisplayServer.window_set_title("Dominion Protocol - Player %d [%s]" % [id, fac])
+		DisplayServer.window_set_title("Dominion Protocol - %s [%s]" % [disp_name, fac])
 	else:
 		DisplayServer.window_set_title("Dominion Protocol - Player %d" % id)
+
+@rpc("any_peer", "call_local", "reliable")
+func register_name(player_name: String):
+	if not is_host:
+		return
+	
+	var sender_id = multiplayer.get_remote_sender_id()
+	if players.has(sender_id):
+		# Prevent incredibly long names or exploits
+		players[sender_id]["name"] = player_name.substr(0, 20)
+		_sync_players_to_all()
 
 @rpc("any_peer", "call_local", "reliable")
 func claim_faction(faction_name: String):
