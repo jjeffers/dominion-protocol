@@ -14,6 +14,7 @@ var config = ConfigFile.new()
 
 func _ready():
 	_load_config()
+	MusicManager.play_music("res://src/assets/audio/Last Orders in the War Room.mp3")
 	
 	host_btn.pressed.connect(_on_host_pressed)
 	join_btn.pressed.connect(_on_join_pressed)

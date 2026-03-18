@@ -405,6 +405,10 @@ func update_render_priorities() -> void:
 		engagement_line.material_override.render_priority = base_render_priority - 1
 
 func spawn(pos: Vector3) -> void:
+	if pos.is_zero_approx():
+		push_error("GlobeUnit: Attempted to spawn unit at Vector3.ZERO")
+		return
+		
 	current_position = pos.normalized() * radius
 	target_position = current_position
 	global_position = current_position

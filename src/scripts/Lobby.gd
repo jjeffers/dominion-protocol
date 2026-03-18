@@ -5,8 +5,13 @@ extends Control
 @onready var red_btn = $CenterContainer/VBoxContainer/HBoxContainer/RedFactionBtn
 @onready var start_btn = $CenterContainer/VBoxContainer/StartGameBtn
 @onready var status_label = $CenterContainer/VBoxContainer/StatusLabel
+@onready var loading_bar = $CenterContainer/VBoxContainer/LoadingBar
 
 var auto_start: bool = false
+var is_loading_game: bool = false
+var is_transitioning: bool = false
+var load_start_time: int = 0
+var main_scene_path: String = "res://src/scenes/main.tscn"
 
 func _ready():
 	_update_ui()
@@ -82,5 +87,55 @@ func _on_start_game():
 		NetworkManager.rpc("start_game")
 
 func _on_game_started():
-	print("Lobby: Transitioning to main.tscn")
-	get_tree().call_deferred("change_scene_to_file", "res://src/scenes/main.tscn")
+	print("Lobby: Starting background load for main.tscn")
+	
+	# Disable interaction
+	start_btn.disabled = true
+	blue_btn.disabled = true
+	red_btn.disabled = true
+	
+	# Show loading bar
+	loading_bar.show()
+	loading_bar.value = 0.0
+	status_label.text = "Loading Resources..."
+	
+	is_loading_game = true
+	load_start_time = Time.get_ticks_msec()
+	
+	var err = ResourceLoader.load_threaded_request(main_scene_path)
+	if err != OK:
+		push_error("Failed to start loading main scene!")
+
+func _process(_delta: float) -> void:
+	if not is_loading_game:
+		return
+		
+	var progress = []
+	var status = ResourceLoader.load_threaded_get_status(main_scene_path, progress)
+	
+	if progress.size() > 0:
+		loading_bar.value = progress[0] * 100.0
+		
+	if status == ResourceLoader.THREAD_LOAD_LOADED:
+		loading_bar.value = 100.0
+		if not is_transitioning:
+			is_transitioning = true
+			var elapsed = Time.get_ticks_msec() - load_start_time
+			var client_id = multiplayer.get_unique_id() if multiplayer.has_multiplayer_peer() else 0
+			print("[Client %d] Resource loading completed in %d ms" % [client_id, elapsed])
+			
+			if MusicManager.bgm_player.playing:
+				MusicManager.fade_finished.connect(self._on_fade_finished, CONNECT_ONE_SHOT)
+				MusicManager.fade_out(2.0)
+			else:
+				_on_fade_finished()
+				
+	elif status == ResourceLoader.THREAD_LOAD_FAILED or status == ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+		is_loading_game = false
+		push_error("Failed to load main scene during threaded load!")
+		status_label.text = "Failed to load game!"
+
+func _on_fade_finished() -> void:
+	is_loading_game = false
+	# Allow a small frame delay to ensure 100% renders before freezing for scene transition
+	get_tree().call_deferred("change_scene_to_packed", ResourceLoader.load_threaded_get(main_scene_path))

@@ -29,10 +29,10 @@ func before_each():
 	NetworkManager.players[local_id] = {"faction": "Blue"}
 
 func after_each():
-	multiplayer.multiplayer_peer = null
-	var local_id = multiplayer.get_unique_id()
-	if NetworkManager.players.has(local_id):
+	var local_id = multiplayer.get_unique_id() if multiplayer.has_multiplayer_peer() else 0
+	if local_id != 0 and NetworkManager.players.has(local_id):
 		NetworkManager.players.erase(local_id)
+	multiplayer.multiplayer_peer = null
 
 func test_enemy_unit_order_rejected():
 	u1.faction_name = "Red"
