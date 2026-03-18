@@ -29,6 +29,10 @@
                     "location": "Paris"
                 },
                 {
+                    "type": "armor",
+                    "location": "Paris"
+                },
+                {
                     "type": "infantry",
                     "entrenched": true,
                     "location": "Luxembourg"
@@ -108,6 +112,18 @@
                     "latitude": 50.9,
                     "longitude": 7.0,
                     "notes": "Near Cologne"
+                },
+                {
+                    "type": "armor",
+                    "latitude": 52.9,
+                    "longitude": 7.5,
+                    "notes": "Between Hamburg and Amsterdam"
+                },
+                {
+                    "type": "armor",
+                    "latitude": 52.8,
+                    "longitude": 6.5,
+                    "notes": "Between Hamburg and Amsterdam"
                 }
             ]
         }

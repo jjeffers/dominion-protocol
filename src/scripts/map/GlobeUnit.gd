@@ -10,7 +10,22 @@ var base_render_priority: int = 10
 var current_tile_id: int = -1
 
 var health: float = 100.0
-var unit_type: String = "Infantry"
+var unit_type: String = "Infantry" :
+	set(value):
+		unit_type = value.capitalize()
+		_update_texture()
+
+func _update_texture() -> void:
+	if not sprite: return
+	var tex_path = "res://src/assets/extracted_sprite.png"
+	if unit_type == "Armor":
+		tex_path = "res://src/assets/armor_sprite.png"
+	var tex = load(tex_path) as Texture2D
+	if tex:
+		sprite.texture = tex
+		if sprite.material_override != null and sprite.material_override is ShaderMaterial:
+			sprite.material_override.set_shader_parameter("tex_albedo", tex)
+
 var combat_target: GlobeUnit = null
 var movement_target_unit: GlobeUnit = null
 var is_engaged: bool = false
@@ -46,6 +61,31 @@ var last_damage_time: float = 0.0
 var entrenched: bool = false
 var time_motionless: float = 0.0
 var time_in_city: float = 0.0
+
+const TEC_MODIFIERS: Dictionary = {
+	"Infantry": {
+		"PLAINS": {"movement": 1.0, "defense": 1.0},
+		"FOREST": {"movement": 0.5, "defense": 0.75},
+		"JUNGLE": {"movement": 0.25, "defense": 0.5},
+		"DESERT": {"movement": 0.5, "defense": 1.0},
+		"MOUNTAIN": {"movement": 0.1, "defense": 0.5},
+		"POLAR": {"movement": 0.25, "defense": 1.0},
+		"CITY": {"movement": 1.0, "defense": 0.5},
+		"OCEAN": {"movement": 1.5, "defense": 1.5},
+		"LAKE": {"movement": 1.5, "defense": 1.5}
+	},
+	"Armor": {
+		"PLAINS": {"movement": 1.5, "defense": 1.0},
+		"FOREST": {"movement": 0.5, "defense": 0.75},
+		"JUNGLE": {"movement": 0.25, "defense": 0.75},
+		"DESERT": {"movement": 1.0, "defense": 1.0},
+		"MOUNTAIN": {"movement": 0.1, "defense": 1.0},
+		"POLAR": {"movement": 0.25, "defense": 1.0},
+		"CITY": {"movement": 1.0, "defense": 0.75},
+		"OCEAN": {"movement": 1.5, "defense": 1.5},
+		"LAKE": {"movement": 1.5, "defense": 1.5}
+	}
+}
 
 func _init() -> void:
 	add_to_group("units")
@@ -272,6 +312,7 @@ void fragment() {
 """
 	outline_mat.shader = outline_shader
 	outline_mat.resource_local_to_scene = true
+	_update_texture()
 	outline_mat.set_shader_parameter("tex_albedo", sprite.texture)
 	outline_mat.set_shader_parameter("health_pct", 1.0)
 	outline_mat.set_shader_parameter("is_entrenched", false)
@@ -368,19 +409,26 @@ func take_damage(amount: float) -> void:
 	if is_dead:
 		return
 		
-	# Base defensiveness modifications
+	var current_terrain = "PLAINS"
+	var p = get_parent()
+	if p and p.has_method("_get_tile_from_vector3"):
+		var tile_id = p._get_tile_from_vector3(current_position)
+		if p.get("city_tile_cache") != null and p.city_tile_cache.has(tile_id):
+			current_terrain = "CITY"
+		elif p.get("map_data") != null:
+			current_terrain = p.map_data.get_terrain(tile_id)
+			
+	var u_type = unit_type.capitalize()
+	if not TEC_MODIFIERS.has(u_type):
+		u_type = "Infantry"
+		
 	var defense_modifier = 1.0
+	if TEC_MODIFIERS[u_type].has(current_terrain):
+		defense_modifier = TEC_MODIFIERS[u_type][current_terrain]["defense"]
 	
 	if entrenched:
-		defense_modifier -= 0.5
-		
-	# City defensiveness modification
-	var p = get_parent()
-	if p and p.has_method("_get_tile_from_vector3") and "city_tile_cache" in p:
-		var tile_id = p._get_tile_from_vector3(current_position)
-		if p.city_tile_cache.has(tile_id):
-			defense_modifier -= 0.25
-			
+		defense_modifier *= 0.5
+	
 	# Ensure damage never goes negative
 	defense_modifier = max(0.0, defense_modifier)
 	
@@ -500,12 +548,13 @@ func _process(delta: float) -> void:
 	if not in_motion:
 		time_motionless += delta
 		if time_motionless >= 30.0:
-			entrenched = true
-			if sprite and sprite.material_override is ShaderMaterial:
-				sprite.material_override.set_shader_parameter("is_entrenched", true)
+			if unit_type == "infantry":
+				entrenched = true
+				if sprite and sprite.material_override is ShaderMaterial:
+					sprite.material_override.set_shader_parameter("is_entrenched", true)
 		
 		# Health Recovery Logic (Only counts while resting in a friendly city)
-		if not is_dead and health < 100.0:
+		if not is_dead and health < 100.0 and not is_engaged:
 			if current_position != null:
 				var p = get_parent()
 				if p and p.has_method("_get_tile_from_vector3"):
@@ -563,7 +612,8 @@ func _process(delta: float) -> void:
 					combat_timer += delta
 					if combat_timer >= 5.0:
 						combat_timer -= 5.0
-						combat_target.take_damage(15.0)
+						var dmg = 25.0 if unit_type.capitalize() == "Armor" else 15.0
+						combat_target.take_damage(dmg)
 						
 					# Defender advantage
 					if not combat_target.is_engaged and not combat_target.is_dead:
@@ -611,31 +661,28 @@ func _process(delta: float) -> void:
 		var step = (speed_units_per_sec * delta) / radius
 		
 		# Terrain Effects Modification
+		var u_type = unit_type.capitalize()
+		if not TEC_MODIFIERS.has(u_type):
+			u_type = "Infantry"
+		
 		current_terrain_modifier = 1.0
 		var p = get_parent()
 		if p and p.has_method("_get_tile_from_vector3"):
 			var tile_id = p._get_tile_from_vector3(current_position)
-			if p.city_tile_cache.has(tile_id):
-				current_terrain_modifier = 1.0
+			if p.get("city_tile_cache") != null and p.city_tile_cache.has(tile_id):
+				current_terrain_modifier = TEC_MODIFIERS[u_type]["CITY"]["movement"]
 				_set_seaborne(false)
 			else:
 				var terrain = p.map_data.get_terrain(tile_id)
-				match terrain:
-					"OCEAN", "LAKE": 
-						current_terrain_modifier = 1.5
-						_set_seaborne(true)
-					"FOREST", "DESERT": 
-						current_terrain_modifier = 0.5
-						_set_seaborne(false)
-					"JUNGLE", "POLAR": 
-						current_terrain_modifier = 0.25
-						_set_seaborne(false)
-					"MOUNTAIN": 
-						current_terrain_modifier = 0.1
-						_set_seaborne(false)
-					_: 
-						current_terrain_modifier = 1.0
-						_set_seaborne(false)
+				if terrain == "OCEAN" or terrain == "LAKE":
+					_set_seaborne(true)
+				else:
+					_set_seaborne(false)
+					
+				if TEC_MODIFIERS[u_type].has(terrain):
+					current_terrain_modifier = TEC_MODIFIERS[u_type][terrain]["movement"]
+				else:
+					current_terrain_modifier = 1.0
 					
 		step *= current_terrain_modifier
 		

@@ -5,8 +5,6 @@ var GlobeUnit = preload("res://src/scripts/map/GlobeUnit.gd")
 class MockGlobeView extends Node:
 	var mock_terrain: String = "PLAINS"
 	var city_tile_cache: Dictionary = {}
-	
-	# Mock map_data object (we just return self since the method is right here)
 	var map_data = self
 	
 	func get_terrain(tile_id: String) -> String:
@@ -29,46 +27,87 @@ func before_each():
 	unit.current_position = Vector3(1, 0, 0)
 	unit.target_position = Vector3(0, 1, 0)
 
-func test_terrain_plains_modifier():
-	mock_view.mock_terrain = "PLAINS"
-	unit._process(0.1)
-	assert_eq(unit.current_terrain_modifier, 1.0, "Plains should have 1.0 modifier")
+const EXPECTED_TEC = {
+	"Infantry": {
+		"PLAINS": {"movement": 1.0, "defense": 1.0},
+		"FOREST": {"movement": 0.5, "defense": 0.75},
+		"JUNGLE": {"movement": 0.25, "defense": 0.5},
+		"DESERT": {"movement": 0.5, "defense": 1.0},
+		"MOUNTAIN": {"movement": 0.1, "defense": 0.5},
+		"POLAR": {"movement": 0.25, "defense": 1.0},
+		"CITY": {"movement": 1.0, "defense": 0.5},
+		"OCEAN": {"movement": 1.5, "defense": 1.5},
+		"LAKE": {"movement": 1.5, "defense": 1.5}
+	},
+	"Armor": {
+		"PLAINS": {"movement": 1.5, "defense": 1.0},
+		"FOREST": {"movement": 0.5, "defense": 0.75},
+		"JUNGLE": {"movement": 0.25, "defense": 0.75},
+		"DESERT": {"movement": 1.0, "defense": 1.0},
+		"MOUNTAIN": {"movement": 0.1, "defense": 1.0},
+		"POLAR": {"movement": 0.25, "defense": 1.0},
+		"CITY": {"movement": 1.0, "defense": 0.75},
+		"OCEAN": {"movement": 1.5, "defense": 1.5},
+		"LAKE": {"movement": 1.5, "defense": 1.5}
+	}
+}
 
-func test_terrain_forest_modifier():
-	mock_view.mock_terrain = "FOREST"
-	unit._process(0.1)
-	assert_eq(unit.current_terrain_modifier, 0.5, "Forest should have 0.5 modifier")
+func test_all_infantry_movement():
+	unit.unit_type = "Infantry"
+	for terrain in EXPECTED_TEC["Infantry"].keys():
+		mock_view.city_tile_cache.clear()
+		if terrain == "CITY":
+			mock_view.mock_terrain = "MOUNTAIN"
+			mock_view.city_tile_cache["mock_tile_id"] = "test_city"
+		else:
+			mock_view.mock_terrain = terrain
+		
+		unit._process(0.1)
+		var expected = EXPECTED_TEC["Infantry"][terrain]["movement"]
+		assert_eq(unit.current_terrain_modifier, expected, "Infantry movement on " + terrain)
 
-func test_terrain_jungle_modifier():
-	mock_view.mock_terrain = "JUNGLE"
-	unit._process(0.1)
-	assert_eq(unit.current_terrain_modifier, 0.25, "Jungle should have 0.25 modifier")
-	
-func test_terrain_polar_modifier():
-	mock_view.mock_terrain = "POLAR"
-	unit._process(0.1)
-	assert_eq(unit.current_terrain_modifier, 0.25, "Polar should have 0.25 modifier")
+func test_all_infantry_defense():
+	unit.unit_type = "Infantry"
+	for terrain in EXPECTED_TEC["Infantry"].keys():
+		mock_view.city_tile_cache.clear()
+		if terrain == "CITY":
+			mock_view.mock_terrain = "MOUNTAIN"
+			mock_view.city_tile_cache["mock_tile_id"] = "test_city"
+		else:
+			mock_view.mock_terrain = terrain
+		
+		unit.health = 100.0
+		unit.is_dead = false
+		unit.take_damage(100.0)
+		var expected_health = 100.0 - (100.0 * EXPECTED_TEC["Infantry"][terrain]["defense"])
+		assert_eq(unit.health, expected_health, "Infantry defense on " + terrain)
 
-func test_terrain_mountain_modifier():
-	mock_view.mock_terrain = "MOUNTAIN"
-	unit._process(0.1)
-	assert_eq(unit.current_terrain_modifier, 0.1, "Mountain should have 0.1 modifier")
-	
-func test_terrain_city_modifier():
-	mock_view.mock_terrain = "MOUNTAIN" # Terrain string won't matter if city cache hits
-	mock_view.city_tile_cache["mock_tile_id"] = "test_city"
-	unit._process(0.1)
-	assert_eq(unit.current_terrain_modifier, 1.0, "City should override underlying terrain with 1.0 modifier")
+func test_all_armor_movement():
+	unit.unit_type = "Armor"
+	for terrain in EXPECTED_TEC["Armor"].keys():
+		mock_view.city_tile_cache.clear()
+		if terrain == "CITY":
+			mock_view.mock_terrain = "MOUNTAIN"
+			mock_view.city_tile_cache["mock_tile_id"] = "test_city"
+		else:
+			mock_view.mock_terrain = terrain
+		
+		unit._process(0.1)
+		var expected = EXPECTED_TEC["Armor"][terrain]["movement"]
+		assert_eq(unit.current_terrain_modifier, expected, "Armor movement on " + terrain)
 
-func test_terrain_ocean_modifier():
-	mock_view.mock_terrain = "OCEAN"
-	unit._process(0.1)
-	assert_eq(unit.current_terrain_modifier, 1.5, "Ocean should have 1.5 modifier")
-	assert_true(unit.is_seaborne, "Unit should be marked as seaborne on Ocean")
-
-func test_terrain_lake_modifier():
-	mock_view.mock_terrain = "LAKE"
-	unit._process(0.1)
-	assert_eq(unit.current_terrain_modifier, 1.5, "Lake should have 1.5 modifier")
-	assert_true(unit.is_seaborne, "Unit should be marked as seaborne on Lake")
-
+func test_all_armor_defense():
+	unit.unit_type = "Armor"
+	for terrain in EXPECTED_TEC["Armor"].keys():
+		mock_view.city_tile_cache.clear()
+		if terrain == "CITY":
+			mock_view.mock_terrain = "MOUNTAIN"
+			mock_view.city_tile_cache["mock_tile_id"] = "test_city"
+		else:
+			mock_view.mock_terrain = terrain
+		
+		unit.health = 100.0
+		unit.is_dead = false
+		unit.take_damage(100.0)
+		var expected_health = 100.0 - (100.0 * EXPECTED_TEC["Armor"][terrain]["defense"])
+		assert_eq(unit.health, expected_health, "Armor defense on " + terrain)

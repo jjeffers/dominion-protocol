@@ -1,0 +1,10 @@
+from PIL import Image
+print('Starting extraction')
+img = Image.open('src/assets/spritesheet.png')
+armor_img = img.crop((0, 192, 32, 192+32))
+padded = Image.new('RGBA', (34, 34), (0, 0, 0, 255))
+white_bg = Image.new('RGBA', (32, 32), (255, 255, 255, 255))
+padded.paste(white_bg, (1, 1))
+padded.paste(armor_img, (1, 1), armor_img)
+padded.save('src/assets/armor_sprite.png')
+print('Saved armor_sprite.png')

@@ -1280,6 +1280,8 @@ func _get_tile_width(tile_id: int) -> float:
 
 func _generate_faction_borders() -> void:
 	print("GlobeView: Generating Dynamic Faction Borders...")
+	outline_immediate_mesh.clear_surfaces()
+	
 	# Track edges we've already drawn so we don't draw overlapping lines
 	var drawn_edges = {}
 	var edges_by_faction = {}

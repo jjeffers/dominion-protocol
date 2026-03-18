@@ -231,6 +231,7 @@ func _process(delta: float) -> void:
 		
 		var su = globe_view.selected_unit
 		unit_type_label.text = su.unit_type
+		unit_icon.texture = su.sprite.texture
 		
 		# Terrain Lookup
 		var u_tile = globe_view._get_tile_from_vector3(su.current_position)

@@ -101,6 +101,23 @@ func _init() -> void:
 		var raw_pos = _lat_lon_to_vector3(deg_to_rad(lat), deg_to_rad(lon), 1.02)
 		var tile_id = _get_tile_from_vector3(raw_pos)
 		
+		# Snap to nearest land if ocean
+		if map_data.get_terrain(tile_id) == "OCEAN":
+			var q = [tile_id]
+			var visited = {tile_id: true}
+			var found_land = -1
+			while q.size() > 0:
+				var curr = q.pop_front()
+				if map_data.get_terrain(curr) != "OCEAN":
+					found_land = curr
+					break
+				for n in map_data.get_neighbors(curr):
+					if not visited.has(n):
+						visited[n] = true
+						q.append(n)
+			if found_land != -1:
+				tile_id = found_land
+
 		cost_map[tile_id] = 0.0
 		region_map[tile_id] = city_name
 		pq.push(PQItem.new(0.0, tile_id, city_name))

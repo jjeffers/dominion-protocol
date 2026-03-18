@@ -8,6 +8,16 @@ var mock_view
 var u1
 var u2
 
+var city_tile_cache: Dictionary = {}
+
+var map_data = self
+
+func _get_tile_from_vector3(pos: Vector3) -> int:
+	return 12345
+
+func get_terrain(tile_id: int) -> String:
+	return "PLAINS"
+
 func before_all():
 	MapData.use_mock_data = true
 	GlobeView.skip_mesh_generation = true
@@ -50,6 +60,27 @@ func test_combat_engagement_locks_target():
 	# Assert: It stopped moving entirely to fight
 	assert_true(u1.is_engaged)
 	assert_eq(u1.combat_target, u2)
+
+func test_combat_damage_armor():
+	u1.unit_type = "Armor"
+	u1.set_combat_target(u2)
+	u2.health = 100.0
+	u1.combat_timer = 5.0 # force attack next frame
+	u1._process(0.1)
+	assert_eq(u2.health, 75.0, "Armor should deal 25 damage")
+
+func test_armor_attacks_entrenched_infantry_in_city():
+	u1.unit_type = "Armor"
+	u2.unit_type = "Infantry"
+	u2.entrenched = true
+	city_tile_cache[12345] = "test_city"
+	u1.set_combat_target(u2)
+	u2.health = 100.0
+	u1.combat_timer = 5.0 # force attack next frame
+	u1._process(0.1)
+	
+	# Base Armor damage = 25. Infantry City Defense = 0.5, Entrenched = 0.5. Total damage = 25 * 0.5 * 0.5 = 6.25
+	assert_eq(u2.health, 93.75, "Entrenched Infantry in City should take 6.25 damage from Armor")
 
 func test_right_click_bypasses_unit_area():
 	# Let physics space sync so Map collider is ready

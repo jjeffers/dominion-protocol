@@ -39,9 +39,12 @@ func _load_data() -> void:
 		var r_json = JSON.new()
 		if r_json.parse(rf.get_as_text()) == OK:
 			var string_regions = r_json.get_data()
-			# Convert string keys like "FRONT_0_0" to UUID integers for faster lookups later
+			# Convert string numeric keys directly to integers
 			for key in string_regions:
-				_region_map[get_uuid_from_string(key)] = string_regions[key]
+				if key.contains("_"):
+					_region_map[get_uuid_from_string(key)] = string_regions[key]
+				else:
+					_region_map[key.to_int()] = string_regions[key]
 			print("MapData: Successfully loaded ", _region_map.size(), " regional claims.")
 		else:
 			push_error("MapData: Failed to parse Regions JSON!")

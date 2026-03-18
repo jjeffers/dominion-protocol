@@ -92,3 +92,33 @@ func test_no_recovery_if_not_in_friendly_city():
 		u1._process(0.1)
 		
 	assert_almost_eq(u1.health, 50.0, 0.001, "Health should not recover in enemy or neutral city.")
+
+func test_no_recovery_if_engaged():
+	await wait_physics_frames(2)
+	
+	u1.health = 50.0
+	
+	var u2 = load(GlobeUnitPath).new()
+	mock_view.add_child(u2)
+	u2.faction_name = "Red"
+	u2.current_position = Vector3(1, 0, 0)
+	
+	u1.set_combat_target(u2)
+	u1.is_engaged = true
+	
+	mock_view.active_scenario = {
+		"factions": {
+			"Blue": {
+				"cities": ["BlueCity"]
+			}
+		}
+	}
+	
+	var tile_id = mock_view._get_tile_from_vector3(u1.current_position)
+	mock_view.city_tile_cache[tile_id] = "BlueCity"
+	
+	# Simulate 35 seconds
+	for i in range(350):
+		u1._process(0.1)
+		
+	assert_almost_eq(u1.health, 50.0, 0.001, "Health should not recover when unit is engaged in combat.")

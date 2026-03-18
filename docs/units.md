@@ -34,28 +34,63 @@
 - A unit engaged with an enemy unit will show a small black arrow in the top left corner of the unit. The arrow will point in the direction of the engaged unit.
 - A land unit engaged in combat will move at 25% normal speed.
 
-
+### Recovery
+- A land unit recovers health at a rate of 10 points per 30 seconds if it is within the 3x3 area of a friendly city.
+- Recovery only occurs if the unit is not engaged in combat and the unit is stationary.
 
 ### Movement
 - The base rate of movement on land will be 1 unit width per 10 seconds.
 - A land unit may not overlap the center tile of another unit, where the center tile is the center of the unit's 3x3 bounding box.
 - A land unit may move onto ocean terrain: the unit becomes seaborne, which is indicated by it's status "MOVING" becomes "SEA TRANSPORT", and the base movement rate becomes 1.5.
 
-#### Terrain Effects Chart (TEC)
-Unit | Terrain | Movement Modifier
----|---|---
-Infantry | Plains | 1
-Infantry | Forest | 0.5
-Infantry | Jungle | 0.25
-Infantry | Desert | 0.5
-Infantry | Mountains | 0.1
-Infantry | Polar | 0.25
-Infantry | City | 1
-Infantry | Ocean | 1.5
-
 
 ### Infantry
 - Infantry units have a relative movement rate of 1.
 - Infantry will inflict 15 damage per 5 seconds on units it is engaged with.
 - Infantry units that remain motionless for 30 seconds become entrenched. An entrenched unit reduces incoming damage by 50%. Moving that unit will break the entrenchment. Entrenched units have a solid dark green bar at the bottom of their unit icon image.
-- Infantry units cost 10 credits to purchase.
+- Infantry units cost 5 credits to purchase.
+
+### Armor
+- Armor units have a relative movement rate of 2.5.
+- Armor will inflict 25 damage per 5 seconds on units it is engaged with.
+- Armor units cost 10 credits to purchase.
+
+
+#### Terrain Effects Chart (TEC)
+Unit | Terrain | Movement Modifier | Defensive Modifier 
+---|---|--- | --
+Infantry | Plains | 1 | 1 
+Infantry | Forest | 0.5 | 0.75 
+Infantry | Jungle | 0.25 | 0.5
+Infantry | Desert | 0.5 | 1.0 
+Infantry | Mountains | 0.1 | 0.50
+Infantry | Polar | 0.25 | 1.0
+Infantry | City | 1 | 0.50 
+Infantry | Ocean | 1.5 | 1.5 
+Armor | Plains | 1.5 | 1.0  
+Armor | Forest | 0.5 | 0.75 
+Armor | Jungle | 0.25 | 0.75 
+Armor | Desert | 1.0  | 1.0
+Armor | Mountains | 0.1 | 1.0 
+Armor | Polar | 0.25 | 1.0 
+Armor | City | 1.0 | 0.75 
+Armor | Ocean | 1.5 | 1.5 
+
+##### TEC Terms
+- Movement Modifier: The factor by which the base movement rate is multiplied. For example, an armor unit on plains terrain has a movement rate of 1.5 * 1.0 = 1.5 unit widths per 10 seconds.
+- Defensive Modifier: The factor by which incoming damage is multiplied. For example, an armor unit on plains terrain takes 1.0 * damage per 5 seconds on units it is engaged with. (Low numbers are better for the defender.)
+
+## Air Units
+- Air units do not have health, they have instead 2 states: READY and UNREADY.
+
+- An air unit icon represents the "base of operations" for an air unit.
+- Air units cost 15 credits.
+- Air units have an operations radius of 10*(land unit icon width).
+- When an air unit is selected, the UI draws a red circle centered on the air unit with a radius equal to the operations radius.
+
+### Air Unit Operations
+- When an air unit is selected and and that air unit is READY, right clicking on an enemy unit within the operations radius will order an AIR STRIKE.
+    - AIR STRIKE orders targeting land units will do damage to the land unit equal to 30% of the target unit's health before applying any defensive modifiers.
+    - AIR STRIKE orders targeting sea units will do 30 points of damage.
+- When an air unit is selected and and that air unit is READY, right clicking on a friendly city will REDEPLOY the air unit to the city, placing that air unit into one of the 3x3 sections. The radius for the REDPLOY order is x10 the operations radius.
+
