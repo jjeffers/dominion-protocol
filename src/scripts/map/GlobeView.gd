@@ -1260,7 +1260,12 @@ func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
 						var has_money = fac_data.get("money", 0.0) >= deploying_unit_cost
 						var on_cooldown = city_cooldowns.has(c_name)
 						var is_full = _is_city_full(c_name)
-						if has_city and has_money and not on_cooldown and not is_full:
+						
+						var valid_terrain = true
+						if deploying_unit_type == "Cruiser":
+							valid_terrain = _city_has_water(c_name)
+							
+						if has_city and has_money and not on_cooldown and not is_full and valid_terrain:
 							is_valid = true
 							
 				if is_valid:
@@ -2044,6 +2049,29 @@ func _spawn_border_units(count: int, faction1: String, faction2: String, faction
 		unit.spawn(raw_pos)
 		units_list.append(unit)
 		cullable_nodes.append(unit)
+
+func _city_has_water(c_name: String) -> bool:
+	if not cached_city_data.has(c_name):
+		return false
+		
+	var city_data = cached_city_data[c_name]
+	var lat = city_data.get("latitude")
+	var lon = city_data.get("longitude")
+	if lat == null or lon == null:
+		return false
+		
+	var base_raw_pos = _lat_lon_to_vector3(deg_to_rad(lat), deg_to_rad(lon), radius)
+	var tile_id = _get_tile_from_vector3(base_raw_pos)
+	
+	var candidates = [tile_id]
+	candidates.append_array(map_data.get_neighbors(tile_id))
+	
+	for candidate_id in candidates:
+		var terrain = map_data.get_terrain(candidate_id)
+		if terrain == "OCEAN" or terrain == "LAKE":
+			return true
+			
+	return false
 
 func _is_city_full(c_name: String) -> bool:
 	if not cached_city_data.has(c_name):
