@@ -665,11 +665,11 @@ func _process(delta: float) -> void:
 		if is_instance_valid(combat_target) and not combat_target.is_dead:
 			if current_position != null and combat_target.current_position != null:
 				var dist = current_position.distance_to(combat_target.current_position)
-				if dist < 0.012:
+				if dist < 0.022:
 					# We have a valid overlap. Process combat.
 					
 					# Hard stop if we hit max overlap (center tile collision)
-					if dist < 0.004:
+					if dist < 0.012:
 						in_motion = false
 					
 					# Calculate direction to target in local space
@@ -715,7 +715,7 @@ func _process(delta: float) -> void:
 		for other in all_units:
 			if other != self and is_instance_valid(other) and not other.is_dead:
 				if other.faction_name != "" and self.faction_name != "" and other.faction_name != self.faction_name:
-					if current_position.distance_to(other.current_position) < 0.012:
+					if current_position.distance_to(other.current_position) < 0.022:
 						if in_motion:
 							# Only engage if we are actively moving towards them, not running away
 							var dist_now = current_position.distance_to(other.current_position)
