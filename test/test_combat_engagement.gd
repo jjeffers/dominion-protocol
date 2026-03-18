@@ -117,3 +117,39 @@ func test_right_click_bypasses_unit_area():
 	multiplayer.multiplayer_peer = null
 	if NetworkManager.players.has(local_id):
 		NetworkManager.players.erase(local_id)
+
+func test_cruiser_multi_directional_engagement():
+	u1.unit_type = "Cruiser"
+	u2.unit_type = "Cruiser"
+	u1.radius = 1.0
+	u2.radius = 1.0
+	var base_pos = Vector3(0, 0, 1.0)
+	
+	# Approaching from purely North, South, East, West (locally tangent to Z=1)
+	var dirs = [
+		Vector3(0, 0.011, 0),   # North
+		Vector3(0, -0.011, 0),  # South
+		Vector3(0.011, 0, 0),   # East
+		Vector3(-0.011, 0, 0)   # West
+	]
+	
+	for dir in dirs:
+		# Reset state
+		u1.is_engaged = false
+		u2.is_engaged = false
+		u1.clear_combat_target()
+		u2.clear_combat_target()
+		
+		# Place target static
+		u2.current_position = base_pos
+		u2.target_position = base_pos
+		
+		# Place attacker just within the 0.012 overlap threshold
+		u1.current_position = (base_pos + dir).normalized()
+		
+		# Lock target and process the engine tick to trigger distance evaluation
+		u1.set_combat_target(u2)
+		u1._process(0.1)
+		
+		# Verify the threshold triggered successfully regardless of which XYZ plane they approached on
+		assert_true(u1.is_engaged, "Cruiser failed to engage target when approaching from relative vector: " + str(dir))
