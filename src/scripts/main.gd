@@ -34,6 +34,7 @@ const ECONOMY_INTERVAL: float = 10.0
 var capture_banner: Label
 var banner_timer: float = 0.0
 var victory_banner: Label
+var air_ops_prompt: Label
 
 const TERRAIN_COLORS: Dictionary = {
 	"OCEAN": Color("#1f679c"),
@@ -113,6 +114,20 @@ func _ready() -> void:
 	victory_banner.add_theme_constant_override("outline_size", 12)
 	victory_banner.hide()
 	add_child(victory_banner)
+	
+	# Setup Air Ops Prompt
+	air_ops_prompt = Label.new()
+	air_ops_prompt.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	air_ops_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	air_ops_prompt.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	air_ops_prompt.position.y = -60
+	air_ops_prompt.add_theme_font_size_override("font_size", 28)
+	air_ops_prompt.add_theme_color_override("font_color", Color.WHITE)
+	air_ops_prompt.add_theme_color_override("font_outline_color", Color.BLACK)
+	air_ops_prompt.add_theme_constant_override("outline_size", 6)
+	air_ops_prompt.text = "[A] - Air Strike | [R] - Redeploy | [ESC] - Cancel"
+	air_ops_prompt.hide()
+	add_child(air_ops_prompt)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:
@@ -216,6 +231,21 @@ func _on_victory_declared(winning_faction: String) -> void:
 	victory_banner.text = "%s WINS!" % winning_faction.to_upper()
 	victory_banner.show()
 
+func post_news_event(msg: String, involved_factions: Array) -> void:
+	print(">>> NEWS EVENT: ", msg)
+	var local_fac = ""
+	var nm = get_node_or_null("/root/NetworkManager")
+	if nm and multiplayer.has_multiplayer_peer():
+		var local_id = multiplayer.get_unique_id()
+		if nm.players.has(local_id):
+			local_fac = nm.players[local_id].get("faction", "")
+			
+	if local_fac in involved_factions or local_fac == "":
+		capture_banner.text = msg
+		capture_banner.modulate.a = 1.0
+		capture_banner.show()
+		banner_timer = 10.0
+
 func _process(delta: float) -> void:
 	if banner_timer > 0.0:
 		banner_timer -= delta
@@ -245,6 +275,16 @@ func _process(delta: float) -> void:
 			
 		# State Computation
 		var states = ["Health: " + str(int(su.health)) + "%"]
+		if su.get("unit_type") == "Air":
+			if su.get("is_air_ready"):
+				states.append("READY")
+				air_ops_prompt.show()
+			else:
+				states.append("UNREADY")
+				air_ops_prompt.hide()
+		else:
+			air_ops_prompt.hide()
+				
 		if su.is_engaged:
 			states.append("ENGAGED")
 		elif su.current_position != null and su.target_position != null and su.current_position.distance_to(su.target_position) > 0.0001:
@@ -281,6 +321,7 @@ func _process(delta: float) -> void:
 			health_bar_fg.color = Color(0.9, 0.1, 0.1)
 	else:
 		unit_panel.hide()
+		air_ops_prompt.hide()
 		if last_hovered_tile_id >= 0:
 			terrain_panel.show()
 
@@ -319,8 +360,9 @@ func sync_economy(new_scenario_data: Dictionary) -> void:
 func _update_economy_ui() -> void:
 	var local_id = multiplayer.get_unique_id() if multiplayer.has_multiplayer_peer() else 0
 	var local_faction = ""
-	if NetworkManager.players.has(local_id):
-		local_faction = NetworkManager.players[local_id].get("faction", "")
+	var nm = get_node_or_null("/root/NetworkManager")
+	if nm and nm.players.has(local_id):
+		local_faction = nm.players[local_id].get("faction", "")
 		
 	var credits = 0.0
 	var controlled_cities = 0

@@ -89,8 +89,25 @@ Armor | Ocean | 1.5 | 1.5
 - When an air unit is selected, the UI draws a red circle centered on the air unit with a radius equal to the operations radius.
 
 ### Air Unit Operations
-- When an air unit is selected and and that air unit is READY, right clicking on an enemy unit within the operations radius will order an AIR STRIKE.
-    - AIR STRIKE orders targeting land units will do damage to the land unit equal to 30% of the target unit's health before applying any defensive modifiers.
-    - AIR STRIKE orders targeting sea units will do 30 points of damage.
-- When an air unit is selected and and that air unit is READY, right clicking on a friendly city will REDEPLOY the air unit to the city, placing that air unit into one of the 3x3 sections. The radius for the REDPLOY order is x10 the operations radius.
+- When an air unit is selected and and that air unit is READY, operations can be selectd by using the keyboard:
+    - 'a' orders an AIR STRIKE.
+    - 'r' orders a REDEPLOY.
+#### AIR STRIKE
+- AIR STRIKE orders targeting land units will do damage to the land unit equal to 30% of the target unit's health before applying any defensive modifiers.
+- AIR STRIKE orders targeting sea units will do 30 points of damage.
+- After the AIR STRIKE (successful or not) the air unit becomes UNREADY.
 
+#### REDEPLOY
+- Choosing REDEPLOY will enter a mode where:
+    - the redeoploy radius is indicated by a green circle centered on the city the air unit is in. The radius for the REDPLOY order is x10 the operations radius.
+    - Eligible cities for REDEPLOY are marked with colored highlights where the color matches the faction color.
+    - the reployment icon is shown following the mouse 
+    - clicking on an eligble city will REDEPLOY the air unit to the city, placing that air unit into one of the 3x3 sections.  
+
+#### COUNTERING AIR OPERATIONS
+- A READY air unit will automatically counter enemy air unit operations targeting units within it's operations radius. After countering the air unit becomes UNREADY.
+    - if there is more than one air unit READY that can counter an enemy air unit's operation, a READY air unit is randomly chosen
+- UNREADY air units recover to READY status after 2 minutes.
+
+### Air Units in Captured Cities
+- Air units in cities that are captured are destroyed.

@@ -29,12 +29,22 @@ const GlobeUnitScript = preload("res://src/scripts/map/GlobeUnit.gd")
 var outline_mesh_instance: MeshInstance3D
 var outline_immediate_mesh: ImmediateMesh
 
+var air_ops_mesh_instance: MeshInstance3D
+var air_ops_immediate_mesh: ImmediateMesh
+
+var current_air_operation_mode: String = ""
+
 var selected_unit: Node3D = null
 var units_list: Array[Node3D] = []
+var selected_unit_mesh: MeshInstance3D
 var target_bracket: Sprite3D
+var air_strike_bracket: Sprite3D
+var air_redeploy_bracket: Sprite3D
 # List of 3D positional nodes to trace against the camera horizon
 var cullable_nodes: Array[Node3D] = []
 var map_collider: StaticBody3D
+var air_strike_sfx: AudioStreamPlayer
+var air_redeploy_sfx: AudioStreamPlayer
 
 var city_nodes: Array[Node3D] = []
 var friendly_city_positions: Array[Vector3] = []
@@ -43,6 +53,7 @@ var friendly_city_positions: Array[Vector3] = []
 var deploying_unit_type: String = ""
 var deploying_unit_cost: float = 0.0
 var city_cooldowns: Dictionary = {}
+var cached_city_data: Dictionary = {}
 var deployment_ghost: Sprite3D
 
 func _ready() -> void:
@@ -66,8 +77,38 @@ func _ready() -> void:
 	
 	add_child(outline_mesh_instance)
 	
+	air_ops_immediate_mesh = ImmediateMesh.new()
+	air_ops_mesh_instance = MeshInstance3D.new()
+	air_ops_mesh_instance.mesh = air_ops_immediate_mesh
+	
+	var air_ops_mat = StandardMaterial3D.new()
+	air_ops_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	air_ops_mat.albedo_color = Color(1.0, 0.0, 0.0, 0.8) # Red circle
+	air_ops_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	air_ops_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	air_ops_mat.render_priority = 3 # Draw over globe and borders
+	air_ops_mat.no_depth_test = true
+	air_ops_mesh_instance.material_override = air_ops_mat
+	add_child(air_ops_mesh_instance)
+	
+	air_strike_sfx = AudioStreamPlayer.new()
+	var strike_stream = load("res://src/assets/audio/release-of-a-combat-missile.mp3") as AudioStream
+	if strike_stream:
+		air_strike_sfx.stream = strike_stream
+	add_child(air_strike_sfx)
+	
+	air_redeploy_sfx = AudioStreamPlayer.new()
+	var redeploy_stream = load("res://src/assets/audio/air-unit-redeploy.mp3") as AudioStream
+	if redeploy_stream:
+		air_redeploy_sfx.stream = redeploy_stream
+	add_child(air_redeploy_sfx)
+	
 	if NetworkManager:
 		NetworkManager.unit_target_synced.connect(_on_unit_target_synced)
+		NetworkManager.air_strike_synced.connect(_on_air_strike_synced)
+		NetworkManager.air_redeploy_synced.connect(_on_air_redeploy_synced)
+		if NetworkManager.is_host:
+			NetworkManager.air_strike_requested.connect(_on_air_strike_requested)
 	
 	# Add physics collider matching the exact globe surface
 	map_collider = StaticBody3D.new()
@@ -117,6 +158,44 @@ func _ready() -> void:
 	
 	target_bracket.visible = false
 	add_child(target_bracket)
+	
+	air_strike_bracket = Sprite3D.new()
+	var strike_tex = load("res://src/assets/air_strike_bracket.png") as Texture2D
+	if strike_tex:
+		air_strike_bracket.texture = strike_tex
+	else:
+		push_error("GlobeView: Failed to load air_strike_bracket.png")
+		
+	var stb_mat = StandardMaterial3D.new()
+	if strike_tex:
+		stb_mat.albedo_texture = strike_tex
+	stb_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	stb_mat.albedo_color = Color(1.0, 0.0, 0.0, 1.0) # Red reticle
+	stb_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	stb_mat.no_depth_test = true
+	stb_mat.render_priority = 21 # Above regular bracket
+	air_strike_bracket.material_override = stb_mat
+	air_strike_bracket.visible = false
+	add_child(air_strike_bracket)
+	
+	air_redeploy_bracket = Sprite3D.new()
+	var redeploy_tex = load("res://src/assets/air_redeploy_bracket.png") as Texture2D
+	if redeploy_tex:
+		air_redeploy_bracket.texture = redeploy_tex
+	else:
+		push_error("GlobeView: Failed to load air_redeploy_bracket.png")
+		
+	var rtb_mat = StandardMaterial3D.new()
+	if redeploy_tex:
+		rtb_mat.albedo_texture = redeploy_tex
+	rtb_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	rtb_mat.albedo_color = Color(1.0, 1.0, 1.0, 1.0) # White reticle for redeploy
+	rtb_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	rtb_mat.no_depth_test = true
+	rtb_mat.render_priority = 21
+	air_redeploy_bracket.material_override = rtb_mat
+	air_redeploy_bracket.visible = false
+	add_child(air_redeploy_bracket)
 	
 	# Instantiate deployment ghost
 	deployment_ghost = Sprite3D.new()
@@ -173,6 +252,117 @@ func _on_unit_target_synced(unit_name: String, target_pos: Vector3, enemy_target
 			# Manual coordinate movement
 			unit.clear_combat_target()
 			unit.set_target(target_pos)
+
+func _on_air_strike_requested(sender_id: int, unit_name: String, target_unit_name: String) -> void:
+	if not NetworkManager.is_host: return
+	
+	var attacker: Node3D = null
+	var target: Node3D = null
+	
+	for u in units_list:
+		if is_instance_valid(u):
+			if u.name == unit_name: attacker = u
+			elif u.name == target_unit_name: target = u
+			
+	if not attacker or not target: return
+	
+	var attacker_faction = ""
+	if "faction_name" in attacker:
+		attacker_faction = attacker.get("faction_name")
+	var valid_counters = []
+	for u in units_list:
+		if is_instance_valid(u) and u != attacker and u != target and u.get("unit_type") == "Air":
+			if u.get("faction_name") != attacker_faction and u.get("is_air_ready"):
+				var ops_radius = 30.0 * _get_tile_width(_get_tile_from_vector3(u.current_position))
+				if u.current_position.distance_to(target.current_position) <= ops_radius:
+					valid_counters.append(u)
+					
+	var counter_name = ""
+	if valid_counters.size() > 0:
+		var counter_unit = valid_counters[randi() % valid_counters.size()]
+		counter_name = counter_unit.name
+		
+	NetworkManager.execute_air_strike(unit_name, target_unit_name, counter_name)
+
+func _on_air_strike_synced(unit_name: String, target_unit_name: String, counter_unit_name: String = "") -> void:
+	print("GlobeView handling _on_air_strike_synced for ", unit_name, " targeting ", target_unit_name)
+	var attacker: Node3D = null
+	var target: Node3D = null
+	
+	for u in units_list:
+		if not is_instance_valid(u): continue
+		if u.name == unit_name: attacker = u
+		if u.name == target_unit_name: target = u
+		
+	if attacker and target:
+		if air_strike_sfx:
+			air_strike_sfx.play()
+			
+		attacker.set("is_air_ready", false)
+		attacker.set("air_cooldown_timer", 120.0)
+		
+		# Was it countered?
+		if counter_unit_name != "":
+			var counter_unit: Node3D = null
+			for u in units_list:
+				if is_instance_valid(u) and u.name == counter_unit_name:
+					counter_unit = u
+					break
+			if counter_unit:
+				counter_unit.set("is_air_ready", false)
+				counter_unit.set("air_cooldown_timer", 120.0)
+				print("Air strike was countered by ", counter_unit_name)
+				
+				var attacker_fac = attacker.get("faction_name")
+				var defender_fac = counter_unit.get("faction_name")
+				var target_tile = _get_tile_from_vector3(target.current_position)
+				var region = map_data.get_region(target_tile)
+				if region == "": region = "WILDERNESS"
+				
+				var msg = "%s AIRSTRIKE IN %s COUNTERED BY %s AIR DEFENSES" % [attacker_fac.to_upper(), region.to_upper(), defender_fac.to_upper()]
+				
+				var main_node = get_node_or_null("/root/Main")
+				if main_node and main_node.has_method("post_news_event"):
+					main_node.post_news_event(msg, [attacker_fac, defender_fac])
+				
+				return # Prevent damage
+		
+		var is_sea_transport = false
+		if target.get("unit_type") != "Sea" and target.get("unit_type") != "Air":
+			var t_tile = _get_tile_from_vector3(target.current_position)
+			var t_terrain = map_data.get_terrain(t_tile)
+			if t_terrain == "OCEAN" or t_terrain == "COAST" or t_terrain == "DEEP_OCEAN":
+				is_sea_transport = true
+
+		var val = 30.0 # Standard Sea damage
+		if target.get("unit_type") != "Sea" and not is_sea_transport:
+			var target_health = target.get("health")
+			if target_health != null:
+				val = target_health * 0.30
+		target.take_damage(val)
+
+func _on_air_redeploy_synced(unit_name: String, target_city: String) -> void:
+	print("GlobeView handling _on_air_redeploy_synced for ", unit_name, " to ", target_city)
+	var unit: Node3D = null
+	for u in units_list:
+		if is_instance_valid(u) and u.name == unit_name:
+			unit = u
+			break
+			
+	if unit:
+		unit.set("is_air_ready", false)
+		unit.set("air_cooldown_timer", 120.0)
+		
+		if cached_city_data.has(target_city):
+			var city_data = cached_city_data[target_city]
+			var lat = city_data.get("latitude")
+			var lon = city_data.get("longitude")
+			if lat != null and lon != null:
+				var new_pos = _lat_lon_to_vector3(deg_to_rad(lat), deg_to_rad(lon), radius)
+				unit.spawn(new_pos)
+				
+				if air_redeploy_sfx:
+					air_redeploy_sfx.play()
 
 static var skip_mesh_generation: bool = false
 
@@ -306,13 +496,31 @@ func _process(delta: float) -> void:
 		city_cooldowns.erase(city)
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
-		print("RAW RIGHT CLICK EVENT RECEIVED IN GLOBEVIEW: ", event, " pressed: ", event.pressed)
+	if event is InputEventKey and event.pressed and not event.is_echo():
+		if selected_unit and selected_unit.get("unit_type") == "Air" and selected_unit.get("is_air_ready"):
+			if event.physical_keycode == KEY_A:
+				current_air_operation_mode = "AIRSTRIKE"
+				_draw_air_ops_radius(selected_unit, false)
+				_update_city_highlights(false)
+				return
+			elif event.physical_keycode == KEY_R:
+				current_air_operation_mode = "REDEPLOY"
+				_draw_air_ops_radius(selected_unit, true)
+				_update_city_highlights(true, true)
+				return
+				
 	if event.is_action_pressed("ui_cancel") or (event is InputEventKey and event.physical_keycode == KEY_ESCAPE and event.pressed):
+		if current_air_operation_mode != "":
+			current_air_operation_mode = ""
+			_update_city_highlights(false)
+			if selected_unit and selected_unit.get("unit_type") == "Air":
+				_draw_air_ops_radius(selected_unit, false)
+			return
 		if selected_unit:
 			selected_unit.set_selected(false)
 			selected_unit = null
 			target_bracket.visible = false
+			air_ops_immediate_mesh.clear_surfaces()
 		if deploying_unit_type != "":
 			deploying_unit_type = ""
 			deployment_ghost.visible = false
@@ -417,6 +625,22 @@ func _process_city_captures() -> void:
 @rpc("authority", "call_local", "reliable")
 func sync_city_capture(city_name: String, new_faction: String, old_faction: String) -> void:
 	print("City Capture: ", city_name, " captured by ", new_faction, " from ", old_faction)
+	
+	# Destroy Air Units in Captured Cities
+	var c_tiles = []
+	if active_scenario.has("cities") and active_scenario["cities"].has(city_name):
+		var c_data = active_scenario["cities"][city_name]
+		if c_data.has("latitude") and c_data.has("longitude"):
+			var base_raw_pos = _lat_lon_to_vector3(deg_to_rad(c_data["latitude"]), deg_to_rad(c_data["longitude"]), radius)
+			var base_tile = _get_tile_from_vector3(base_raw_pos)
+			c_tiles.append(base_tile)
+			c_tiles.append_array(map_data.get_neighbors(base_tile))
+			
+	for u in units_list:
+		if is_instance_valid(u) and not u.get("is_dead") and u.get("unit_type") == "Air":
+			var u_tile = _get_tile_from_vector3(u.global_position)
+			if u_tile in c_tiles:
+				u.take_damage(9999.0) # Destroy it
 	
 	# Strip from old faction
 	if old_faction == "neutral":
@@ -645,6 +869,7 @@ func _load_cities(active_cities: Array[String]) -> void:
 		return
 		
 	var cities_dict = json.data
+	cached_city_data = cities_dict
 	
 	# Pre-load the full city spritesheet into memory
 	var tex_map = load("res://src/assets/spritesheet.png") as Texture2D
@@ -803,11 +1028,12 @@ func _load_cities(active_cities: Array[String]) -> void:
 
 			cullable_nodes.append(city_node)
 
-func _update_city_highlights(active: bool) -> void:
+func _update_city_highlights(active: bool, is_redeploy: bool = false) -> void:
 	var local_id = multiplayer.get_unique_id() if multiplayer.has_multiplayer_peer() else 0
 	var local_faction = ""
-	if NetworkManager and NetworkManager.players.has(local_id):
-		local_faction = NetworkManager.players[local_id].get("faction", "")
+	var nm = get_node_or_null("/root/NetworkManager")
+	if nm and nm.players.has(local_id):
+		local_faction = nm.players[local_id].get("faction", "")
 		
 	for city_node in city_nodes:
 		var hr = city_node.get_node_or_null("HighlightRing")
@@ -822,9 +1048,16 @@ func _update_city_highlights(active: bool) -> void:
 				if active_scenario.has("factions") and active_scenario["factions"].has(local_faction):
 					var fac_data = active_scenario["factions"][local_faction]
 					var has_city = fac_data.has("cities") and fac_data["cities"].has(c_name)
-					var has_money = fac_data.get("money", 0.0) >= deploying_unit_cost
-					var on_cooldown = city_cooldowns.has(c_name)
+					var has_money = true if is_redeploy else fac_data.get("money", 0.0) >= deploying_unit_cost
+					var on_cooldown = false if is_redeploy else city_cooldowns.has(c_name)
 					var is_full = _is_city_full(c_name)
+					
+					if is_redeploy and selected_unit:
+						var origin_tile = _get_tile_from_vector3(selected_unit.current_position)
+						var origin_city = city_tile_cache.get(origin_tile, "")
+						if c_name == origin_city:
+							has_city = false
+							
 					if has_city and has_money and not on_cooldown and not is_full:
 						is_valid = true
 						
@@ -832,6 +1065,14 @@ func _update_city_highlights(active: bool) -> void:
 				hr.visible = true
 			else:
 				hr.visible = false
+				
+	for u in units_list:
+		if is_instance_valid(u):
+			if active:
+				if u != selected_unit:
+					u.visible = false
+			else:
+				u.visible = true
 
 func _load_oil(active_oil: Array[String]) -> void:
 	var path = "res://src/data/oil_data.json"
@@ -962,6 +1203,10 @@ func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
 			selected_unit = null
 			if target_bracket:
 				target_bracket.visible = false
+			if air_strike_bracket:
+				air_strike_bracket.visible = false
+			if air_redeploy_bracket:
+				air_redeploy_bracket.visible = false
 			return
 			
 	var space_state = get_world_3d().direct_space_state
@@ -1021,6 +1266,66 @@ func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
 						sync_unit_purchase(c_name, u_type, local_faction, cost)
 				return
 				
+			if current_air_operation_mode != "" and selected_unit and selected_unit.get("unit_type") == "Air":
+				var tile_id = _get_tile_from_vector3(hit_point)
+				var local_fac = _get_local_faction()
+				if local_fac == "" and NetworkManager.players.has(multiplayer.get_unique_id()):
+					local_fac = NetworkManager.players[multiplayer.get_unique_id()].get("faction", "")
+					
+				var is_ready = selected_unit.get("is_air_ready")
+				if is_ready != null and not is_ready:
+					current_air_operation_mode = ""
+					air_ops_immediate_mesh.clear_surfaces()
+					return
+					
+				var dist = selected_unit.current_position.distance_to(hit_point.normalized() * radius)
+				var ops_radius = 30.0 * _get_tile_width(_get_tile_from_vector3(selected_unit.current_position))
+				
+				if current_air_operation_mode == "AIRSTRIKE":
+					if dist <= ops_radius:
+						var intended_enemy = null
+						if is_unit and collider.get_parent().get("faction_name") != local_fac:
+							intended_enemy = collider.get_parent()
+						else:
+							var all_units = get_tree().get_nodes_in_group("units")
+							for u in all_units:
+								if u != selected_unit and is_instance_valid(u) and not u.is_dead:
+									if u.get("faction_name") != local_fac:
+										if _get_tile_from_vector3(u.current_position) == tile_id:
+											intended_enemy = u
+											break
+						if intended_enemy:
+							if NetworkManager and NetworkManager.players.has(multiplayer.get_unique_id()):
+								NetworkManager.request_air_strike.rpc_id(1, selected_unit.name, intended_enemy.name)
+							
+							current_air_operation_mode = ""
+							_update_city_highlights(false)
+							selected_unit.set_selected(false)
+							selected_unit = null
+							if target_bracket: target_bracket.visible = false
+							if air_strike_bracket: air_strike_bracket.visible = false
+							if air_redeploy_bracket: air_redeploy_bracket.visible = false
+							air_ops_immediate_mesh.clear_surfaces()
+					return
+					
+				elif current_air_operation_mode == "REDEPLOY":
+					if dist <= ops_radius * 10.0:
+						var c_name = city_tile_cache.get(tile_id, "")
+						if c_name != "" and active_scenario.has("factions") and active_scenario["factions"].has(local_fac):
+							if active_scenario["factions"][local_fac].has("cities") and active_scenario["factions"][local_fac]["cities"].has(c_name):
+								if NetworkManager and NetworkManager.players.has(multiplayer.get_unique_id()):
+									NetworkManager.request_air_redeploy.rpc_id(1, selected_unit.name, c_name)
+								
+								current_air_operation_mode = ""
+								_update_city_highlights(false)
+								selected_unit.set_selected(false)
+								selected_unit = null
+								if target_bracket: target_bracket.visible = false
+								if air_strike_bracket: air_strike_bracket.visible = false
+								if air_redeploy_bracket: air_redeploy_bracket.visible = false
+								air_ops_immediate_mesh.clear_surfaces()
+					return
+				
 			if is_unit:
 				var unit = collider.get_parent()
 				if selected_unit and selected_unit != unit:
@@ -1028,14 +1333,33 @@ func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
 				selected_unit = unit
 				selected_unit.set_selected(true)
 				target_bracket.visible = true
+				if selected_unit.get("unit_type") == "Air":
+					_draw_air_ops_radius(selected_unit)
+				else:
+					air_ops_immediate_mesh.clear_surfaces()
 				_handle_hover(screen_pos)
 			elif collider == map_collider:
 				if selected_unit:
 					selected_unit.set_selected(false)
 					selected_unit = null
-					target_bracket.visible = false
+					if target_bracket: target_bracket.visible = false
+					if air_strike_bracket: air_strike_bracket.visible = false
+					if air_redeploy_bracket: air_redeploy_bracket.visible = false
+					air_ops_immediate_mesh.clear_surfaces()
+				return
 		elif not is_left_click and selected_unit:
-			# Right Click = Move unit to clicked position
+			# If right click when mode is active, cancel mode!
+			if current_air_operation_mode != "":
+				current_air_operation_mode = ""
+				_update_city_highlights(false)
+				if selected_unit.get("unit_type") == "Air":
+					_draw_air_ops_radius(selected_unit, false)
+				return
+				
+			if selected_unit.get("unit_type") == "Air":
+				return # Air units DO NOT move via right click anymore
+				
+			# Right Click = Move land/sea unit to clicked position
 			# Perform a strict Raycast to the MAP to find the exact tile clicked, ignoring massive Area3D spheres
 			var map_query = PhysicsRayQueryParameters3D.create(ray_origin, ray_end)
 			map_query.collide_with_areas = false
@@ -1119,16 +1443,65 @@ func _handle_hover(screen_pos: Vector2) -> void:
 		var tex_width = 128.0
 		if target_bracket.texture:
 			tex_width = float(target_bracket.texture.get_width())
+			
+		var show_air_strike = false
+		var show_air_redeploy = false
+		if selected_unit and is_instance_valid(selected_unit) and selected_unit.get("unit_type") == "Air" and selected_unit.get("is_air_ready"):
+			var ops_radius = 30.0 * tile_width
+			
+			if current_air_operation_mode == "AIRSTRIKE":
+				var hovered_enemy = null
+				for u in units_list:
+					if is_instance_valid(u) and u.get("faction_name") != selected_unit.get("faction_name"):
+						var dist_to_cursor = u.current_position.distance_to(result.position)
+						if dist_to_cursor < (tile_width * 3.0):
+							hovered_enemy = u
+							break
+				if hovered_enemy:
+					if selected_unit.current_position.distance_to(hovered_enemy.current_position) <= ops_radius:
+						show_air_strike = true
+			
+			elif current_air_operation_mode == "REDEPLOY":
+				var c_name = city_tile_cache.get(tile_id, "")
+				if c_name != "":
+					var city_owner = ""
+					for f_name in active_scenario.get("factions", {}).keys():
+						if active_scenario["factions"][f_name].has("cities") and active_scenario["factions"][f_name]["cities"].has(c_name):
+							city_owner = f_name
+							break
+					if city_owner == selected_unit.get("faction_name"):
+						var origin_tile = _get_tile_from_vector3(selected_unit.current_position)
+						var origin_city = city_tile_cache.get(origin_tile, "")
+						if c_name != origin_city:
+							if selected_unit.current_position.distance_to(result.position) <= ops_radius * 10.0:
+								show_air_redeploy = true
 		
 		# Set pixel scale so texture fits directly over 3x3 tile block 
 		target_bracket.pixel_size = (tile_width * 3.0) / tex_width
+		air_strike_bracket.pixel_size = (tile_width * 3.0) / 128.0
+		air_redeploy_bracket.pixel_size = (tile_width * 3.0) / 128.0
 		
 		if snap_pos != Vector3.ZERO:
-			target_bracket.position = snap_pos
-			target_bracket.look_at(Vector3.ZERO, Vector3.UP)
-			target_bracket.visible = true
+			target_bracket.visible = false
+			air_strike_bracket.visible = false
+			air_redeploy_bracket.visible = false
+			
+			if show_air_strike:
+				air_strike_bracket.position = snap_pos
+				air_strike_bracket.look_at(Vector3.ZERO, Vector3.UP)
+				air_strike_bracket.visible = true
+			elif show_air_redeploy:
+				air_redeploy_bracket.position = snap_pos
+				air_redeploy_bracket.look_at(Vector3.ZERO, Vector3.UP)
+				air_redeploy_bracket.visible = true
+			else:
+				target_bracket.position = snap_pos
+				target_bracket.look_at(Vector3.ZERO, Vector3.UP)
+				target_bracket.visible = true
 	else:
 		target_bracket.visible = false
+		air_strike_bracket.visible = false
+		air_redeploy_bracket.visible = false
 
 	if deploying_unit_type != "":
 		# Handle the ghost positioning similarly but checking for valid city deployment
@@ -1635,10 +2008,10 @@ func _spawn_border_units(count: int, faction1: String, faction2: String, faction
 		cullable_nodes.append(unit)
 
 func _is_city_full(c_name: String) -> bool:
-	if not active_scenario.has("cities") or not active_scenario["cities"].has(c_name):
+	if not cached_city_data.has(c_name):
 		return false
 		
-	var city_data = active_scenario["cities"][c_name]
+	var city_data = cached_city_data[c_name]
 	var lat = city_data.get("latitude")
 	var lon = city_data.get("longitude")
 	if lat == null or lon == null:
@@ -1662,3 +2035,61 @@ func _is_city_full(c_name: String) -> bool:
 				break
 				
 	return occupied_count >= candidates.size()
+
+func _draw_air_ops_radius(unit: Node3D, is_redeploy: bool = false) -> void:
+	air_ops_immediate_mesh.clear_surfaces()
+	var tile_id = _get_tile_from_vector3(unit.current_position)
+	var tile_width = _get_tile_width(tile_id)
+	
+	# Icon width is tile_width * 3.0. Ops radius = 10 * icon width = 30.0 * tile_width
+	var radius_dist = 30.0 * tile_width
+	if is_redeploy:
+		radius_dist *= 10.0
+		
+	var mat = air_ops_mesh_instance.material_override as StandardMaterial3D
+	if mat:
+		if is_redeploy:
+			mat.albedo_color = Color(0.0, 1.0, 0.0, 0.5)
+		else:
+			mat.albedo_color = Color(1.0, 0.0, 0.0, 0.5)
+			
+	var unit_pos = unit.current_position.normalized() * (radius * 1.002)
+	
+	var up = unit_pos.normalized()
+	var right = Vector3.UP.cross(up).normalized()
+	if right.length_squared() < 0.001:
+		right = Vector3.FORWARD.cross(up).normalized()
+	var forward = up.cross(right).normalized()
+	
+	var segments = 64
+	var thickness = 0.003
+	if is_redeploy:
+		thickness = 0.006
+		
+	air_ops_immediate_mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+	
+	var pts_inner = []
+	var pts_outer = []
+	for i in range(segments + 1):
+		var angle = (float(i) / segments) * TAU
+		var offset_dir = (right * cos(angle) + forward * sin(angle))
+		
+		var in_offset = offset_dir * (radius_dist - thickness)
+		var out_offset = offset_dir * (radius_dist + thickness)
+		
+		pts_inner.append((unit_pos + in_offset).normalized() * (radius * 1.002))
+		pts_outer.append((unit_pos + out_offset).normalized() * (radius * 1.002))
+		
+	for i in range(segments):
+		var i0 = i
+		var i1 = i + 1
+		
+		air_ops_immediate_mesh.surface_add_vertex(pts_inner[i0])
+		air_ops_immediate_mesh.surface_add_vertex(pts_outer[i0])
+		air_ops_immediate_mesh.surface_add_vertex(pts_inner[i1])
+		
+		air_ops_immediate_mesh.surface_add_vertex(pts_inner[i1])
+		air_ops_immediate_mesh.surface_add_vertex(pts_outer[i0])
+		air_ops_immediate_mesh.surface_add_vertex(pts_outer[i1])
+		
+	air_ops_immediate_mesh.surface_end()

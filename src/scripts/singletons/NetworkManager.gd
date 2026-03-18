@@ -11,6 +11,9 @@ signal server_disconnected
 signal players_updated
 signal game_started
 signal unit_target_synced(unit_name: String, target_pos: Vector3, enemy_target_name: String)
+signal air_strike_requested(sender_id: int, unit_name: String, target_unit_name: String)
+signal air_strike_synced(unit_name: String, target_unit_name: String, counter_unit_name: String)
+signal air_redeploy_synced(unit_name: String, target_city: String)
 
 # Dictionary of players: { id: { "name": String, "faction": String } }
 var players: Dictionary = {}
@@ -153,3 +156,30 @@ func sync_unit_target(unit_name: String, target_pos: Vector3, enemy_target_name:
 	print("Peer ", multiplayer.get_unique_id(), " received sync_unit_target for ", unit_name, " enemy: ", enemy_target_name)
 	unit_target_synced.emit(unit_name, target_pos, enemy_target_name)
 
+@rpc("any_peer", "call_local", "reliable")
+func request_air_strike(unit_name: String, target_unit_name: String):
+	if not is_host:
+		return
+	var sender_id = multiplayer.get_remote_sender_id()
+	if players.has(sender_id):
+		air_strike_requested.emit(sender_id, unit_name, target_unit_name)
+
+func execute_air_strike(unit_name: String, target_unit_name: String, counter_unit_name: String = ""):
+	if is_host:
+		rpc("sync_air_strike", unit_name, target_unit_name, counter_unit_name)
+
+@rpc("authority", "call_local", "reliable")
+func sync_air_strike(unit_name: String, target_unit_name: String, counter_unit_name: String):
+	air_strike_synced.emit(unit_name, target_unit_name, counter_unit_name)
+
+@rpc("any_peer", "call_local", "reliable")
+func request_air_redeploy(unit_name: String, target_city: String):
+	if not is_host:
+		return
+	var sender_id = multiplayer.get_remote_sender_id()
+	if players.has(sender_id):
+		rpc("sync_air_redeploy", unit_name, target_city)
+
+@rpc("authority", "call_local", "reliable")
+func sync_air_redeploy(unit_name: String, target_city: String):
+	air_redeploy_synced.emit(unit_name, target_city)

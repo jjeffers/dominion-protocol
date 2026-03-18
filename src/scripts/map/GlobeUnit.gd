@@ -17,14 +17,27 @@ var unit_type: String = "Infantry" :
 
 func _update_texture() -> void:
 	if not sprite: return
-	var tex_path = "res://src/assets/extracted_sprite.png"
-	if unit_type == "Armor":
-		tex_path = "res://src/assets/armor_sprite.png"
-	var tex = load(tex_path) as Texture2D
+	
+	var tex: Texture2D
+	if unit_type == "Air":
+		var atlas = load("res://src/assets/spritesheet.png") as Texture2D
+		if atlas:
+			var img = atlas.get_image()
+			if img:
+				var region = Rect2(0, 64, 32, 32)
+				var cropped_img = img.get_region(region)
+				tex = ImageTexture.create_from_image(cropped_img)
+	else:
+		var tex_path = "res://src/assets/extracted_sprite.png"
+		if unit_type == "Armor":
+			tex_path = "res://src/assets/armor_sprite.png"
+		tex = load(tex_path) as Texture2D
+
 	if tex:
 		sprite.texture = tex
 		if sprite.material_override != null and sprite.material_override is ShaderMaterial:
 			sprite.material_override.set_shader_parameter("tex_albedo", tex)
+			sprite.material_override.set_shader_parameter("is_air_unit", unit_type == "Air")
 
 var combat_target: GlobeUnit = null
 var movement_target_unit: GlobeUnit = null
@@ -39,6 +52,12 @@ var target_position: Vector3
 var speed_units_per_sec: float = 0.0006
 var current_terrain_modifier: float = 1.0
 var is_seaborne: bool = false
+
+# Air Unit State
+var is_air_ready: bool = true
+var _last_air_ready: bool = true
+var air_cooldown_timer: float = 0.0
+var base_faction_color: Color = Color.BLACK
 
 var path_mesh_instance: MeshInstance3D
 var path_immediate_mesh: ImmediateMesh
@@ -214,6 +233,7 @@ uniform float health_pct = 1.0;
 uniform bool is_entrenched = false;
 uniform bool is_engaged = false;
 uniform float engagement_angle = 0.0;
+uniform bool is_air_unit = false;
 
 void fragment() {
 	// Scale UV to create padding inside the 38x38 quad for the 34x34 sprite
@@ -250,49 +270,51 @@ void fragment() {
 	// True bounds of the visual 34x34 icon map to uv (0.0 to 1.0)
 	bool hit_ui = false;
 	
-	// Health bar background: Top 4 pixels of the 34x34 area (UV.y = 0.0 is TOP). Flush against the absolute top edge.
-	if (uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 0.12) {
-		hit_ui = true;
-		// Foreground bar logic
-		if (uv.x <= health_pct) {
-			if (health_pct > 0.5) {
-				ALBEDO = vec3(0.0, 0.8, 0.2); // Green
-			} else if (health_pct > 0.25) {
-				ALBEDO = vec3(0.8, 0.8, 0.0); // Yellow
+	if (!is_air_unit) {
+		// Health bar background: Top 4 pixels of the 34x34 area (UV.y = 0.0 is TOP). Flush against the absolute top edge.
+		if (uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 0.12) {
+			hit_ui = true;
+			// Foreground bar logic
+			if (uv.x <= health_pct) {
+				if (health_pct > 0.5) {
+					ALBEDO = vec3(0.0, 0.8, 0.2); // Green
+				} else if (health_pct > 0.25) {
+					ALBEDO = vec3(0.8, 0.8, 0.0); // Yellow
+				} else {
+					ALBEDO = vec3(0.9, 0.1, 0.1); // Red
+				}
 			} else {
-				ALBEDO = vec3(0.9, 0.1, 0.1); // Red
+				ALBEDO = vec3(0.2, 0.0, 0.0); // Background Red
 			}
-		} else {
-			ALBEDO = vec3(0.2, 0.0, 0.0); // Background Red
+			ALPHA = 1.0;
 		}
-		ALPHA = 1.0;
-	}
-	
-	// Entrenchment bar: Bottom 4 pixels (UV.y = 1.0 is BOTTOM). Flush against the absolute bottom edge.
-	if (is_entrenched && !hit_ui && uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.88 && uv.y <= 1.0) {
-		hit_ui = true;
-		ALBEDO = vec3(0.0, 0.4, 0.0); // Dark green
-		ALPHA = 1.0;
-	}
-	
-	// Engagement arrow (Points towards target)
-	if (is_engaged && !hit_ui) {
-		vec2 center = vec2(0.2, 0.5); // Center on the left side
-		vec2 p = uv - center;
-		p.y = -p.y; // Standard Y-up orientation for math
-
-		float ca = cos(engagement_angle);
-		float sa = sin(engagement_angle);
-		// Rotate local UV offset to match engagement_angle
-		vec2 rp = vec2(ca * p.x + sa * p.y, -sa * p.x + ca * p.y);
 		
-		// Draw right-pointing generic arrow logic
-		if (rp.x > -0.1 && rp.x < 0.1) {
-			float y_lim = (0.1 - rp.x) * 0.6; // Scale down height
-			if (abs(rp.y) <= y_lim) {
-				hit_ui = true;
-				ALBEDO = vec3(0.0, 0.0, 0.0); // Black arrow
-				ALPHA = 1.0;
+		// Entrenchment bar: Bottom 4 pixels (UV.y = 1.0 is BOTTOM). Flush against the absolute bottom edge.
+		if (is_entrenched && !hit_ui && uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.88 && uv.y <= 1.0) {
+			hit_ui = true;
+			ALBEDO = vec3(0.0, 0.4, 0.0); // Dark green
+			ALPHA = 1.0;
+		}
+		
+		// Engagement arrow (Points towards target)
+		if (is_engaged && !hit_ui) {
+			vec2 center = vec2(0.2, 0.5); // Center on the left side
+			vec2 p = uv - center;
+			p.y = -p.y; // Standard Y-up orientation for math
+
+			float ca = cos(engagement_angle);
+			float sa = sin(engagement_angle);
+			// Rotate local UV offset to match engagement_angle
+			vec2 rp = vec2(ca * p.x + sa * p.y, -sa * p.x + ca * p.y);
+			
+			// Draw right-pointing generic arrow logic
+			if (rp.x > -0.1 && rp.x < 0.1) {
+				float y_lim = (0.1 - rp.x) * 0.6; // Scale down height
+				if (abs(rp.y) <= y_lim) {
+					hit_ui = true;
+					ALBEDO = vec3(0.0, 0.0, 0.0); // Black arrow
+					ALPHA = 1.0;
+				}
 			}
 		}
 	}
@@ -317,6 +339,7 @@ void fragment() {
 	outline_mat.set_shader_parameter("health_pct", 1.0)
 	outline_mat.set_shader_parameter("is_entrenched", false)
 	outline_mat.set_shader_parameter("is_engaged", false)
+	outline_mat.set_shader_parameter("is_air_unit", unit_type == "Air")
 	outline_mat.set_shader_parameter("engagement_angle", 0.0)
 	# Default transparent outline so it does nothing if not explicitly set
 	outline_mat.set_shader_parameter("outline_color", Color(0, 0, 0, 0))
@@ -327,8 +350,19 @@ void fragment() {
 func set_faction_color(hex_color: String) -> void:
 	if sprite.material_override is ShaderMaterial:
 		var c = Color(hex_color)
+		base_faction_color = c
 		sprite.material_override.set_shader_parameter("outline_color", c)
 	update_render_priorities()
+	_update_air_readiness_visuals()
+
+func _update_air_readiness_visuals() -> void:
+	if unit_type == "Air" and sprite and sprite.material_override is ShaderMaterial:
+		if is_air_ready:
+			sprite.material_override.set_shader_parameter("outline_color", base_faction_color)
+		else:
+			# Duller color for UNREADY
+			var dull = Color(base_faction_color.r * 0.5, base_faction_color.g * 0.5, base_faction_color.b * 0.5, 0.5)
+			sprite.material_override.set_shader_parameter("outline_color", dull)
 
 func set_selected(selected: bool) -> void:
 	is_selected = selected
@@ -514,6 +548,17 @@ func _process(delta: float) -> void:
 		flash_timer -= delta
 		if flash_timer <= 0.0:
 			sprite.modulate = Color(1.0, 1.0, 1.0)
+			
+	# Handle Air Unit Cooldown
+	var old_ready = is_air_ready
+	if unit_type == "Air" and not is_air_ready:
+		air_cooldown_timer -= delta
+		if air_cooldown_timer <= 0.0:
+			is_air_ready = true
+			air_cooldown_timer = 0.0
+			
+	if unit_type == "Air" and old_ready != is_air_ready:
+		_update_air_readiness_visuals()
 			
 	if movement_target_unit != null:
 		if is_instance_valid(movement_target_unit) and not movement_target_unit.is_dead:
