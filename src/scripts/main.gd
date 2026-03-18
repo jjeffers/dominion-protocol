@@ -39,6 +39,7 @@ const TERRAIN_COLORS: Dictionary = {
 	"OCEAN": Color("#1f679c"),
 	"PLAINS": Color("#477a2d"),
 	"FOREST": Color("#2d4c1e"),
+	"JUNGLE": Color("#163510"),
 	"DESERT": Color("#e6c27a"),
 	"MOUNTAIN": Color("#8c8c8c"),
 	"POLAR": Color("#ffffff")
