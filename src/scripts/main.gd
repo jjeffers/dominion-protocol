@@ -29,7 +29,7 @@ var city_icon: TextureRect
 var map_data: MapData
 
 var economy_timer: float = 0.0
-const ECONOMY_INTERVAL: float = 60.0
+const ECONOMY_INTERVAL: float = 10.0
 
 var capture_banner: Label
 var banner_timer: float = 0.0
@@ -298,8 +298,8 @@ func _process_economy_tick() -> void:
 		if fac_data.has("cities"):
 			var city_count = fac_data["cities"].size()
 			var current_money = fac_data.get("money", 0.0)
-			# 1 Credit per 1 minute per city
-			fac_data["money"] = current_money + (city_count * 1.0)
+			# 1 Credit per 1 minute per city -> 0.0333 credit per 10 seconds
+			fac_data["money"] = current_money + (city_count * (ECONOMY_INTERVAL / 300.0))
 			updated = true
 			
 	if updated:
@@ -330,7 +330,7 @@ func _update_economy_ui() -> void:
 		if fac_data.has("cities"):
 			controlled_cities = fac_data["cities"].size()
 			
-	credits_label.text = "Credits: %.1f" % credits
+	credits_label.text = "Credits: %.0f" % floor(credits)
 	cities_label.text = "Cities: %d/%d" % [controlled_cities, total_cities]
 	
 	# Update Purchase Availability
