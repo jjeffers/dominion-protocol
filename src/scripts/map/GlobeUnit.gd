@@ -28,7 +28,19 @@ func _update_texture() -> void:
 				if unit_type == "Cruiser":
 					region = Rect2(32, 192, 32, 32)
 				var cropped_img = img.get_region(region)
-				tex = ImageTexture.create_from_image(cropped_img)
+				
+				if cropped_img.get_format() != Image.FORMAT_RGBA8:
+					cropped_img.convert(Image.FORMAT_RGBA8)
+					
+				var padded_img = Image.create(34, 34, false, Image.FORMAT_RGBA8)
+				if unit_type == "Cruiser":
+					padded_img.fill(Color.WHITE)
+				else:
+					padded_img.fill(Color(0, 0, 0, 0))
+					
+				padded_img.blend_rect(cropped_img, Rect2(0, 0, 32, 32), Vector2(1, 1))
+				
+				tex = ImageTexture.create_from_image(padded_img)
 	else:
 		var tex_path = "res://src/assets/extracted_sprite.png"
 		if unit_type == "Armor":
