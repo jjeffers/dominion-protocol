@@ -1879,8 +1879,29 @@ func _spawn_unit(unit_def: Dictionary, faction_name: String, c_dict: Dictionary,
 			
 			var final_raw_pos = base_raw_pos
 			
+			var unit_type_str = "Infantry"
+			if unit_def.has("type"):
+				unit_type_str = str(unit_def["type"]).capitalize()
+				
+			var is_sea_unit = (unit_type_str == "Cruiser")
+			var is_land_unit = (unit_type_str == "Armor" or unit_type_str == "Infantry")
+
+			var fallback_pos = base_raw_pos
 			for candidate_id in candidates:
+				var terrain = map_data.get_terrain(candidate_id)
+				var is_water = (terrain == "OCEAN" or terrain == "LAKE")
+				
+				if is_sea_unit and not is_water:
+					continue
+				if is_land_unit and is_water:
+					continue
+					
 				var candidate_pos = map_data.get_centroid(candidate_id).normalized() * radius
+				
+				# Ensure that if we are forced to stack, we at least stack on the correct terrain type
+				if fallback_pos == base_raw_pos:
+					fallback_pos = candidate_pos
+					
 				var is_occupied = false
 				
 				for existing_unit in units_list:
@@ -1891,6 +1912,9 @@ func _spawn_unit(unit_def: Dictionary, faction_name: String, c_dict: Dictionary,
 				if not is_occupied:
 					final_raw_pos = candidate_pos
 					break
+					
+			if final_raw_pos == base_raw_pos and fallback_pos != base_raw_pos:
+				final_raw_pos = fallback_pos
 			
 			var unit = GlobeUnitScript.new()
 			if unit_def.has("type"):

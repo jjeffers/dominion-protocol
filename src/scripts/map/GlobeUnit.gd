@@ -774,9 +774,38 @@ func _process(delta: float) -> void:
 			
 		var weight = min(step / angle, 1.0) if angle > 0 else 1.0
 		
-		current_position = current_position.slerp(target_position, weight).normalized() * radius
-		global_position = current_position
-		look_at(Vector3.ZERO, Vector3.UP)
+		# Look-ahead terrain check to prevent getting stuck inside impassable tiles
+		var next_pos = current_position.slerp(target_position, weight).normalized() * radius
+		var lookahead_terrain_modifier = 1.0
+		
+		if p and p.has_method("_get_tile_from_vector3"):
+			var next_tile = p._get_tile_from_vector3(next_pos)
+			if p.get("city_tile_cache") != null and p.city_tile_cache.has(next_tile):
+				if u_type == "Cruiser":
+					var terrain = p.map_data.get_terrain(next_tile)
+					if terrain == "OCEAN" or terrain == "LAKE":
+						lookahead_terrain_modifier = TEC_MODIFIERS["Cruiser"][terrain]["movement"]
+					else:
+						lookahead_terrain_modifier = TEC_MODIFIERS[u_type]["CITY"]["movement"]
+				else:
+					lookahead_terrain_modifier = TEC_MODIFIERS[u_type]["CITY"]["movement"]
+			else:
+				var terrain = p.map_data.get_terrain(next_tile)
+				if TEC_MODIFIERS[u_type].has(terrain):
+					lookahead_terrain_modifier = TEC_MODIFIERS[u_type][terrain]["movement"]
+					
+		if lookahead_terrain_modifier <= 0.0:
+			# Abort movement instantly before crossing the impassable threshold
+			target_position = current_position
+			in_motion = false
+			movement_target_unit = null
+			if destination_bracket:
+				destination_bracket.visible = false
+		else:
+			current_position = next_pos
+			global_position = current_position
+			look_at(Vector3.ZERO, Vector3.UP)
+			_draw_path(angle)
 		_draw_path(angle)
 	else:
 		current_terrain_modifier = 1.0
