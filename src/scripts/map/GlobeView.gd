@@ -1580,7 +1580,7 @@ func _update_terrain_hover(screen_pos: Vector2) -> void:
 		hovered_tile_changed.emit(tile_id, terrain, c_name, region_name)
 	else:
 		# Cursor over deep space
-		hovered_tile_changed.emit("", "", "", "")
+		hovered_tile_changed.emit(-1, "", "", "")
 
 func _get_tile_from_vector3(pos: Vector3) -> int:
 	# Convert a 3D coordinate point on the sphere back into the exact Face and XY coordinate it corresponds to on the underlying 361x361 matrices.
