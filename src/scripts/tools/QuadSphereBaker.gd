@@ -10,7 +10,7 @@ const OUT_MESH_PATH = "res://src/data/quadsphere_globe.res"
 const OUT_BIN_PATH = "res://src/data/map_data.bin"
 
 enum Face { FRONT, BACK, LEFT, RIGHT, TOP, BOTTOM }
-enum Terrain { OCEAN=0, PLAINS=1, DESERT=2, FOREST=3, MOUNTAINS=4 }
+enum Terrain { OCEAN=0, PLAINS=1, DESERT=2, FOREST=3, MOUNTAINS=4, JUNGLE=5 }
 
 func _get_uuid(face: int, x: int, y: int) -> int:
 	return face * (RESOLUTION * RESOLUTION) + y * RESOLUTION + x
@@ -22,6 +22,7 @@ func _get_terrain_id(terrain_str: String) -> int:
 		"DESERT": return Terrain.DESERT
 		"FOREST": return Terrain.FOREST
 		"MOUNTAINS": return Terrain.MOUNTAINS
+		"JUNGLE": return Terrain.JUNGLE
 	return Terrain.OCEAN
 
 func _init() -> void:

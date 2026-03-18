@@ -9,7 +9,7 @@ const REGIONS_PATH = "res://src/data/region_data.json"
 const TILE_STRUCT_SIZE = 32
 const RESOLUTION = 361
 
-enum Terrain { OCEAN=0, PLAINS=1, DESERT=2, FOREST=3, MOUNTAINS=4 }
+enum Terrain { OCEAN=0, PLAINS=1, DESERT=2, FOREST=3, MOUNTAINS=4, JUNGLE=5 }
 
 var _quad_data: PackedByteArray
 var _region_map: Dictionary = {}
@@ -119,6 +119,7 @@ func get_terrain(tile_id: int) -> String:
 		Terrain.DESERT: return "DESERT"
 		Terrain.FOREST: return "FOREST"
 		Terrain.MOUNTAINS: return "MOUNTAINS"
+		Terrain.JUNGLE: return "JUNGLE"
 	return "OCEAN"
 
 ## Returns the sovereign Region string
