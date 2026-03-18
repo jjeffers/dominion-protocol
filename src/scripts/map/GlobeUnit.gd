@@ -660,16 +660,23 @@ func _process(delta: float) -> void:
 		
 
 		
+	# Determine dynamic engagement radius based on unit size
+	var my_range = 0.022 if unit_type.capitalize() == "Cruiser" else 0.012
+		
 	# 1. Evaluate Current Combat Lock 
 	if is_engaged:
 		if is_instance_valid(combat_target) and not combat_target.is_dead:
 			if current_position != null and combat_target.current_position != null:
+				var target_range = 0.022 if combat_target.unit_type.capitalize() == "Cruiser" else 0.012
+				# Average the two engagement ranges to find exactly where they visually touch
+				var engagement_threshold = (my_range + target_range) / 2.0
+				
 				var dist = current_position.distance_to(combat_target.current_position)
-				if dist < 0.022:
+				if dist < engagement_threshold:
 					# We have a valid overlap. Process combat.
 					
 					# Hard stop if we hit max overlap (center tile collision)
-					if dist < 0.012:
+					if dist < (engagement_threshold * 0.5):
 						in_motion = false
 					
 					# Calculate direction to target in local space
@@ -715,7 +722,10 @@ func _process(delta: float) -> void:
 		for other in all_units:
 			if other != self and is_instance_valid(other) and not other.is_dead:
 				if other.faction_name != "" and self.faction_name != "" and other.faction_name != self.faction_name:
-					if current_position.distance_to(other.current_position) < 0.022:
+					var target_range = 0.022 if other.unit_type.capitalize() == "Cruiser" else 0.012
+					var engagement_threshold = (my_range + target_range) / 2.0
+					
+					if current_position.distance_to(other.current_position) < engagement_threshold:
 						if in_motion:
 							# Only engage if we are actively moving towards them, not running away
 							var dist_now = current_position.distance_to(other.current_position)
