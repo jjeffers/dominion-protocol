@@ -404,12 +404,21 @@ func _process(delta: float) -> void:
 	var local_faction = _get_local_faction()
 			
 	var friendly_unit_positions: Array[Vector3] = []
+	var friendly_air_bubbles: Array[Dictionary] = []
+		
 	if local_faction != "":
 		for u in units_list:
 			if not is_instance_valid(u):
 				continue
 			if u.get("faction_name") == local_faction and u.get("is_dead") != true:
 				friendly_unit_positions.append(u.global_position)
+				if u.get("unit_type") == "Air" and u.get("is_air_ready") == true:
+					var tile_id = _get_tile_from_vector3(u.global_position)
+					var air_range = 30.0 * _get_tile_width(tile_id)
+					friendly_air_bubbles.append({
+						"pos": u.global_position,
+						"range": air_range
+					})
 	
 	# Populate friendly_city_positions for Fog of War
 	friendly_city_positions.clear() # Clear previous frame's positions
@@ -445,6 +454,11 @@ func _process(delta: float) -> void:
 			if not is_visible:
 				for c_pos in friendly_city_positions:
 					if node.global_position.distance_to(c_pos) <= vision_range:
+						is_visible = true
+						break
+			if not is_visible:
+				for bubble in friendly_air_bubbles:
+					if node.global_position.distance_to(bubble.pos) <= bubble.range:
 						is_visible = true
 						break
 			
