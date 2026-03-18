@@ -139,9 +139,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -200.0
-offset_top = -150.0
+offset_top = -250.0
 offset_right = 200.0
-offset_bottom = 150.0
+offset_bottom = 250.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -176,9 +176,51 @@ layout_mode = 2
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 24
-text = "Infantry (10c)"
+text = "Infantry (5c)"
 
 [node name="PurchaseInfantryBtn" type="Button" parent="PurchaseMenu/VBoxContainer/InfantryRow"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = " Purchase "
+
+[node name="ArmorRow" type="HBoxContainer" parent="PurchaseMenu/VBoxContainer"]
+layout_mode = 2
+
+[node name="UnitName" type="Label" parent="PurchaseMenu/VBoxContainer/ArmorRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 24
+text = "Armor (10c)"
+
+[node name="PurchaseArmorBtn" type="Button" parent="PurchaseMenu/VBoxContainer/ArmorRow"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = " Purchase "
+
+[node name="AirRow" type="HBoxContainer" parent="PurchaseMenu/VBoxContainer"]
+layout_mode = 2
+
+[node name="UnitName" type="Label" parent="PurchaseMenu/VBoxContainer/AirRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 24
+text = "Air (30c)"
+
+[node name="PurchaseAirBtn" type="Button" parent="PurchaseMenu/VBoxContainer/AirRow"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = " Purchase "
+
+[node name="CruiserRow" type="HBoxContainer" parent="PurchaseMenu/VBoxContainer"]
+layout_mode = 2
+
+[node name="UnitName" type="Label" parent="PurchaseMenu/VBoxContainer/CruiserRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 24
+text = "Cruiser (50c)"
+
+[node name="PurchaseCruiserBtn" type="Button" parent="PurchaseMenu/VBoxContainer/CruiserRow"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = " Purchase "

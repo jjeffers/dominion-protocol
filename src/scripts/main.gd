@@ -24,6 +24,9 @@ var last_hovered_tile_id: int = -1
 
 @onready var purchase_menu: Panel = $PurchaseMenu
 @onready var purchase_infantry_btn: Button = $PurchaseMenu/VBoxContainer/InfantryRow/PurchaseInfantryBtn
+@onready var purchase_armor_btn: Button = $PurchaseMenu/VBoxContainer/ArmorRow/PurchaseArmorBtn
+@onready var purchase_air_btn: Button = $PurchaseMenu/VBoxContainer/AirRow/PurchaseAirBtn
+@onready var purchase_cruiser_btn: Button = $PurchaseMenu/VBoxContainer/CruiserRow/PurchaseCruiserBtn
 
 var city_icon: TextureRect
 var map_data: MapData
@@ -72,6 +75,9 @@ func _ready() -> void:
 	globe_view._instantiate_scenario(scenario_data)
 	
 	purchase_infantry_btn.pressed.connect(_on_purchase_infantry)
+	purchase_armor_btn.pressed.connect(_on_purchase_armor)
+	purchase_air_btn.pressed.connect(_on_purchase_air)
+	purchase_cruiser_btn.pressed.connect(_on_purchase_cruiser)
 	
 	# Initialize HUD State
 	terrain_panel.hide()
@@ -144,7 +150,19 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _on_purchase_infantry() -> void:
 	purchase_menu.hide()
-	globe_view.start_deployment("Infantry", 10.0)
+	globe_view.start_deployment("Infantry", 5.0)
+
+func _on_purchase_armor() -> void:
+	purchase_menu.hide()
+	globe_view.start_deployment("Armor", 10.0)
+
+func _on_purchase_air() -> void:
+	purchase_menu.hide()
+	globe_view.start_deployment("Air", 30.0)
+
+func _on_purchase_cruiser() -> void:
+	purchase_menu.hide()
+	globe_view.start_deployment("Cruiser", 50.0)
 
 func _on_globe_hovered_tile_changed(tile_id: int, terrain: String, c_name: String, region_name: String) -> void:
 	last_hovered_tile_id = tile_id
@@ -378,4 +396,7 @@ func _update_economy_ui() -> void:
 	cities_label.text = "Cities: %d/%d" % [controlled_cities, total_cities]
 	
 	# Update Purchase Availability
-	purchase_infantry_btn.disabled = credits < 10.0
+	purchase_infantry_btn.disabled = credits < 5.0
+	purchase_armor_btn.disabled = credits < 10.0
+	purchase_air_btn.disabled = credits < 30.0
+	purchase_cruiser_btn.disabled = credits < 50.0
