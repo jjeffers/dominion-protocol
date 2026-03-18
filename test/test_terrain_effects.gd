@@ -111,3 +111,17 @@ func test_all_armor_defense():
 		unit.take_damage(100.0)
 		var expected_health = 100.0 - (100.0 * EXPECTED_TEC["Armor"][terrain]["defense"])
 		assert_eq(unit.health, expected_health, "Armor defense on " + terrain)
+
+func test_sea_units_cannot_move_to_land():
+	unit.unit_type = "Cruiser"
+	
+	# Test Ocean
+	mock_view.city_tile_cache.clear()
+	mock_view.mock_terrain = "OCEAN"
+	unit._process(0.1)
+	assert_eq(unit.current_terrain_modifier, 5.0, "Cruiser movement on OCEAN should be 5.0")
+	
+	# Test Land
+	mock_view.mock_terrain = "PLAINS"
+	unit._process(0.1)
+	assert_eq(unit.current_terrain_modifier, 0.0, "Cruiser movement on PLAINS should be 0.0")

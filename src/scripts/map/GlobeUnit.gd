@@ -19,12 +19,14 @@ func _update_texture() -> void:
 	if not sprite: return
 	
 	var tex: Texture2D
-	if unit_type == "Air":
+	if unit_type == "Air" or unit_type == "Cruiser":
 		var atlas = load("res://src/assets/spritesheet.png") as Texture2D
 		if atlas:
 			var img = atlas.get_image()
 			if img:
 				var region = Rect2(0, 64, 32, 32)
+				if unit_type == "Cruiser":
+					region = Rect2(32, 192, 32, 32)
 				var cropped_img = img.get_region(region)
 				tex = ImageTexture.create_from_image(cropped_img)
 	else:
@@ -103,6 +105,17 @@ const TEC_MODIFIERS: Dictionary = {
 		"CITY": {"movement": 1.0, "defense": 0.75},
 		"OCEAN": {"movement": 1.5, "defense": 1.5},
 		"LAKE": {"movement": 1.5, "defense": 1.5}
+	},
+	"Cruiser": {
+		"PLAINS": {"movement": 0.0, "defense": 1.0},
+		"FOREST": {"movement": 0.0, "defense": 1.0},
+		"JUNGLE": {"movement": 0.0, "defense": 1.0},
+		"DESERT": {"movement": 0.0, "defense": 1.0},
+		"MOUNTAIN": {"movement": 0.0, "defense": 1.0},
+		"POLAR": {"movement": 0.0, "defense": 1.0},
+		"CITY": {"movement": 0.0, "defense": 0.75},
+		"OCEAN": {"movement": 5.0, "defense": 1.0},
+		"LAKE": {"movement": 5.0, "defense": 1.0}
 	}
 }
 
@@ -719,8 +732,17 @@ func _process(delta: float) -> void:
 		if p and p.has_method("_get_tile_from_vector3"):
 			var tile_id = p._get_tile_from_vector3(current_position)
 			if p.get("city_tile_cache") != null and p.city_tile_cache.has(tile_id):
-				current_terrain_modifier = TEC_MODIFIERS[u_type]["CITY"]["movement"]
-				_set_seaborne(false)
+				if u_type == "Cruiser":
+					var terrain = p.map_data.get_terrain(tile_id)
+					if terrain == "OCEAN" or terrain == "LAKE":
+						current_terrain_modifier = TEC_MODIFIERS["Cruiser"][terrain]["movement"]
+						_set_seaborne(true)
+					else:
+						current_terrain_modifier = TEC_MODIFIERS[u_type]["CITY"]["movement"]
+						_set_seaborne(false)
+				else:
+					current_terrain_modifier = TEC_MODIFIERS[u_type]["CITY"]["movement"]
+					_set_seaborne(false)
 			else:
 				var terrain = p.map_data.get_terrain(tile_id)
 				if terrain == "OCEAN" or terrain == "LAKE":
