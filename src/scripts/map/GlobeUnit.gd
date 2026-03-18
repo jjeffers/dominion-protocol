@@ -45,6 +45,7 @@ var last_damage_time: float = 0.0
 
 var entrenched: bool = false
 var time_motionless: float = 0.0
+var time_in_city: float = 0.0
 
 func _init() -> void:
 	add_to_group("units")
@@ -502,8 +503,33 @@ func _process(delta: float) -> void:
 			entrenched = true
 			if sprite and sprite.material_override is ShaderMaterial:
 				sprite.material_override.set_shader_parameter("is_entrenched", true)
+		
+		# Health Recovery Logic (Only counts while resting in a friendly city)
+		if not is_dead and health < 100.0:
+			if current_position != null:
+				var p = get_parent()
+				if p and p.has_method("_get_tile_from_vector3"):
+					var tile_id = p._get_tile_from_vector3(current_position)
+					if p.city_tile_cache.has(tile_id):
+						var c_name = p.city_tile_cache[tile_id]
+						var is_friendly_city = false
+						if p.active_scenario.has("factions") and p.active_scenario["factions"].has(faction_name):
+							if p.active_scenario["factions"][faction_name].has("cities") and c_name in p.active_scenario["factions"][faction_name]["cities"]:
+								is_friendly_city = true
+						
+						if is_friendly_city:
+							time_in_city += delta
+							if time_in_city >= 30.0:
+								time_in_city -= 30.0
+								health = min(health + 10.0, 100.0)
+								_update_health_bar()
+						else:
+							time_in_city = 0.0
+					else:
+						time_in_city = 0.0
 	else:
 		time_motionless = 0.0
+		time_in_city = 0.0
 		if entrenched:
 			entrenched = false
 			if sprite and sprite.material_override is ShaderMaterial:
