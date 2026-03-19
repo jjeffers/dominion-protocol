@@ -98,11 +98,39 @@ Armor | Ocean | 1.5 | 1.5
 - When an air unit is selected and and that air unit is READY, operations can be selectd by using the keyboard:
     - 'a' orders an AIR STRIKE.
     - 'r' orders a REDEPLOY.
+
 #### AIR STRIKE
-- When an air strike order is used, the air unit's operations radius wil show as a red circle centered on the air unit. 
+- When an air strike order is used, the air unit's operations radius wil show as a red circle centered on the air unit.
 - AIR STRIKE orders targeting land units will do damage to the land unit equal to 50% of the target unit's health before applying any defensive modifiers.
 - AIR STRIKE orders targeting sea units will do 30 points of damage.
 - After the AIR STRIKE (successful or not) the air unit becomes UNREADY.
+
+#### COUNTERING AIR OPERATIONS
+- Enemy air units have a % chance to intercept AIR STRIKE operations within their operations radius.
+    - The base % chance is linearly scaled based on the distance from the defending air unit to the location of the AIR STRIKE.
+    - If there is more than one air unit can intercept the AIR STRIKE, the % odds are cumulative.
+    - An UNREADY air unit has an interception % penalty of 90% (it becomes much less effective at interception).
+    - If an INTERCEPTION occurs:
+        - If mulitple air units can perform the INTERCEPTION, following sorting criteria is used:
+            - READY air units vs UNREADY air units
+            - air units closest to the AIR STRIKE 
+        - Determine mission outcome:
+            - 25% chance of mission success. The strike succeds, damage is inflicted. Enemy air unit is destroyed. Attacking air unit becomes UNREADY.
+            - 50% chance of mission abort. No damage is done. Both air units become UNREADY.
+            - 25% chance the attacking air unit is shot down (destroyed).
+            - If the intercepting air unit is UNREADY the odds:
+                - mission success odds increase to 90%
+                - mission abort odds become 10%
+                - 0% chance the attacking unit is shot down (destroyed)
+    - If no INTERCEPTION occurs:
+        - If attacking a land unit, outcome is:
+            - 90% success. Damage is inflicted.The attacking air unit becomes UNREADY.
+            - 9% mission abort. No damage is done, attacking air unit becomes UNREADY.
+            - 1% chance of mission failue, no damage is done and attacking air unit is DESTROYED.
+        - If attacking a cruiser the mission abort in increased to 25%, mission loss is 10%.
+        
+
+- UNREADY air units recover to READY status after 2 minutes.
 
 #### REDEPLOY
 - Choosing REDEPLOY will enter a mode where:
@@ -111,10 +139,7 @@ Armor | Ocean | 1.5 | 1.5
     - the reployment icon is shown following the mouse 
     - clicking on an eligble city will REDEPLOY the air unit to the city, placing that air unit into one of the 3x3 sections.  
 
-#### COUNTERING AIR OPERATIONS
-- A READY air unit will automatically counter enemy air unit operations targeting units within it's operations radius. After countering the air unit becomes UNREADY.
-    - if there is more than one air unit READY that can counter an enemy air unit's operation, a READY air unit is randomly chosen
-- UNREADY air units recover to READY status after 2 minutes.
+
 
 ### Air Units in Captured Cities
 - Air units in cities that are captured are destroyed.

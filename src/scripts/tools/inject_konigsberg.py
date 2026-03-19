@@ -14,7 +14,7 @@ def lat_lon_to_vector3(lat_deg, lon_deg):
     return {"x": x, "y": y, "z": z}
 
 # Coordinates for Kaliningrad/Königsberg
-lat, lon = 54.7104, 20.4522
+lat, lon = 54.8104, 20.4522
 vec3 = lat_lon_to_vector3(lat, lon)
 
 with open('src/data/city_data.json', 'r') as f:

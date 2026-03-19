@@ -104,6 +104,7 @@ const TEC_MODIFIERS: Dictionary = {
 		"MOUNTAIN": {"movement": 0.1, "defense": 0.5},
 		"POLAR": {"movement": 0.25, "defense": 1.0},
 		"CITY": {"movement": 1.0, "defense": 0.5},
+		"DOCKS": {"movement": 1.0, "defense": 0.5},
 		"OCEAN": {"movement": 1.5, "defense": 1.5},
 		"LAKE": {"movement": 1.5, "defense": 1.5}
 	},
@@ -115,6 +116,7 @@ const TEC_MODIFIERS: Dictionary = {
 		"MOUNTAIN": {"movement": 0.1, "defense": 1.0},
 		"POLAR": {"movement": 0.25, "defense": 1.0},
 		"CITY": {"movement": 1.0, "defense": 0.75},
+		"DOCKS": {"movement": 1.0, "defense": 0.75},
 		"OCEAN": {"movement": 1.5, "defense": 1.5},
 		"LAKE": {"movement": 1.5, "defense": 1.5}
 	},
@@ -126,6 +128,7 @@ const TEC_MODIFIERS: Dictionary = {
 		"MOUNTAIN": {"movement": 0.0, "defense": 1.0},
 		"POLAR": {"movement": 0.0, "defense": 1.0},
 		"CITY": {"movement": 0.0, "defense": 0.75},
+		"DOCKS": {"movement": 5.0, "defense": 0.75},
 		"OCEAN": {"movement": 5.0, "defense": 1.0},
 		"LAKE": {"movement": 5.0, "defense": 1.0}
 	}
@@ -477,7 +480,13 @@ func take_damage(amount: float) -> void:
 	if p and p.has_method("_get_tile_from_vector3"):
 		var tile_id = p._get_tile_from_vector3(current_position)
 		if p.get("city_tile_cache") != null and p.city_tile_cache.has(tile_id):
-			current_terrain = "CITY"
+			var raw_terrain = "PLAINS"
+			if p.get("map_data") != null:
+				raw_terrain = p.map_data.get_terrain(tile_id)
+			if raw_terrain == "OCEAN" or raw_terrain == "LAKE":
+				current_terrain = "DOCKS"
+			else:
+				current_terrain = "CITY"
 		elif p.get("map_data") != null:
 			current_terrain = p.map_data.get_terrain(tile_id)
 			
@@ -753,29 +762,24 @@ func _process(delta: float) -> void:
 		var p = get_parent()
 		if p and p.has_method("_get_tile_from_vector3"):
 			var tile_id = p._get_tile_from_vector3(current_position)
+			var terrain = p.map_data.get_terrain(tile_id)
+			var effective_terrain = terrain
+			
 			if p.get("city_tile_cache") != null and p.city_tile_cache.has(tile_id):
-				if u_type == "Cruiser":
-					var terrain = p.map_data.get_terrain(tile_id)
-					if terrain == "OCEAN" or terrain == "LAKE":
-						current_terrain_modifier = TEC_MODIFIERS["Cruiser"][terrain]["movement"]
-						_set_seaborne(true)
-					else:
-						current_terrain_modifier = TEC_MODIFIERS[u_type]["CITY"]["movement"]
-						_set_seaborne(false)
-				else:
-					current_terrain_modifier = TEC_MODIFIERS[u_type]["CITY"]["movement"]
-					_set_seaborne(false)
-			else:
-				var terrain = p.map_data.get_terrain(tile_id)
 				if terrain == "OCEAN" or terrain == "LAKE":
-					_set_seaborne(true)
+					effective_terrain = "DOCKS"
 				else:
-					_set_seaborne(false)
-					
-				if TEC_MODIFIERS[u_type].has(terrain):
-					current_terrain_modifier = TEC_MODIFIERS[u_type][terrain]["movement"]
-				else:
-					current_terrain_modifier = 1.0
+					effective_terrain = "CITY"
+			
+			if effective_terrain == "OCEAN" or effective_terrain == "LAKE" or (effective_terrain == "DOCKS" and u_type == "Cruiser"):
+				_set_seaborne(true)
+			else:
+				_set_seaborne(false)
+				
+			if TEC_MODIFIERS[u_type].has(effective_terrain):
+				current_terrain_modifier = TEC_MODIFIERS[u_type][effective_terrain]["movement"]
+			else:
+				current_terrain_modifier = 1.0
 					
 		step *= current_terrain_modifier
 		
@@ -790,19 +794,17 @@ func _process(delta: float) -> void:
 		
 		if p and p.has_method("_get_tile_from_vector3"):
 			var next_tile = p._get_tile_from_vector3(next_pos)
+			var terrain = p.map_data.get_terrain(next_tile)
+			var effective_terrain = terrain
+			
 			if p.get("city_tile_cache") != null and p.city_tile_cache.has(next_tile):
-				if u_type == "Cruiser":
-					var terrain = p.map_data.get_terrain(next_tile)
-					if terrain == "OCEAN" or terrain == "LAKE":
-						lookahead_terrain_modifier = TEC_MODIFIERS["Cruiser"][terrain]["movement"]
-					else:
-						lookahead_terrain_modifier = TEC_MODIFIERS[u_type]["CITY"]["movement"]
+				if terrain == "OCEAN" or terrain == "LAKE":
+					effective_terrain = "DOCKS"
 				else:
-					lookahead_terrain_modifier = TEC_MODIFIERS[u_type]["CITY"]["movement"]
-			else:
-				var terrain = p.map_data.get_terrain(next_tile)
-				if TEC_MODIFIERS[u_type].has(terrain):
-					lookahead_terrain_modifier = TEC_MODIFIERS[u_type][terrain]["movement"]
+					effective_terrain = "CITY"
+					
+			if TEC_MODIFIERS[u_type].has(effective_terrain):
+				lookahead_terrain_modifier = TEC_MODIFIERS[u_type][effective_terrain]["movement"]
 					
 		if lookahead_terrain_modifier <= 0.0:
 			# Abort movement instantly before crossing the impassable threshold
@@ -824,12 +826,18 @@ func _process(delta: float) -> void:
 			var p = get_parent()
 			if p and p.has_method("_get_tile_from_vector3"):
 				var tile_id = p._get_tile_from_vector3(current_position)
-				if not p.city_tile_cache.has(tile_id):
-					var terrain = p.map_data.get_terrain(tile_id)
+				var terrain = p.map_data.get_terrain(tile_id)
+				var effective_terrain = terrain
+				
+				if p.get("city_tile_cache") != null and p.city_tile_cache.has(tile_id):
 					if terrain == "OCEAN" or terrain == "LAKE":
-						_set_seaborne(true)
+						effective_terrain = "DOCKS"
 					else:
-						_set_seaborne(false)
+						effective_terrain = "CITY"
+				
+				var u_type = unit_type.capitalize()
+				if effective_terrain == "OCEAN" or effective_terrain == "LAKE" or (effective_terrain == "DOCKS" and u_type == "Cruiser"):
+					_set_seaborne(true)
 				else:
 					_set_seaborne(false)
 						

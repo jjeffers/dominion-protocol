@@ -181,7 +181,11 @@ func _on_globe_hovered_tile_changed(tile_id: int, terrain: String, c_name: Strin
 		city_name.show()
 		
 		# Show city icon and hide underlying terrain color
-		terrain_name.text = "CITY"
+		if terrain == "OCEAN" or terrain == "LAKE":
+			terrain_name.text = "DOCKS"
+		else:
+			terrain_name.text = "CITY"
+			
 		if region_name != "":
 			terrain_name.text += " (" + region_name + ")"
 		city_icon.show()
@@ -285,7 +289,10 @@ func _process(delta: float) -> void:
 		var u_tile = globe_view._get_tile_from_vector3(su.current_position)
 		var u_terrain = map_data.get_terrain(u_tile)
 		if globe_view.city_tile_cache.has(u_tile):
-			unit_terrain_label.text = "Terrain: CITY"
+			if u_terrain == "OCEAN" or u_terrain == "LAKE":
+				unit_terrain_label.text = "Terrain: DOCKS"
+			else:
+				unit_terrain_label.text = "Terrain: CITY"
 			unit_terrain_label.add_theme_color_override("font_color", Color(1.0, 0.84, 0.0))
 		else:
 			unit_terrain_label.text = "Terrain: " + u_terrain
