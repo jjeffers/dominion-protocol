@@ -24,6 +24,10 @@ func _ready():
 	NetworkManager.connection_succeeded.connect(_on_connection_success)
 	NetworkManager.connection_failed.connect(_on_connection_failed)
 	
+	if NetworkManager.last_disconnect_reason != "":
+		status_label.text = NetworkManager.last_disconnect_reason
+		NetworkManager.last_disconnect_reason = ""
+	
 	var args = OS.get_cmdline_args()
 	print("MainMenu Args: ", args)
 	for arg in args:
@@ -89,5 +93,8 @@ func _on_connection_success():
 	get_tree().call_deferred("change_scene_to_file", "res://src/scenes/Lobby.tscn")
 
 
-func _on_connection_failed():
-	status_label.text = "Connection Failed."
+func _on_connection_failed(reason: String = ""):
+	if reason == "":
+		status_label.text = "Connection Failed."
+	else:
+		status_label.text = reason

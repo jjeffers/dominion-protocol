@@ -1,11 +1,14 @@
 extends Node
 
+const GAME_VERSION: String = "v0.5.1"
+
 var peer = ENetMultiplayerPeer.new()
 var is_host = false
 var local_player_name: String = ""
+var last_disconnect_reason: String = ""
 
 signal connection_succeeded
-signal connection_failed
+signal connection_failed(reason: String)
 signal server_disconnected
 
 # Lobby Signals
@@ -55,12 +58,12 @@ func join_game(ip: String, port: int) -> Error:
 
 func _on_connected_ok():
 	print("Connected to server successfully! Self ID: ", multiplayer.get_unique_id())
-	rpc_id(1, "register_name", local_player_name)
+	rpc_id(1, "register_name", local_player_name, GAME_VERSION)
 	connection_succeeded.emit()
 
 func _on_connected_fail():
 	print("Failed to connect to server.")
-	connection_failed.emit()
+	connection_failed.emit("Failed to connect to server.")
 
 func _on_server_disconnected():
 	print("Server disconnected.")
@@ -101,7 +104,7 @@ func update_players(new_players: Dictionary):
 
 func _update_window_title():
 	if not multiplayer.has_multiplayer_peer() or multiplayer.get_unique_id() == 0:
-		DisplayServer.window_set_title("Dominion Protocol")
+		DisplayServer.window_set_title("Dominion Protocol " + GAME_VERSION)
 		return
 		
 	var id = multiplayer.get_unique_id()
@@ -110,20 +113,40 @@ func _update_window_title():
 		var disp_name = players[id]["name"]
 		if fac == "":
 			fac = "Unassigned"
-		DisplayServer.window_set_title("Dominion Protocol - %s [%s]" % [disp_name, fac])
+		DisplayServer.window_set_title("Dominion Protocol " + GAME_VERSION + " - %s [%s]" % [disp_name, fac])
 	else:
-		DisplayServer.window_set_title("Dominion Protocol - Player %d" % id)
+		DisplayServer.window_set_title("Dominion Protocol " + GAME_VERSION + " - Player %d" % id)
 
 @rpc("any_peer", "call_local", "reliable")
-func register_name(player_name: String):
+func register_name(player_name: String, client_version: String = ""):
 	if not is_host:
 		return
 	
 	var sender_id = multiplayer.get_remote_sender_id()
+	
+	if client_version != GAME_VERSION:
+		# Use deferred call to prevent immediately killing the connection before RPCs send
+		call_deferred("_kick_mismatched_client", sender_id, client_version)
+		return
+		
 	if players.has(sender_id):
 		# Prevent incredibly long names or exploits
 		players[sender_id]["name"] = player_name.substr(0, 20)
 		_sync_players_to_all()
+
+func _kick_mismatched_client(client_id: int, client_version: String):
+	var reason = "Version Mismatch. Host: " + GAME_VERSION + " | You: " + (client_version if client_version != "" else "Unknown")
+	rpc_id(client_id, "reject_connection", reason)
+	await get_tree().create_timer(0.5).timeout
+	if multiplayer.has_multiplayer_peer() and players.has(client_id):
+		peer.disconnect_peer(client_id)
+
+@rpc("authority", "call_local", "reliable")
+func reject_connection(reason: String):
+	print("Connection rejected: ", reason)
+	last_disconnect_reason = reason
+	disconnect_peer()
+	get_tree().change_scene_to_file("res://src/scenes/MainMenu.tscn")
 
 @rpc("any_peer", "call_local", "reliable")
 func claim_faction(faction_name: String):

@@ -45,6 +45,7 @@
 
 
 ### Infantry
+- Represents 300k to 500k troops, artillery, helicopters.
 - Infantry units have a relative movement rate of 1.
 - Infantry will inflict 15 damage per 5 seconds on units it is engaged with.
 - Infantry units that remain motionless for 30 seconds become entrenched. An entrenched unit reduces incoming damage by 50%. Moving that unit will break the entrenchment. Entrenched units have a solid dark green bar at the bottom of their unit icon image.
@@ -52,6 +53,7 @@
 - Infantry units cost 5 credits to purchase.
 
 ### Armor
+- Represents 100k to 300k troops, artillery, helicopters, APcs, and 1k to 3k tanks.
 - Armor units have a relative movement rate of 2.5.
 - Armor will inflict 25 damage per 5 seconds on units it is engaged with.
 - Armor units cost 10 credits to purchase.
@@ -83,6 +85,7 @@ Armor | Ocean | 1.5 | 1.5
 - Defensive Modifier: The factor by which incoming damage is multiplied. For example, an armor unit on plains terrain takes 1.0 * damage per 5 seconds on units it is engaged with. (Low numbers are better for the defender.)
 
 ## Air Units
+- Represents 1k to 1.5k aircraft, including bombers, transports, fighters, EW/ECW, strike aircraft, etc.
 - Air units do not have health, they have instead 2 states: READY and UNREADY.
 
 - An air unit icon represents the "base of operations" for an air unit.
@@ -149,6 +152,7 @@ Armor | Ocean | 1.5 | 1.5
 - Sea units are never pinned by combat.
 
 ### Cruisers
+- Represent surface fleet elements of 10-20 cruiser and battleship class ships plus about 100 support and escort ships.
 - Cruisers cost 50 credits.
 - Cruisers move with a relative move rate of 5.
 - Cruisers have a combat engagement range of 1.5 unit widths (measured from the center of the unit icon).
