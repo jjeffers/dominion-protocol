@@ -855,12 +855,10 @@ func _process(delta: float) -> void:
 								break
 					
 		if lookahead_terrain_modifier <= 0.0:
-			# Abort movement instantly before crossing the impassable threshold
-			target_position = current_position
-			in_motion = false
-			movement_target_unit = null
-			if destination_bracket:
-				destination_bracket.visible = false
+			# Path is physically blocked by another unit. 
+			# Do NOT cancel the movement order! Simply remain halted this frame, 
+			# queuing up in place until the obstruction moves or is destroyed.
+			pass
 		else:
 			current_position = next_pos
 			global_position = current_position
