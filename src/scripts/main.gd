@@ -37,6 +37,7 @@ const ECONOMY_INTERVAL: float = 10.0
 var capture_banner: Label
 var match_timer_label: Label
 var banner_timer: float = 0.0
+var war_start_audio: AudioStreamPlayer
 var victory_banner: Label
 var air_ops_prompt: Label
 
@@ -150,6 +151,11 @@ func _ready() -> void:
 	match_timer_label.offset_right = -20
 	match_timer_label.offset_bottom = 60
 	add_child(match_timer_label)
+	
+	war_start_audio = AudioStreamPlayer.new()
+	war_start_audio.stream = load("res://src/assets/audio/war-start.ogg")
+	add_child(war_start_audio)
+	war_start_audio.play()
 	
 	ConsoleManager.log_message("\n==================================")
 	ConsoleManager.log_message("    GLOBAL CONFLICT AUTHORIZED    ")
