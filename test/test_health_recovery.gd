@@ -122,3 +122,45 @@ func test_no_recovery_if_engaged():
 		u1._process(0.1)
 		
 	assert_almost_eq(u1.health, 50.0, 0.001, "Health should not recover when unit is engaged in combat.")
+
+func test_sea_unit_recovery_in_docks():
+	await wait_physics_frames(2)
+	
+	var u2 = load(GlobeUnitPath).new()
+	mock_view.add_child(u2)
+	u2.faction_name = "Blue"
+	u2.unit_type = "cruiser"
+	u2.current_position = Vector3(1, 0, 0)
+	u2.target_position = Vector3(1, 0, 0)
+	u2.health = 50.0
+	
+	mock_view.active_scenario = {
+		"factions": {
+			"Blue": {
+				"cities": ["BlueCity"]
+			}
+		}
+	}
+	
+	var tile_id = mock_view._get_tile_from_vector3(u2.current_position)
+	mock_view.city_tile_cache[tile_id] = "BlueCity"
+	
+	# Simulate physics process for 29 seconds (should not heal yet)
+	for i in range(290):
+		u2._process(0.1)
+		
+	assert_almost_eq(u2.health, 50.0, 0.001, "Sea unit health should not recover before 30 seconds.")
+	
+	# Simulate 1.1 more seconds to cross the 30-second threshold
+	for i in range(11):
+		u2._process(0.1)
+		
+	assert_almost_eq(u2.health, 60.0, 0.001, "Sea unit health should recover by 10 points after 30 seconds in a dock (friendly city tile).")
+	
+	# Simulate another 30 seconds
+	for i in range(300):
+		u2._process(0.1)
+		
+	assert_almost_eq(u2.health, 70.0, 0.001, "Sea unit health should recover another 10 points.")
+	
+	u2.queue_free()

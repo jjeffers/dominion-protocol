@@ -365,7 +365,7 @@ void fragment() {
 	_update_texture()
 	outline_mat.set_shader_parameter("tex_albedo", sprite.texture)
 	outline_mat.set_shader_parameter("health_pct", 1.0)
-	outline_mat.set_shader_parameter("is_entrenched", false)
+	outline_mat.set_shader_parameter("is_entrenched", entrenched)
 	outline_mat.set_shader_parameter("is_engaged", false)
 	outline_mat.set_shader_parameter("is_air_unit", unit_type == "Air")
 	outline_mat.set_shader_parameter("engagement_angle", 0.0)
@@ -455,6 +455,8 @@ func set_movement_target_unit(target: GlobeUnit) -> void:
 	movement_target_unit = target
 
 func set_combat_target(target: GlobeUnit) -> void:
+	if unit_type.capitalize() == "Air" or target.unit_type.capitalize() == "Air":
+		return
 	combat_target = target
 	is_engaged = true
 	if sprite and sprite.material_override is ShaderMaterial:
@@ -702,7 +704,20 @@ func _process(delta: float) -> void:
 					combat_timer += delta
 					if combat_timer >= 5.0:
 						combat_timer -= 5.0
-						var dmg = 25.0 if unit_type.capitalize() == "Armor" else 15.0
+						
+						var dmg = 15.0
+						if unit_type.capitalize() == "Armor":
+							dmg = 25.0
+						elif unit_type.capitalize() == "Cruiser":
+							dmg = 30.0
+							
+						# Amphibious assault penalty for land units in sea transport
+						if is_seaborne and unit_type.capitalize() != "Cruiser":
+							if combat_target.unit_type.capitalize() == "Cruiser":
+								dmg = 10.0
+							else:
+								dmg *= 0.25
+							
 						combat_target.take_damage(dmg)
 						
 					# Defender advantage
@@ -731,6 +746,9 @@ func _process(delta: float) -> void:
 		for other in all_units:
 			if other != self and is_instance_valid(other) and not other.is_dead:
 				if other.faction_name != "" and self.faction_name != "" and other.faction_name != self.faction_name:
+					if other.unit_type.capitalize() == "Air" or self.unit_type.capitalize() == "Air":
+						continue
+						
 					var target_range = 0.0165 if other.unit_type.capitalize() == "Cruiser" else 0.012
 					var engagement_threshold = (my_range + target_range) / 2.0
 					
@@ -745,6 +763,28 @@ func _process(delta: float) -> void:
 						set_combat_target(other)
 						break
 						
+	var p = get_parent()
+	var effective_terrain = "PLAINS"
+	var u_type = unit_type.capitalize()
+	if not TEC_MODIFIERS.has(u_type):
+		u_type = "Infantry"
+		
+	if p and p.has_method("_get_tile_from_vector3"):
+		var tile_id = p._get_tile_from_vector3(current_position)
+		var terrain = p.map_data.get_terrain(tile_id)
+		effective_terrain = terrain
+		
+		if p.get("city_tile_cache") != null and p.city_tile_cache.has(tile_id):
+			if terrain == "OCEAN" or terrain == "LAKE":
+				effective_terrain = "DOCKS"
+			else:
+				effective_terrain = "CITY"
+		
+		if effective_terrain in ["OCEAN", "LAKE", "DOCKS"]:
+			_set_seaborne(true)
+		else:
+			_set_seaborne(false)
+
 	# 3. Process Movement (if still slated to move after combat overrides)
 	if in_motion:
 		var angle = current_position.angle_to(target_position)
@@ -753,33 +793,9 @@ func _process(delta: float) -> void:
 		# Move at constant speed along the arc
 		var step = (speed_units_per_sec * delta) / radius
 		
-		# Terrain Effects Modification
-		var u_type = unit_type.capitalize()
-		if not TEC_MODIFIERS.has(u_type):
-			u_type = "Infantry"
-		
 		current_terrain_modifier = 1.0
-		var p = get_parent()
-		if p and p.has_method("_get_tile_from_vector3"):
-			var tile_id = p._get_tile_from_vector3(current_position)
-			var terrain = p.map_data.get_terrain(tile_id)
-			var effective_terrain = terrain
-			
-			if p.get("city_tile_cache") != null and p.city_tile_cache.has(tile_id):
-				if terrain == "OCEAN" or terrain == "LAKE":
-					effective_terrain = "DOCKS"
-				else:
-					effective_terrain = "CITY"
-			
-			if effective_terrain == "OCEAN" or effective_terrain == "LAKE" or (effective_terrain == "DOCKS" and u_type == "Cruiser"):
-				_set_seaborne(true)
-			else:
-				_set_seaborne(false)
-				
-			if TEC_MODIFIERS[u_type].has(effective_terrain):
-				current_terrain_modifier = TEC_MODIFIERS[u_type][effective_terrain]["movement"]
-			else:
-				current_terrain_modifier = 1.0
+		if TEC_MODIFIERS[u_type].has(effective_terrain):
+			current_terrain_modifier = TEC_MODIFIERS[u_type][effective_terrain]["movement"]
 					
 		step *= current_terrain_modifier
 		
@@ -795,16 +811,16 @@ func _process(delta: float) -> void:
 		if p and p.has_method("_get_tile_from_vector3"):
 			var next_tile = p._get_tile_from_vector3(next_pos)
 			var terrain = p.map_data.get_terrain(next_tile)
-			var effective_terrain = terrain
+			var next_effective_terrain = terrain
 			
 			if p.get("city_tile_cache") != null and p.city_tile_cache.has(next_tile):
 				if terrain == "OCEAN" or terrain == "LAKE":
-					effective_terrain = "DOCKS"
+					next_effective_terrain = "DOCKS"
 				else:
-					effective_terrain = "CITY"
+					next_effective_terrain = "CITY"
 					
-			if TEC_MODIFIERS[u_type].has(effective_terrain):
-				lookahead_terrain_modifier = TEC_MODIFIERS[u_type][effective_terrain]["movement"]
+			if TEC_MODIFIERS[u_type].has(next_effective_terrain):
+				lookahead_terrain_modifier = TEC_MODIFIERS[u_type][next_effective_terrain]["movement"]
 					
 		if lookahead_terrain_modifier <= 0.0:
 			# Abort movement instantly before crossing the impassable threshold
@@ -823,11 +839,11 @@ func _process(delta: float) -> void:
 		current_terrain_modifier = 1.0
 		# Evaluate terrain at organic rest to ensure graphics adhere.
 		if current_position != null:
-			var p = get_parent()
+			p = get_parent()
 			if p and p.has_method("_get_tile_from_vector3"):
 				var tile_id = p._get_tile_from_vector3(current_position)
 				var terrain = p.map_data.get_terrain(tile_id)
-				var effective_terrain = terrain
+				effective_terrain = terrain
 				
 				if p.get("city_tile_cache") != null and p.city_tile_cache.has(tile_id):
 					if terrain == "OCEAN" or terrain == "LAKE":
@@ -835,8 +851,7 @@ func _process(delta: float) -> void:
 					else:
 						effective_terrain = "CITY"
 				
-				var u_type = unit_type.capitalize()
-				if effective_terrain == "OCEAN" or effective_terrain == "LAKE" or (effective_terrain == "DOCKS" and u_type == "Cruiser"):
+				if effective_terrain in ["OCEAN", "LAKE", "DOCKS"]:
 					_set_seaborne(true)
 				else:
 					_set_seaborne(false)
@@ -959,6 +974,5 @@ func _set_seaborne(status: bool) -> void:
 	is_seaborne = status
 	if sprite and sprite.material_override is ShaderMaterial:
 		sprite.material_override.set_shader_parameter("use_bg_color", is_seaborne)
-		# Setting to #1f679c (OCEAN Color)
 		sprite.material_override.set_shader_parameter("bg_color_override", Color("#1f679c"))
 

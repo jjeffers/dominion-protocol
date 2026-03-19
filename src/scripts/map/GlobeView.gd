@@ -253,8 +253,11 @@ func _on_unit_target_synced(unit_name: String, target_pos: Vector3, enemy_target
 					enemy = u
 					break
 			if enemy:
-				unit.clear_combat_target()
-				unit.set_movement_target_unit(enemy)
+				if unit.get("combat_target") == enemy and unit.get("is_engaged"):
+					unit.set("movement_target_unit", enemy)
+				else:
+					unit.clear_combat_target()
+					unit.set_movement_target_unit(enemy)
 		else:
 			# Manual coordinate movement
 			unit.clear_combat_target()
@@ -757,7 +760,7 @@ func _process_city_captures() -> void:
 		for u in units_list:
 			if not is_instance_valid(u):
 				continue
-			if u.get("is_dead") != true:
+			if u.get("is_dead") != true and u.get("unit_type") != "Air":
 				var dist = city_node.position.distance_to(u.position) / radius
 				if dist <= 0.01:
 					units_in_range.append(u)
@@ -789,16 +792,25 @@ func _process_city_captures() -> void:
 @rpc("authority", "call_local", "reliable")
 func sync_city_capture(city_name: String, new_faction: String, old_faction: String) -> void:
 	print("City Capture: ", city_name, " captured by ", new_faction, " from ", old_faction)
+	var network_manager = get_node_or_null("/root/NetworkManager")
+	if network_manager and network_manager.is_host:
+		var old_str = old_faction if old_faction != "neutral" else "neutral forces"
+		var alert_str = city_name + " was captured by " + new_faction + " from " + old_str + "."
+		ConsoleManager.log_message(alert_str)
 	
 	# Destroy Air Units in Captured Cities
 	var c_tiles = []
+	var c_data = {}
 	if active_scenario.has("cities") and active_scenario["cities"].has(city_name):
-		var c_data = active_scenario["cities"][city_name]
-		if c_data.has("latitude") and c_data.has("longitude"):
-			var base_raw_pos = _lat_lon_to_vector3(deg_to_rad(c_data["latitude"]), deg_to_rad(c_data["longitude"]), radius)
-			var base_tile = _get_tile_from_vector3(base_raw_pos)
-			c_tiles.append(base_tile)
-			c_tiles.append_array(map_data.get_neighbors(base_tile))
+		c_data = active_scenario["cities"][city_name]
+	elif cached_city_data.has(city_name):
+		c_data = cached_city_data[city_name]
+		
+	if c_data.has("latitude") and c_data.has("longitude"):
+		var base_raw_pos = _lat_lon_to_vector3(deg_to_rad(c_data["latitude"]), deg_to_rad(c_data["longitude"]), radius)
+		var base_tile = _get_tile_from_vector3(base_raw_pos)
+		c_tiles.append(base_tile)
+		c_tiles.append_array(map_data.get_neighbors(base_tile))
 			
 	for u in units_list:
 		if is_instance_valid(u) and not u.get("is_dead") and u.get("unit_type") == "Air":
@@ -2010,6 +2022,8 @@ func _spawn_unit(unit_def: Dictionary, faction_name: String, c_dict: Dictionary,
 		if unit_def.has("entrenched") and unit_def["entrenched"] == true:
 			unit.entrenched = true
 			unit.time_motionless = 30.0
+			if unit.sprite and unit.sprite.material_override is ShaderMaterial:
+				unit.sprite.material_override.set_shader_parameter("is_entrenched", true)
 			
 		unit.spawn(raw_pos)
 		units_list.append(unit)
@@ -2105,6 +2119,8 @@ func _spawn_unit(unit_def: Dictionary, faction_name: String, c_dict: Dictionary,
 			if unit_def.has("entrenched") and unit_def["entrenched"] == true:
 				unit.entrenched = true
 				unit.time_motionless = 30.0
+				if unit.sprite and unit.sprite.material_override is ShaderMaterial:
+					unit.sprite.material_override.set_shader_parameter("is_entrenched", true)
 				
 			unit.spawn(final_raw_pos)
 			units_list.append(unit)
@@ -2134,6 +2150,8 @@ func _spawn_unit(unit_def: Dictionary, faction_name: String, c_dict: Dictionary,
 		if unit_def.has("entrenched") and unit_def["entrenched"] == true:
 			unit.entrenched = true
 			unit.time_motionless = 30.0
+			if unit.sprite and unit.sprite.material_override is ShaderMaterial:
+				unit.sprite.material_override.set_shader_parameter("is_entrenched", true)
 			
 		unit.spawn(raw_pos)
 		units_list.append(unit)

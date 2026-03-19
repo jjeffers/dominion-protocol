@@ -30,11 +30,18 @@ func _ready():
 	
 	var args = OS.get_cmdline_args()
 	print("MainMenu Args: ", args)
+	
+	for arg in args:
+		if arg.begins_with("--bot"):
+			player_name_input.text = "[BOT] TacticalAI"
+			
 	for arg in args:
 		if arg == "--host":
 			_on_host_pressed()
 		elif arg == "--client":
 			_on_join_pressed()
+		elif arg.begins_with("--bot"):
+			_on_host_pressed()
 
 
 func _load_config():

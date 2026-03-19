@@ -1,0 +1,199 @@
+extends GutTest
+
+var TacticalAIPath = "res://src/scripts/ai/TacticalAI.gd"
+var GlobeUnitPath = "res://src/scripts/map/GlobeUnit.gd"
+
+var ai
+var mock_main
+var mock_globe
+var mock_nm
+
+func before_each():
+	var peer = OfflineMultiplayerPeer.new()
+	get_tree().get_multiplayer().multiplayer_peer = peer
+	ai = preload("res://src/scripts/ai/TacticalAI.gd").new()
+	
+	mock_main = Node.new()
+	var mock_main_script = GDScript.new()
+	mock_main_script.source_code = "extends Node\nvar scenario_data = {}"
+	mock_main_script.reload()
+	mock_main.set_script(mock_main_script)
+	mock_main.name = "Main"
+	var scenario_data = {
+		"factions": {
+			"Red": {
+				"money": 100.0,
+				"cities": ["Unit_City_A", "Unit_City_B"]
+			}
+		}
+	}
+	mock_main.scenario_data = scenario_data
+	get_tree().root.add_child(mock_main)
+	
+	var mock_globe_script = GDScript.new()
+	mock_globe_script.source_code = "extends Node3D\nvar units_list = []\nvar city_cooldowns = {}\nvar city_nodes = []\nvar radius = 1.0\nfunc sync_unit_purchase(c,t,f,cost):\n\tpass"
+	mock_globe_script.reload()
+	mock_globe = Node3D.new()
+	mock_globe.set_script(mock_globe_script)
+	mock_globe.name = "GlobeView"
+	
+	var city_a = Node3D.new()
+	city_a.name = "Unit_City_A"
+	mock_globe.add_child(city_a)
+	city_a.global_position = Vector3(1, 0, 0)
+	
+	var city_b = Node3D.new()
+	city_b.name = "Unit_City_B"
+	mock_globe.add_child(city_b)
+	city_b.global_position = Vector3(0, 1, 0)
+	
+	var enemy_city = Node3D.new()
+	enemy_city.name = "Unit_City_Enemy"
+	mock_globe.add_child(enemy_city)
+	enemy_city.global_position = Vector3(0, 0, 1)
+	
+	mock_globe.city_nodes = [city_a, city_b, enemy_city]
+	mock_globe.radius = 1.0
+	get_tree().root.add_child(mock_globe)
+	
+	var mock_nm_script = GDScript.new()
+	mock_nm_script.source_code = """extends Node
+var is_host = true
+var last_strike_target = ''
+var last_redeploy_target = ''
+
+@rpc('any_peer')
+func sync_unit_target(a, b, c=''):
+	pass
+
+@rpc('any_peer', 'call_local')
+func request_air_strike(unit, enemy):
+	last_strike_target = enemy
+
+@rpc('any_peer', 'call_local')
+func request_air_redeploy(unit, city):
+	last_redeploy_target = city
+"""
+	var err = mock_nm_script.reload()
+	if err != OK:
+		push_error("MOCK NM SCRIPT FAILED TO COMPILE")
+	mock_nm = Node.new()
+	mock_nm.set_script(mock_nm_script)
+	mock_nm.name = "NetworkManager"
+	get_tree().root.add_child(mock_nm)
+	
+	add_child(ai)
+	ai.set_faction("Red", 0.5, 1)
+	ai.network_manager = mock_nm
+	ai.globe_view = mock_globe
+
+func after_each():
+	ai.queue_free()
+	mock_main.queue_free()
+	mock_globe.queue_free()
+	mock_nm.queue_free()
+
+func test_initial_state_and_transition():
+	assert_eq(ai.current_state, ai.AIState.PRODUCING, "AI should start in PRODUCING state")
+	
+func test_production_transitions_to_rallying():
+	# Manually bypass the wait time
+	ai.current_state = ai.AIState.PRODUCING
+	ai._evaluate_state()
+	# Without units, it stays in PRODUCING
+	assert_eq(ai.current_state, ai.AIState.PRODUCING, "Should stay in PRODUCING if no units exist")
+	
+	# Add a unit to mock_globe
+	var unit_scr = GDScript.new()
+	unit_scr.source_code = "extends Node3D\nvar faction_name = 'Red'\nvar is_dead = false\nvar is_engaged = false"
+	unit_scr.reload()
+	var u1 = Node3D.new()
+	u1.set_script(unit_scr)
+	mock_globe.add_child(u1)
+	mock_globe.units_list.append(u1)
+	
+	ai._evaluate_state()
+	# Now it should transition to RALLYING because owned_units.size() > 0
+	assert_eq(ai.current_state, ai.AIState.RALLYING, "Should transition to RALLYING when a unit is produced")
+	u1.free()
+
+func test_rallying_transitions_to_attacking():
+	ai.current_state = ai.AIState.RALLYING
+	
+	var unit_scr = GDScript.new()
+	unit_scr.source_code = "extends Node3D\nvar faction_name = 'Red'\nvar is_dead = false\nvar is_engaged = false"
+	unit_scr.reload()
+	
+	var u1 = Node3D.new()
+	u1.set_script(unit_scr)
+	mock_globe.add_child(u1)
+	u1.global_position = Vector3(1,0,0)
+	
+	var u2 = Node3D.new()
+	u2.set_script(unit_scr)
+	mock_globe.add_child(u2)
+	u2.global_position = Vector3(1,0,0)
+	
+	var u3 = Node3D.new()
+	u3.set_script(unit_scr)
+	mock_globe.add_child(u3)
+	u3.global_position = Vector3(1,0,0)
+	
+	mock_globe.units_list.append(u1)
+	mock_globe.units_list.append(u2)
+	mock_globe.units_list.append(u3)
+	
+	ai._evaluate_state()
+	
+	assert_eq(ai.current_state, ai.AIState.ATTACKING, "Should transition to ATTACKING with 3+ units")
+	
+	u1.free()
+	u2.free()
+	u3.free()
+
+func test_air_operations():
+	# Test Air Strike
+	var air_scr = GDScript.new()
+	air_scr.source_code = "extends Node3D\nvar faction_name = 'Red'\nvar is_dead = false\nvar unit_type = 'Air'\nvar is_air_ready = true"
+	air_scr.reload()
+	
+	var u1 = Node3D.new()
+	u1.set_script(air_scr)
+	u1.name = "Unit_Air_1"
+	mock_globe.add_child(u1)
+	u1.global_position = Vector3(1, 0, 0)
+	
+	var enemy_scr = GDScript.new()
+	enemy_scr.source_code = "extends Node3D\nvar faction_name = 'Blue'\nvar is_dead = false"
+	enemy_scr.reload()
+	
+	var enemy = Node3D.new()
+	enemy.set_script(enemy_scr)
+	enemy.name = "Unit_Infantry_Enemy"
+	mock_globe.add_child(enemy)
+	# Place enemy within 0.165 distance
+	enemy.global_position = Vector3(1, 0.1, 0) 
+	
+	mock_globe.units_list.append(u1)
+	mock_globe.units_list.append(enemy)
+	
+	ai.current_state = ai.AIState.ATTACKING
+	ai._evaluate_state()
+	
+	assert_eq(mock_nm.last_strike_target, "Unit_Infantry_Enemy", "AI should have requested an airstrike on the enemy")
+	
+	# Test Redeploy
+	mock_nm.last_strike_target = "" # reset
+	u1.global_position = Vector3(0, 1, 0) # Move air unit far away (near Unit_City_B)
+	# Target city is enemy_city at (0, 0, 1)
+	# City A is at (1, 0, 0). Move it closer to front lines.
+	mock_globe.city_nodes[0].global_position = Vector3(0, 0.2, 0.8) 
+	
+	enemy.global_position = Vector3(0, 0, 1) # Move enemy out of strike range of (0,1,0)
+	
+	ai._evaluate_state()
+	
+	assert_eq(mock_nm.last_redeploy_target, "Unit_City_A", "AI should have redeployed closer to the front lines")
+	
+	u1.free()
+	enemy.free()

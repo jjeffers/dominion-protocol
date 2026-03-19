@@ -76,6 +76,9 @@ func _ready() -> void:
 	# Ensure GlobeView explicitly relies on the scenario definitions to draw features
 	globe_view._instantiate_scenario(scenario_data)
 	
+	if multiplayer.is_server() or not multiplayer.has_multiplayer_peer():
+		_spawn_tactical_ais()
+	
 	purchase_infantry_btn.pressed.connect(_on_purchase_infantry)
 	purchase_armor_btn.pressed.connect(_on_purchase_armor)
 	purchase_air_btn.pressed.connect(_on_purchase_air)
@@ -157,9 +160,11 @@ func _ready() -> void:
 	add_child(war_start_audio)
 	war_start_audio.play()
 	
-	ConsoleManager.log_message("\n==================================")
-	ConsoleManager.log_message("    GLOBAL CONFLICT AUTHORIZED    ")
-	ConsoleManager.log_message("==================================\n")
+	var network_manager = get_node_or_null("/root/NetworkManager")
+	if network_manager and network_manager.is_host:
+		ConsoleManager.log_message("\n==================================")
+		ConsoleManager.log_message("    GLOBAL CONFLICT AUTHORIZED    ")
+		ConsoleManager.log_message("==================================\n")
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:
@@ -265,6 +270,26 @@ func _load_scenario() -> void:
 			
 	# We rely on GlobeView or MapData to discover the active regions from these cities and cull the rest.
 	# GlobeView handles projection, so we delay region culling until GlobeView processes it over in `_instantiate_scenario`.
+
+func _spawn_tactical_ais() -> void:
+	if not scenario_data.has("factions"): return
+	
+	var human_factions = []
+	var nm = get_node_or_null("/root/NetworkManager")
+	if nm:
+		for p in nm.players.values():
+			if p.has("faction") and p["faction"] != "":
+				if not p.get("name", "").begins_with("[BOT]"):
+					human_factions.append(p["faction"])
+				
+	for fac in scenario_data["factions"].keys():
+		if not (fac in human_factions):
+			print("MainScene: Spawning TacticalAI for unassigned or bot-managed faction ", fac)
+			var ai = load("res://src/scripts/ai/TacticalAI.gd").new()
+			ai.name = "TacticalAI_" + fac
+			add_child(ai)
+			ai.set_faction(fac, 0.5, 2) # Aggression 0.5, Capability 2
+
 
 func _on_city_captured(city_name: String, new_faction: String, old_faction: String) -> void:
 	print(">>> CITY DOMAINS UPDATED: ", city_name, " is now under control of ", new_faction)

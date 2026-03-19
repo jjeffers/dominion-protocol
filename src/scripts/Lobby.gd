@@ -67,12 +67,11 @@ func _update_ui():
 	blue_btn.disabled = blue_taken
 	red_btn.disabled = red_taken
 	
-	# Host can only start if all players exist and have factions assigned
-	# And both Blue/Red are filled
+	# Host can start anytime, empty slots will be played by AI bots
 	if NetworkManager.is_host:
-		start_btn.disabled = not (blue_taken and red_taken and all_ready)
+		start_btn.disabled = false
 		
-		if auto_start and not start_btn.disabled:
+		if auto_start:
 			_on_start_game()
 
 

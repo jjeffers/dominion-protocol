@@ -27,6 +27,7 @@ func after_all():
 	GlobeView.skip_mesh_generation = false
 
 func before_each():
+	city_tile_cache.clear()
 	var gv_scene = load("res://src/scenes/map/GlobeView.tscn")
 	mock_view = gv_scene.instantiate()
 	add_child(mock_view)
@@ -153,3 +154,37 @@ func test_cruiser_multi_directional_engagement():
 		
 		# Verify the threshold triggered successfully regardless of which XYZ plane they approached on
 		assert_true(u1.is_engaged, "Cruiser failed to engage target when approaching from relative vector: " + str(dir))
+
+func test_land_unit_ignores_air_unit():
+	u1.unit_type = "Infantry"
+	u2.unit_type = "Air"
+	u1.radius = 1.0
+	u2.radius = 1.0
+	
+	u1.current_position = Vector3(1, 0, 0)
+	u2.current_position = Vector3(0.999, 0, 0)
+	u1.target_position = Vector3(1, 0, 0)
+	u2.target_position = Vector3(0.999, 0, 0)
+	
+	u1.add_to_group("units")
+	u2.add_to_group("units")
+	
+	u1._process(0.1)
+	
+	assert_false(u1.is_engaged, "Land unit should not engage Air units automatically")
+	
+	# Also test explicit locking
+	u1.set_combat_target(u2)
+	assert_false(u1.is_engaged, "Land unit should refuse explicit combat lock on Air units")
+
+func test_sea_transport_attacks_cruiser():
+	u1.unit_type = "Armor"
+	u1.is_seaborne = true
+	u2.unit_type = "Cruiser"
+	
+	u1.set_combat_target(u2)
+	u2.health = 100.0
+	u1.combat_timer = 5.0 # force attack next frame
+	u1._process(0.1)
+	
+	assert_eq(u2.health, 90.0, "Armor in Sea Transport should deal exactly 10 damage to Cruisers")

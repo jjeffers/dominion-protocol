@@ -95,3 +95,72 @@ func test_victory_condition() -> void:
 	
 	assert_signal_emitted(globe, "victory_declared")
 	assert_signal_emitted_with_parameters(globe, "victory_declared", ["Red"])
+
+func test_city_capture_ignores_air() -> void:
+	var london = null
+	for cn in globe.city_nodes:
+		if cn.name == "London":
+			london = cn
+			break
+			
+	assert_not_null(london, "London must exist")
+	
+	var script = GDScript.new()
+	script.source_code = """extends Node3D
+var faction_name: String
+var unit_type: String = 'Land'
+var is_dead: bool = false
+var health: float = 100.0
+func take_damage(amount: float) -> void:
+	health -= amount
+	if health <= 0:
+		is_dead = true
+		queue_free()
+"""
+	var err = script.reload()
+	if err != OK:
+		push_error("Mock unit script failed to compile.")
+		
+	# Clear organically spawned default map units to prevent them from contesting
+	for u in globe.units_list.duplicate():
+		if is_instance_valid(u):
+			u.queue_free()
+	globe.units_list.clear()
+	
+	# Spawn a Red land unit
+	var red_land = Node3D.new()
+	red_land.set_script(script)
+	red_land.set("faction_name", "Red")
+	
+	# Spawn a Blue air unit
+	var blue_air = Node3D.new()
+	blue_air.set_script(script)
+	blue_air.set("faction_name", "Blue")
+	blue_air.set("unit_type", "Air")
+	
+	globe.units_list.append(red_land)
+	globe.units_list.append(blue_air)
+	globe.add_child(red_land)
+	globe.add_child(blue_air)
+	
+	red_land.position = london.position
+	blue_air.position = london.position
+	
+	# aggressively kill any AIs that spawned organically to stop them from dropping units onto London and contesting the test
+	for child in main.get_children():
+		if child.name.begins_with("TacticalAI"):
+			child.queue_free()
+	
+	# Wait for children to enter tree fully
+	await get_tree().process_frame
+	
+	# Attempt capture process. Red should capture London from Blue
+	globe._process_city_captures()
+
+	# Assert scenario data updated (owner changed)
+	assert_true(globe.active_scenario["factions"]["Red"]["cities"].has("London"), "Red should capture London despite Blue Air unit presence")
+	assert_false(globe.active_scenario["factions"]["Blue"]["cities"].has("London"), "Blue should lose London")
+	
+	# Assert Air unit destroyed (queued for deletion)
+	assert_true(blue_air.is_queued_for_deletion(), "Blue Air unit should be destroyed when the city falls")
+
