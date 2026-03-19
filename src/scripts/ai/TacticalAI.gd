@@ -193,6 +193,8 @@ func _find_high_value_target() -> Node3D:
 func _handle_rallying() -> void:
 	for u in owned_units:
 		if is_instance_valid(u) and u.get("unit_type") != "Air" and not u.get("is_engaged"):
+			if _process_unit_repair(u):
+				continue
 			var dist = u.global_position.distance_to(rally_point)
 			if dist > 0.05:
 				_issue_move_order(u, rally_point)
@@ -210,6 +212,9 @@ func _handle_attacking() -> void:
 	
 	for u in owned_units:
 		if not is_instance_valid(u) or u.get("unit_type") == "Air":
+			continue
+			
+		if _process_unit_repair(u):
 			continue
 			
 		# Tactical Engagement override
@@ -308,3 +313,43 @@ func _issue_move_order(unit: Node3D, target_pos: Vector3, enemy_target_name: Str
 		network_manager.rpc("sync_unit_target", unit.name, target_pos, enemy_target_name)
 		# call local update
 		network_manager.sync_unit_target(unit.name, target_pos, enemy_target_name)
+
+func _process_unit_repair(u: Node3D) -> bool:
+	var u_health = u.get("health")
+	if u_health != null:
+		if u_health < 40.0:
+			u.set_meta("needs_repair", true)
+		elif u_health >= 90.0:
+			u.set_meta("needs_repair", false)
+			
+	if u.has_meta("needs_repair") and u.get_meta("needs_repair"):
+		var nearest_city = _get_closest_friendly_city(u)
+		if nearest_city:
+			var dist = u.global_position.distance_to(nearest_city.global_position)
+			if dist > 0.05:
+				_issue_move_order(u, nearest_city.global_position)
+			else:
+				# We are in the city, stop and heal!
+				_issue_move_order(u, u.global_position)
+		return true
+	return false
+
+func _get_closest_friendly_city(unit: Node3D) -> Node3D:
+	var main_scene = get_node_or_null("/root/Main")
+	if not main_scene or not main_scene.scenario_data.has("factions"):
+		return null
+		
+	var fac_data = main_scene.scenario_data["factions"].get(faction_name, {})
+	var own_cities = fac_data.get("cities", [])
+	
+	var best_city = null
+	var best_dist = INF
+	
+	for cn in globe_view.city_nodes:
+		if is_instance_valid(cn) and cn.name in own_cities:
+			var dist = unit.global_position.distance_to(cn.global_position)
+			if dist < best_dist:
+				best_dist = dist
+				best_city = cn
+				
+	return best_city

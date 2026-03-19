@@ -457,6 +457,13 @@ func set_movement_target_unit(target: GlobeUnit) -> void:
 func set_combat_target(target: GlobeUnit) -> void:
 	if unit_type.capitalize() == "Air" or target.unit_type.capitalize() == "Air":
 		return
+		
+	# Block explicit retargeting lock-ons while we are already engaged!
+	# The player or AI must have this unit break engagement (by running away) 
+	# to organically re-acquire a new closest target, preventing combat flapping.
+	if is_engaged and is_instance_valid(combat_target) and not combat_target.is_dead:
+		return
+		
 	combat_target = target
 	is_engaged = true
 	if sprite and sprite.material_override is ShaderMaterial:
@@ -524,6 +531,11 @@ func take_damage(amount: float) -> void:
 	if health <= 0.0:
 		is_dead = true
 		clear_combat_target()
+		
+		if ConsoleManager:
+			var col = "red" if faction_name.to_lower() == "red" else "#3388ff"
+			var fac = "[color=" + col + "]" + faction_name + "[/color]"
+			ConsoleManager.log_message(fac + " " + unit_type + " destroyed")
 		
 		if path_immediate_mesh:
 			path_immediate_mesh.clear_surfaces()
@@ -821,6 +833,26 @@ func _process(delta: float) -> void:
 					
 			if TEC_MODIFIERS[u_type].has(next_effective_terrain):
 				lookahead_terrain_modifier = TEC_MODIFIERS[u_type][next_effective_terrain]["movement"]
+					
+		if lookahead_terrain_modifier > 0.0:
+			var all_units = get_tree().get_nodes_in_group("units")
+			for other in all_units:
+				if other != self and is_instance_valid(other) and not other.get("is_dead"):
+					var target_type = other.get("unit_type")
+					if target_type == null or target_type.capitalize() == "Air" or self.unit_type.capitalize() == "Air":
+						continue
+					
+					var target_range = 0.0165 if target_type.capitalize() == "Cruiser" else 0.012
+					var collision_threshold = (my_range + target_range) / 3.0
+					
+					if other.get("current_position") != null:
+						var dist_next = next_pos.distance_to(other.get("current_position"))
+						if dist_next < collision_threshold:
+							var dist_now = current_position.distance_to(other.get("current_position"))
+							# Only block if we are pushing CLOSER into their space
+							if dist_next < dist_now:
+								lookahead_terrain_modifier = 0.0
+								break
 					
 		if lookahead_terrain_modifier <= 0.0:
 			# Abort movement instantly before crossing the impassable threshold

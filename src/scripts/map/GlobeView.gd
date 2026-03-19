@@ -57,6 +57,23 @@ var city_cooldowns: Dictionary = {}
 var cached_city_data: Dictionary = {}
 var deployment_ghost: Sprite3D
 
+var unit_name_counters: Dictionary = {}
+
+func _get_standard_unit_name(faction: String, type: String) -> String:
+	var f = faction.capitalize()
+	if f == "":
+		f = "Neutral"
+	var t = type.capitalize()
+	
+	if not unit_name_counters.has(f):
+		unit_name_counters[f] = {}
+	if not unit_name_counters[f].has(t):
+		unit_name_counters[f][t] = 1
+		
+	var n = f + "_" + t + "_" + str(unit_name_counters[f][t])
+	unit_name_counters[f][t] += 1
+	return n
+
 func _ready() -> void:
 	if not map_data:
 		# Create a dummy map for testing if none provided
@@ -889,6 +906,11 @@ func _update_camera() -> void:
 @rpc("any_peer", "call_local", "reliable")
 func sync_unit_purchase(city_name: String, unit_type: String, faction: String, cost: float) -> void:
 	print("Unit Purchase: ", faction, " bought ", unit_type, " at ", city_name, " for ", cost)
+	
+	if ConsoleManager:
+		var col = "red" if faction.to_lower() == "red" else "#3388ff"
+		var fac = "[color=" + col + "]" + faction + "[/color]"
+		ConsoleManager.log_message(fac + " deployed " + unit_type + " in " + city_name)
 	
 	if active_scenario.has("factions") and active_scenario["factions"].has(faction):
 		var money = active_scenario["factions"][faction].get("money", 0.0)
@@ -2007,7 +2029,6 @@ func _spawn_unit(unit_def: Dictionary, faction_name: String, c_dict: Dictionary,
 			
 		# Snap exactly to globe bounds for zero-parallax since shader uses no_depth_test
 		unit.radius = radius
-		unit.name = "Unit_LatLon_" + str(int(lat * 10)) + "_" + str(int(lon * 10))
 		add_child(unit)
 		if faction_name != "":
 			unit.faction_name = faction_name
@@ -2015,6 +2036,7 @@ func _spawn_unit(unit_def: Dictionary, faction_name: String, c_dict: Dictionary,
 			var faction = _get_faction_data(faction_name)
 			if faction.has("color"):
 				unit.set_faction_color(faction["color"])
+		unit.name = _get_standard_unit_name(unit.faction_name, unit.unit_type)
 		
 		if unit.has_method("set_sizing"):
 			unit.set_sizing(tile_width)
@@ -2104,7 +2126,6 @@ func _spawn_unit(unit_def: Dictionary, faction_name: String, c_dict: Dictionary,
 				unit.unit_type = str(unit_def["type"]).capitalize()
 				
 			unit.radius = radius
-			unit.name = "Unit_City_" + loc
 			add_child(unit)
 			if faction_name != "":
 				unit.faction_name = faction_name
@@ -2112,6 +2133,7 @@ func _spawn_unit(unit_def: Dictionary, faction_name: String, c_dict: Dictionary,
 				var faction = _get_faction_data(faction_name)
 				if faction.has("color"):
 					unit.set_faction_color(faction["color"])
+			unit.name = _get_standard_unit_name(unit.faction_name, unit.unit_type)
 					
 			if unit.has_method("set_sizing"):
 				unit.set_sizing(tile_width)
@@ -2135,7 +2157,6 @@ func _spawn_unit(unit_def: Dictionary, faction_name: String, c_dict: Dictionary,
 			unit.unit_type = str(unit_def["type"]).capitalize()
 			
 		unit.radius = radius
-		unit.name = "Unit_Region_" + loc
 		add_child(unit)
 		if faction_name != "":
 			unit.faction_name = faction_name
@@ -2143,6 +2164,7 @@ func _spawn_unit(unit_def: Dictionary, faction_name: String, c_dict: Dictionary,
 			var faction = _get_faction_data(faction_name)
 			if faction.has("color"):
 				unit.set_faction_color(faction["color"])
+		unit.name = _get_standard_unit_name(unit.faction_name, unit.unit_type)
 				
 		if unit.has_method("set_sizing"):
 			unit.set_sizing(tile_width)
@@ -2204,9 +2226,9 @@ func _spawn_border_units(count: int, faction1: String, faction2: String, faction
 		var tile_width = _get_tile_width(tid)
 		var unit = GlobeUnitScript.new()
 		unit.radius = radius
-		unit.name = "Unit_Border_" + owning_faction + "_" + str(i)
 		unit.faction_name = owning_faction
 		unit.is_friendly = (owning_faction == _get_local_faction())
+		unit.name = _get_standard_unit_name(unit.faction_name, unit.unit_type)
 		add_child(unit)
 		if faction_data.has("color"):
 			unit.set_faction_color(faction_data["color"])

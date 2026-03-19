@@ -57,6 +57,10 @@
                     "location": "Brussels"
                 },
                 {
+                    "type": "air",
+                    "location": "London"
+                },
+                {
                     "type": "cruiser",
                     "latitude": 54.0,
                     "longitude": 3.0,
