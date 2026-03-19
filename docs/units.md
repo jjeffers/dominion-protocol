@@ -90,11 +90,16 @@ Armor | Ocean | 1.5 | 1.5
 - Air units have an operations radius of 10*(land unit icon width).
 - When an air unit is selected, the UI draws a red circle centered on the air unit with a radius equal to the operations radius.
 
+### Air Unit Visibilty 
+- READY air units provide vision of all units within their operations radius.
+
+
 ### Air Unit Operations
 - When an air unit is selected and and that air unit is READY, operations can be selectd by using the keyboard:
     - 'a' orders an AIR STRIKE.
     - 'r' orders a REDEPLOY.
 #### AIR STRIKE
+- When an air strike order is used, the air unit's operations radius wil show as a red circle centered on the air unit. 
 - AIR STRIKE orders targeting land units will do damage to the land unit equal to 50% of the target unit's health before applying any defensive modifiers.
 - AIR STRIKE orders targeting sea units will do 30 points of damage.
 - After the AIR STRIKE (successful or not) the air unit becomes UNREADY.
