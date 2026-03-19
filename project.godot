@@ -19,6 +19,7 @@ config/features=PackedStringArray("4.6", "Forward Plus")
 DebugCombat="*res://src/scripts/singletons/DebugCombat.gd"
 NetworkManager="*res://src/scripts/singletons/NetworkManager.gd"
 MusicManager="*res://src/scripts/singletons/MusicManager.gd"
+ConsoleManager="*res://src/scripts/singletons/ConsoleManager.gd"
 
 [display]
 

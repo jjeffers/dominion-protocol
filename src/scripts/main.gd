@@ -35,6 +35,7 @@ var economy_timer: float = 0.0
 const ECONOMY_INTERVAL: float = 10.0
 
 var capture_banner: Label
+var match_timer_label: Label
 var banner_timer: float = 0.0
 var victory_banner: Label
 var air_ops_prompt: Label
@@ -131,9 +132,28 @@ func _ready() -> void:
 	air_ops_prompt.add_theme_color_override("font_color", Color.WHITE)
 	air_ops_prompt.add_theme_color_override("font_outline_color", Color.BLACK)
 	air_ops_prompt.add_theme_constant_override("outline_size", 6)
-	air_ops_prompt.text = "[A] - Air Strike | [R] - Redeploy | [ESC] - Cancel"
+	air_ops_prompt.text = "[T] - Air Strike | [R] - Redeploy | [ESC] - Cancel"
 	air_ops_prompt.hide()
 	add_child(air_ops_prompt)
+
+	# Setup Match Timer Label
+	match_timer_label = Label.new()
+	match_timer_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	match_timer_label.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	match_timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	match_timer_label.add_theme_font_size_override("font_size", 32)
+	match_timer_label.add_theme_color_override("font_color", Color.WHITE)
+	match_timer_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	match_timer_label.add_theme_constant_override("outline_size", 4)
+	match_timer_label.offset_left = -300
+	match_timer_label.offset_top = 20
+	match_timer_label.offset_right = -20
+	match_timer_label.offset_bottom = 60
+	add_child(match_timer_label)
+	
+	ConsoleManager.log_message("\n==================================")
+	ConsoleManager.log_message("    GLOBAL CONFLICT AUTHORIZED    ")
+	ConsoleManager.log_message("==================================\n")
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:
@@ -269,6 +289,9 @@ func post_news_event(msg: String, involved_factions: Array) -> void:
 		banner_timer = 10.0
 
 func _process(delta: float) -> void:
+	if is_instance_valid(match_timer_label):
+		match_timer_label.text = ConsoleManager.get_elapsed_time_string()
+
 	if banner_timer > 0.0:
 		banner_timer -= delta
 		if banner_timer <= 0.0:
@@ -303,6 +326,12 @@ func _process(delta: float) -> void:
 		if su.get("unit_type") == "Air":
 			if su.get("is_air_ready"):
 				states.append("READY")
+				if globe_view.current_air_operation_mode == "":
+					air_ops_prompt.text = "[T] - Air Strike | [R] - Redeploy | [ESC] - Cancel"
+				elif globe_view.current_air_operation_mode == "AIRSTRIKE":
+					air_ops_prompt.text = "LEFT CLICK ENEMY UNIT = AIRSTRIKE | [ESC] - Cancel"
+				elif globe_view.current_air_operation_mode == "REDEPLOY":
+					air_ops_prompt.text = "LEFT CLICK GREEN CITY = REDEPLOY | [ESC] - Cancel"
 				air_ops_prompt.show()
 			else:
 				states.append("UNREADY")

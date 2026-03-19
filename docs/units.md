@@ -102,7 +102,7 @@ Armor | Ocean | 1.5 | 1.5
 #### AIR STRIKE
 - When an air strike order is used, the air unit's operations radius wil show as a red circle centered on the air unit.
 - AIR STRIKE orders targeting land units will do damage to the land unit equal to 50% of the target unit's health before applying any defensive modifiers.
-- AIR STRIKE orders targeting sea units will do 30 points of damage.
+- AIR STRIKE orders targeting sea units will do 35 points of damage.
 - After the AIR STRIKE (successful or not) the air unit becomes UNREADY.
 
 #### COUNTERING AIR OPERATIONS
@@ -122,7 +122,8 @@ Armor | Ocean | 1.5 | 1.5
                 - mission success odds increase to 90%
                 - mission abort odds become 10%
                 - 0% chance the attacking unit is shot down (destroyed)
-    - If no INTERCEPTION occurs:
+        - If an UNREADY air unit participates in an INTERCEPTION, the amount of time to recover to the READY state increases by another 2 minutes.
+    - If no INTERCEPTION or after INTERCEPTION occurs:
         - If attacking a land unit, outcome is:
             - 90% success. Damage is inflicted.The attacking air unit becomes UNREADY.
             - 9% mission abort. No damage is done, attacking air unit becomes UNREADY.

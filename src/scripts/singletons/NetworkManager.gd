@@ -13,7 +13,7 @@ signal players_updated
 signal game_started
 signal unit_target_synced(unit_name: String, target_pos: Vector3, enemy_target_name: String)
 signal air_strike_requested(sender_id: int, unit_name: String, target_unit_name: String)
-signal air_strike_synced(unit_name: String, target_unit_name: String, counter_unit_name: String)
+signal air_strike_synced(unit_name: String, target_unit_name: String, counter_unit_name: String, attacker_status: String, defender_status: String, target_hit: bool)
 signal air_redeploy_synced(unit_name: String, target_city: String)
 
 # Dictionary of players: { id: { "name": String, "faction": String } }
@@ -178,13 +178,13 @@ func request_air_strike(unit_name: String, target_unit_name: String):
 	if players.has(sender_id):
 		air_strike_requested.emit(sender_id, unit_name, target_unit_name)
 
-func execute_air_strike(unit_name: String, target_unit_name: String, counter_unit_name: String = ""):
+func execute_air_strike(unit_name: String, target_unit_name: String, counter_unit_name: String, attacker_status: String, defender_status: String, target_hit: bool):
 	if is_host:
-		rpc("sync_air_strike", unit_name, target_unit_name, counter_unit_name)
+		rpc("sync_air_strike", unit_name, target_unit_name, counter_unit_name, attacker_status, defender_status, target_hit)
 
 @rpc("authority", "call_local", "reliable")
-func sync_air_strike(unit_name: String, target_unit_name: String, counter_unit_name: String):
-	air_strike_synced.emit(unit_name, target_unit_name, counter_unit_name)
+func sync_air_strike(unit_name: String, target_unit_name: String, counter_unit_name: String, attacker_status: String, defender_status: String, target_hit: bool):
+	air_strike_synced.emit(unit_name, target_unit_name, counter_unit_name, attacker_status, defender_status, target_hit)
 
 @rpc("any_peer", "call_local", "reliable")
 func request_air_redeploy(unit_name: String, target_city: String):

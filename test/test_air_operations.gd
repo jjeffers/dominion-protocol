@@ -11,9 +11,16 @@ func after_all():
 	MapData.use_mock_data = false
 	GlobeView.skip_mesh_generation = false
 
+class MockPlainsMapData extends MapData:
+	func get_terrain(tile: int) -> String:
+		return "PLAINS"
+	func get_region(tile: int) -> String:
+		return "WILDERNESS"
+
 func test_air_strike_damage():
 	var gv = globe_view_scene.instantiate()
 	add_child_autofree(gv)
+	gv.map_data = MockPlainsMapData.new()
 	
 	var attacker = globe_unit_script.new()
 	var target = globe_unit_script.new()
@@ -30,10 +37,10 @@ func test_air_strike_damage():
 	
 	attacker.set("is_air_ready", true)
 	
-	gv._on_air_strike_synced("Air1", "Inf1", "")
+	gv._on_air_strike_synced("Air1", "Inf1", "", "UNREADY", "", true)
 	
-	# Ocean terrain gives Infantry a 1.5x damage penalty. 30 * 1.5 = 45 damage.
-	assert_eq(target.health, 55.0, "Air strike should do 30% of target health (100 -> 55 with 1.5x modifier)")
+	# Plains terrain gives Infantry a 1.0x damage penalty. 50 * 1.0 = 50 damage.
+	assert_eq(target.health, 50.0, "Air strike should do 50% of target health (100 -> 50 with 1.0x modifier)")
 	assert_false(attacker.get("is_air_ready"), "Attacker should become UNREADY")
 	
 func test_air_strike_sea_damage():
@@ -55,10 +62,10 @@ func test_air_strike_sea_damage():
 	
 	attacker.set("is_air_ready", true)
 	
-	gv._on_air_strike_synced("Air1", "Sea1", "")
+	gv._on_air_strike_synced("Air1", "Sea1", "", "UNREADY", "", true)
 	
-	# Ocean terrain gives Infantry(Sea fallback) a 1.5x damage penalty. 30 * 1.5 = 45 damage.
-	assert_eq(target.health, 35.0, "Air strike on Sea should do exactly 30 flat damage (80 -> 35 with 1.5x modifier)")
+	# Ocean terrain gives Infantry(Sea fallback) a 1.5x damage penalty. 35 * 1.5 = 52.5 damage.
+	assert_eq(target.health, 27.5, "Air strike on Sea should do exactly 35 flat damage (80 -> 27.5 with 1.5x modifier)")
 
 func test_air_redeploy():
 	var gv = globe_view_scene.instantiate()
@@ -110,7 +117,7 @@ func test_air_strike_countered():
 	attacker.set("is_air_ready", true)
 	counter.set("is_air_ready", true)
 	
-	gv._on_air_strike_synced("AirAttacker", "Target", "AirCounter")
+	gv._on_air_strike_synced("AirAttacker", "Target", "AirCounter", "UNREADY", "UNREADY", false)
 	
 	assert_eq(target.health, 100.0, "Target health should be untouched if countered")
 	assert_false(attacker.get("is_air_ready"), "Attacker should be UNREADY")
@@ -147,11 +154,11 @@ func test_air_strike_sea_transport_damage():
 	
 	attacker.set("is_air_ready", true)
 	
-	gv._on_air_strike_synced("Air1", "Trans1", "")
+	gv._on_air_strike_synced("Air1", "Trans1", "", "UNREADY", "", true)
 	
 	# Armor takes 0.5 damage from Air normally.
-	# The test expects 30 flat damage base.
+	# The test expects 35 flat damage base.
 	# GlobeUnit `take_damage(amount)` does: health -= amount * terrain_modifier.
 	# Armor takes 1.5x damage in Ocean.
-	# So 30 * 1.5 = 45.0. 100 - 45 = 55.0.
-	assert_eq(target.health, 55.0, "Air strike on Sea Transport land unit should do exactly 30 flat base damage, yielding 45 total damage")
+	# So 35 * 1.5 = 52.5. 100 - 52.5 = 47.5.
+	assert_eq(target.health, 47.5, "Air strike on Sea Transport land unit should do exactly 35 flat base damage, yielding 52.5 total damage")

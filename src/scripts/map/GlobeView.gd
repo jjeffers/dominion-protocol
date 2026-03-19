@@ -45,6 +45,7 @@ var cullable_nodes: Array[Node3D] = []
 var map_collider: StaticBody3D
 var air_strike_sfx: AudioStreamPlayer
 var air_redeploy_sfx: AudioStreamPlayer
+var air_battle_sfx: AudioStreamPlayer
 
 var city_nodes: Array[Node3D] = []
 var friendly_city_positions: Array[Vector3] = []
@@ -102,6 +103,12 @@ func _ready() -> void:
 	if redeploy_stream:
 		air_redeploy_sfx.stream = redeploy_stream
 	add_child(air_redeploy_sfx)
+	
+	air_battle_sfx = AudioStreamPlayer.new()
+	var battle_stream = load("res://src/assets/audio/air-battle.mp3") as AudioStream
+	if battle_stream:
+		air_battle_sfx.stream = battle_stream
+	add_child(air_battle_sfx)
 	
 	if NetworkManager:
 		NetworkManager.unit_target_synced.connect(_on_unit_target_synced)
@@ -269,76 +276,219 @@ func _on_air_strike_requested(sender_id: int, unit_name: String, target_unit_nam
 	var attacker_faction = ""
 	if "faction_name" in attacker:
 		attacker_faction = attacker.get("faction_name")
+		
+	var attacker_player_name = "Unknown"
+	if NetworkManager.players.has(sender_id):
+		attacker_player_name = NetworkManager.players[sender_id].get("name", "Unknown")
+		
+	ConsoleManager.log_message("\n[color=cyan]AIR STRIKE REQUESTED:[/color] [color=yellow]" + attacker_player_name + " (" + attacker_faction + ")[/color] targeting [color=red]" + target_unit_name + "[/color]")
+		
 	var valid_counters = []
+	var total_interception_chance = 0.0
+	
 	for u in units_list:
 		if is_instance_valid(u) and u != attacker and u != target and u.get("unit_type") == "Air":
-			if u.get("faction_name") != attacker_faction and u.get("is_air_ready"):
+			if u.get("faction_name") != attacker_faction:
 				var ops_radius = 30.0 * _get_tile_width(_get_tile_from_vector3(u.current_position))
-				if u.current_position.distance_to(target.current_position) <= ops_radius:
+				var dist = u.current_position.distance_to(target.current_position)
+				if dist <= ops_radius:
 					valid_counters.append(u)
+					var chance = 1.0 - (dist / ops_radius)
+					if u.get("is_air_ready") == false:
+						chance *= 0.1
+					total_interception_chance += chance
 					
+	total_interception_chance = clampf(total_interception_chance, 0.0, 1.0)
+	
+	ConsoleManager.log_message("[color=gray]Interception Phase[/color]")
+	var int_roll = randf()
+	ConsoleManager.log_message(str("  -> Interceptors Available: ", valid_counters.size(), " | Target Chance: <= ", snappedf(total_interception_chance, 0.01), " | Rolled: ", snappedf(int_roll, 0.01)))
+	
+	var intercepted = false
 	var counter_name = ""
-	if valid_counters.size() > 0:
-		var counter_unit = valid_counters[randi() % valid_counters.size()]
-		counter_name = counter_unit.name
+	var attacker_status = ""
+	var defender_status = ""
+	var target_hit = false
+	
+	if int_roll <= total_interception_chance and valid_counters.size() > 0:
+		intercepted = true
 		
-	NetworkManager.execute_air_strike(unit_name, target_unit_name, counter_name)
+		# Pick best counter (READY first, then closest)
+		var best_counter = null
+		var best_score = -9999.0
+		for u in valid_counters:
+			var is_ready = u.get("is_air_ready")
+			var dist = u.current_position.distance_to(target.current_position)
+			var score = (1000.0 if is_ready else 0.0) - dist
+			if score > best_score:
+				best_score = score
+				best_counter = u
+				
+		counter_name = best_counter.name
+		var c_ready = best_counter.get("is_air_ready")
+		
+		var counter_faction = best_counter.get("faction_name")
+		var counter_player = "Unknown"
+		for pid in NetworkManager.players:
+			if NetworkManager.players[pid].get("faction", "") == counter_faction:
+				counter_player = NetworkManager.players[pid].get("name", "Unknown")
+				break
+		ConsoleManager.log_message(str("  -> Intercepted by ", counter_name, " ([color=yellow]", counter_player, " - ", counter_faction, "[/color]). Ready: ", c_ready))
+		
+		# Roll interception outcome
+		var roll = randf()
+		var success = false
+		var abort = false
+		var shot_down = false
+		
+		if c_ready:
+			if roll <= 0.25: success = true
+			elif roll <= 0.75: abort = true
+			else: shot_down = true
+			ConsoleManager.log_message("  -> Dogfight Odds: 25% Success | 50% Abort | 25% Shot Down")
+		else:
+			if roll <= 0.90: success = true
+			else: abort = true
+			ConsoleManager.log_message("  -> Dogfight Odds: 90% Success | 10% Abort | 0% Shot Down")
+			
+		ConsoleManager.log_message(str("  -> Dogfight Rolled: ", snappedf(roll, 0.01), " | Outcome: ", "SUCCESS" if success else ("ABORT" if abort else "SHOT DOWN")))
+			
+		if success:
+			# Attacker succeeds, defender destroyed
+			defender_status = "DESTROYED"
+			intercepted = false # Proceed to target roll
+		elif abort:
+			attacker_status = "UNREADY"
+			defender_status = "ADD_COOLDOWN" if not c_ready else "UNREADY"
+			target_hit = false
+		elif shot_down:
+			attacker_status = "DESTROYED"
+			defender_status = "ADD_COOLDOWN" if not c_ready else "UNREADY"
+			target_hit = false
+			
+	if not intercepted:
+		# Target Roll
+		ConsoleManager.log_message("[color=gray]Target Strike Phase[/color]")
+		var is_sea = false
+		if target.get("unit_type") == "Sea":
+			is_sea = true
+		elif target.get("unit_type") != "Air":
+			var t_tile = _get_tile_from_vector3(target.current_position)
+			var t_terrain = map_data.get_terrain(t_tile)
+			if t_terrain == "OCEAN" or t_terrain == "COAST" or t_terrain == "DEEP_OCEAN" or t_terrain == "LAKE":
+				is_sea = true
+				
+		var roll = randf()
+		var is_sea_str = "SEA" if is_sea else "LAND"
+		
+		if is_sea:
+			ConsoleManager.log_message("  -> Target Odds: 65% Hit | 25% Miss | 10% Miss & Shot Down")
+			if roll <= 0.65:
+				target_hit = true
+				attacker_status = "UNREADY"
+			elif roll <= 0.90:
+				target_hit = false
+				attacker_status = "UNREADY"
+			else:
+				target_hit = false
+				attacker_status = "DESTROYED"
+		else:
+			ConsoleManager.log_message("  -> Target Odds: 90% Hit | 9% Miss | 1% Miss & Shot Down")
+			if roll <= 0.90:
+				target_hit = true
+				attacker_status = "UNREADY"
+			elif roll <= 0.99:
+				target_hit = false
+				attacker_status = "UNREADY"
+			else:
+				target_hit = false
+				attacker_status = "DESTROYED"
+				
+		var outcome_str = "HIT" if target_hit else ("MISS & SHOT DOWN" if attacker_status == "DESTROYED" else "MISS")
+		ConsoleManager.log_message(str("  -> Target type: ", is_sea_str, " | Rolled: ", snappedf(roll, 0.01), " | Target Hit: ", outcome_str))
 
-func _on_air_strike_synced(unit_name: String, target_unit_name: String, counter_unit_name: String = "") -> void:
+	NetworkManager.execute_air_strike(unit_name, target_unit_name, counter_name, attacker_status, defender_status, target_hit)
+
+func _on_air_strike_synced(unit_name: String, target_unit_name: String, counter_unit_name: String, attacker_status: String, defender_status: String, target_hit: bool) -> void:
 	print("GlobeView handling _on_air_strike_synced for ", unit_name, " targeting ", target_unit_name)
 	var attacker: Node3D = null
 	var target: Node3D = null
+	var counter: Node3D = null
 	
 	for u in units_list:
 		if not is_instance_valid(u): continue
 		if u.name == unit_name: attacker = u
 		if u.name == target_unit_name: target = u
+		if counter_unit_name != "" and u.name == counter_unit_name: counter = u
 		
-	if attacker and target:
-		if air_strike_sfx:
-			air_strike_sfx.play()
+	if air_strike_sfx and attacker and target:
+		air_strike_sfx.play()
+
+	if counter and defender_status != "":
+		# Play interception dogfight sound
+		if air_battle_sfx:
+			air_battle_sfx.play()
 			
-		attacker.set("is_air_ready", false)
-		attacker.set("air_cooldown_timer", 120.0)
+		if defender_status == "DESTROYED":
+			counter.take_damage(9999.0)
+		elif defender_status == "UNREADY":
+			counter.set("is_air_ready", false)
+			counter.set("air_cooldown_timer", 120.0)
+		elif defender_status == "ADD_COOLDOWN":
+			counter.set("is_air_ready", false)
+			counter.set("air_cooldown_timer", counter.get("air_cooldown_timer") + 120.0)
+			
+		if not target_hit and attacker_status != "":
+			var attacker_fac = attacker.get("faction_name") if attacker else "UNKNOWN"
+			var defender_fac = counter.get("faction_name")
+			var target_tile = _get_tile_from_vector3(target.current_position) if target else 0
+			var region = map_data.get_region(target_tile) if target else ""
+			if region == "": region = "WILDERNESS"
+			
+			var msg = "%s AIRSTRIKE IN %s COUNTERED BY %s AIR DEFENSES" % [attacker_fac.to_upper(), region.to_upper(), defender_fac.to_upper()]
+			var colors = [attacker_fac, defender_fac]
+			
+			if attacker_status == "DESTROYED":
+				msg = "%s AIRSTRIKE OVER %s SHOT DOWN BY %s COUNTERMEASURES!" % [attacker_fac.to_upper(), region.to_upper(), defender_fac.to_upper()]
+			elif defender_status == "DESTROYED":
+				msg = "%s AIRSTRIKE OVER %s CRUSHED ALL %s INTERCEPTORS!" % [attacker_fac.to_upper(), region.to_upper(), defender_fac.to_upper()]
+
+			var main_node = get_node_or_null("/root/Main")
+			if main_node and main_node.has_method("post_news_event"):
+				main_node.post_news_event(msg, colors)
+				
+	elif attacker and attacker_status == "DESTROYED" and counter == null: # Target phase shot down
+		var attacker_fac = attacker.get("faction_name") if attacker else "UNKNOWN"
+		var target_fac = target.get("faction_name") if target else "UNKNOWN"
+		var target_tile = _get_tile_from_vector3(target.current_position) if target else 0
+		var region = map_data.get_region(target_tile) if target else ""
+		if region == "": region = "WILDERNESS"
 		
-		# Was it countered?
-		if counter_unit_name != "":
-			var counter_unit: Node3D = null
-			for u in units_list:
-				if is_instance_valid(u) and u.name == counter_unit_name:
-					counter_unit = u
-					break
-			if counter_unit:
-				counter_unit.set("is_air_ready", false)
-				counter_unit.set("air_cooldown_timer", 120.0)
-				print("Air strike was countered by ", counter_unit_name)
-				
-				var attacker_fac = attacker.get("faction_name")
-				var defender_fac = counter_unit.get("faction_name")
-				var target_tile = _get_tile_from_vector3(target.current_position)
-				var region = map_data.get_region(target_tile)
-				if region == "": region = "WILDERNESS"
-				
-				var msg = "%s AIRSTRIKE IN %s COUNTERED BY %s AIR DEFENSES" % [attacker_fac.to_upper(), region.to_upper(), defender_fac.to_upper()]
-				
-				var main_node = get_node_or_null("/root/Main")
-				if main_node and main_node.has_method("post_news_event"):
-					main_node.post_news_event(msg, [attacker_fac, defender_fac])
-				
-				return # Prevent damage
-		
+		var msg = "%s AIRSTRIKE OVER %s DESTROYED BY %s ANTI-AIR!" % [attacker_fac.to_upper(), region.to_upper(), target_fac.to_upper()]
+		var main_node = get_node_or_null("/root/Main")
+		if main_node and main_node.has_method("post_news_event"):
+			main_node.post_news_event(msg, [attacker_fac, target_fac])
+
+	if attacker and attacker_status != "":
+		if attacker_status == "DESTROYED":
+			attacker.take_damage(9999.0)
+		elif attacker_status == "UNREADY":
+			attacker.set("is_air_ready", false)
+			attacker.set("air_cooldown_timer", 120.0)
+			
+	if target and target_hit:
 		var is_sea_transport = false
 		if target.get("unit_type") != "Sea" and target.get("unit_type") != "Air":
 			var t_tile = _get_tile_from_vector3(target.current_position)
 			var t_terrain = map_data.get_terrain(t_tile)
-			if t_terrain == "OCEAN" or t_terrain == "COAST" or t_terrain == "DEEP_OCEAN":
+			if t_terrain == "OCEAN" or t_terrain == "COAST" or t_terrain == "DEEP_OCEAN" or t_terrain == "LAKE":
 				is_sea_transport = true
 
-		var val = 30.0 # Standard Sea damage
+		var val = 35.0 # Standard Sea damage mapped to 35
 		if target.get("unit_type") != "Sea" and not is_sea_transport:
 			var target_health = target.get("health")
 			if target_health != null:
-				val = target_health * 0.30
+				val = target_health * 0.50
 		target.take_damage(val)
 
 func _on_air_redeploy_synced(unit_name: String, target_city: String) -> void:
@@ -511,8 +661,8 @@ func _process(delta: float) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.is_echo():
-		if selected_unit and selected_unit.get("unit_type") == "Air" and selected_unit.get("is_air_ready"):
-			if event.physical_keycode == KEY_A:
+		if selected_unit and selected_unit.get("unit_type") == "Air" and selected_unit.get("is_air_ready") and selected_unit.get("faction_name") == _get_local_faction():
+			if event.physical_keycode == KEY_T:
 				current_air_operation_mode = "AIRSTRIKE"
 				_draw_air_ops_radius(selected_unit, false)
 				_update_city_highlights(false)
