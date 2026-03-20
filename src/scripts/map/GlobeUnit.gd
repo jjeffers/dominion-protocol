@@ -106,6 +106,7 @@ var is_friendly: bool = false
 var last_damage_time: float = 0.0
 
 var entrenched: bool = false
+var is_recovering: bool = false
 var time_motionless: float = 0.0
 var time_in_city: float = 0.0
 
@@ -674,6 +675,7 @@ func _process(delta: float) -> void:
 	else:
 		time_motionless = 0.0
 		time_in_city = 0.0
+		is_recovering = false
 		if entrenched:
 			entrenched = false
 			if sprite and sprite.material_override is ShaderMaterial:
@@ -912,6 +914,7 @@ func _process(delta: float) -> void:
 		var u_type_low = unit_type.to_lower()
 		var can_capture = (u_type_low == "infantry" or u_type_low == "armor")
 		
+		is_recovering = false
 		# Evaluate city presence for Capture and Health Recovery
 		if time_motionless > 0.0 and p and p.has_method("_get_tile_from_vector3"):
 			var inside_city = false
@@ -933,6 +936,7 @@ func _process(delta: float) -> void:
 				if c_faction == self.faction_name:
 					# Friendly City: Health Recovery Protocol
 					if not is_dead and health < 100.0 and not is_engaged:
+						is_recovering = true
 						if time_in_city >= 30.0:
 							time_in_city -= 30.0
 							var is_offline = (NetworkManager == null or not NetworkManager.multiplayer.has_multiplayer_peer())

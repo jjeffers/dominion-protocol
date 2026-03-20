@@ -403,6 +403,9 @@ func _process(delta: float) -> void:
 		else:
 			entrench_bar.hide()
 			
+		if su.get("is_recovering"):
+			states.append("RECOVERING")
+			
 		unit_state_label.text = " | ".join(states)
 		
 		# Update Health Bar
