@@ -46,6 +46,7 @@ var map_collider: StaticBody3D
 var air_strike_sfx: AudioStreamPlayer
 var air_redeploy_sfx: AudioStreamPlayer
 var air_battle_sfx: AudioStreamPlayer
+var city_loss_sfx: AudioStreamPlayer
 
 var city_nodes: Array[Node3D] = []
 var friendly_city_positions: Array[Vector3] = []
@@ -130,6 +131,12 @@ func _ready() -> void:
 	if battle_stream:
 		air_battle_sfx.stream = battle_stream
 	add_child(air_battle_sfx)
+	
+	city_loss_sfx = AudioStreamPlayer.new()
+	var loss_stream = load("res://src/assets/audio/city-loss.wav") as AudioStream
+	if loss_stream:
+		city_loss_sfx.stream = loss_stream
+	add_child(city_loss_sfx)
 	
 	if NetworkManager:
 		NetworkManager.unit_target_synced.connect(_on_unit_target_synced)
@@ -860,6 +867,12 @@ func sync_city_capture(city_name: String, new_faction: String, old_faction: Stri
 		var old_str = old_faction if old_faction != "neutral" else "neutral forces"
 		var alert_str = city_name + " was captured by " + new_faction + " from " + old_str + "."
 		ConsoleManager.log_message(alert_str)
+		
+	if network_manager and multiplayer.has_multiplayer_peer():
+		var local_id = multiplayer.get_unique_id()
+		if network_manager.players.has(local_id) and old_faction == network_manager.players[local_id].get("faction", ""):
+			if city_loss_sfx:
+				city_loss_sfx.play()
 	
 	# Destroy Air Units in Captured Cities
 	var c_tiles = []
