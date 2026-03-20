@@ -54,6 +54,15 @@ func _load_config():
 		var last_port = config.get_value("Network", "last_port", "7001")
 		var last_name = config.get_value("Network", "player_name", "Commander")
 		
+		var is_bot = false
+		for arg in OS.get_cmdline_args():
+			if arg.begins_with("--bot"):
+				is_bot = true
+				break
+				
+		if not is_bot and last_name.begins_with("[BOT]"):
+			last_name = "Commander"
+			
 		join_ip_input.text = last_ip
 		host_port_input.text = str(last_port)
 		join_port_input.text = str(last_port)

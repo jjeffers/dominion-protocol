@@ -364,7 +364,10 @@ func _process(delta: float) -> void:
 			unit_terrain_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
 			
 		# State Computation
-		var states = ["Health: " + str(int(su.health)) + "%"]
+		var states = []
+		if su.get("unit_type") != "Air":
+			states.append("Health: " + str(int(su.health)) + "%")
+			
 		if su.get("unit_type") == "Air":
 			if su.get("is_air_ready"):
 				states.append("READY")
@@ -376,7 +379,9 @@ func _process(delta: float) -> void:
 					air_ops_prompt.text = "LEFT CLICK GREEN CITY = REDEPLOY | [ESC] - Cancel"
 				air_ops_prompt.show()
 			else:
-				states.append("UNREADY")
+				var cd_val = su.get("air_cooldown_timer")
+				var seconds_left = int(ceil(cd_val if cd_val != null else 0.0))
+				states.append("UNREADY (" + str(seconds_left) + "s)")
 				air_ops_prompt.hide()
 		else:
 			air_ops_prompt.hide()
@@ -408,16 +413,27 @@ func _process(delta: float) -> void:
 			
 		unit_state_label.text = " | ".join(states)
 		
-		# Update Health Bar
-		var pct = clamp(su.health / 100.0, 0.0, 1.0)
-		health_bar_fg.anchor_right = pct
-		health_bar_fg.offset_right = 0
-		if pct > 0.5:
-			health_bar_fg.color = Color(0.0, 0.8, 0.2)
-		elif pct > 0.25:
-			health_bar_fg.color = Color(0.8, 0.8, 0.0)
+		# Update Health/Readiness Bar
+		if su.get("unit_type") == "Air":
+			var cd_val = su.get("air_cooldown_timer")
+			cd_val = cd_val if cd_val != null else 0.0
+			var pct = clamp(1.0 - (cd_val / 120.0), 0.0, 1.0)
+			health_bar_fg.anchor_right = pct
+			health_bar_fg.offset_right = 0
+			if pct >= 1.0:
+				health_bar_fg.color = Color(0.0, 0.8, 0.8) # Cyan ready
+			else:
+				health_bar_fg.color = Color(0.8, 0.8, 0.0) # Yellow charging
 		else:
-			health_bar_fg.color = Color(0.9, 0.1, 0.1)
+			var pct = clamp(su.health / 100.0, 0.0, 1.0)
+			health_bar_fg.anchor_right = pct
+			health_bar_fg.offset_right = 0
+			if pct > 0.5:
+				health_bar_fg.color = Color(0.0, 0.8, 0.2)
+			elif pct > 0.25:
+				health_bar_fg.color = Color(0.8, 0.8, 0.0)
+			else:
+				health_bar_fg.color = Color(0.9, 0.1, 0.1)
 	else:
 		unit_panel.hide()
 		air_ops_prompt.hide()

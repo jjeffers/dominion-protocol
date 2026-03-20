@@ -485,11 +485,11 @@ func _on_air_strike_synced(unit_name: String, target_unit_name: String, counter_
 		if defender_status == "DESTROYED":
 			counter.take_damage(9999.0)
 		elif defender_status == "UNREADY":
-			counter.set("is_air_ready", false)
-			counter.set("air_cooldown_timer", 120.0)
+			if counter.has_method("set_air_unready"):
+				counter.set_air_unready(120.0, 0.0)
 		elif defender_status == "ADD_COOLDOWN":
-			counter.set("is_air_ready", false)
-			counter.set("air_cooldown_timer", counter.get("air_cooldown_timer") + 120.0)
+			if counter.has_method("set_air_unready"):
+				counter.set_air_unready(-1.0, 120.0)
 			
 		if not target_hit and attacker_status != "":
 			var attacker_fac = attacker.get("faction_name") if attacker else "UNKNOWN"
@@ -526,8 +526,8 @@ func _on_air_strike_synced(unit_name: String, target_unit_name: String, counter_
 		if attacker_status == "DESTROYED":
 			attacker.take_damage(9999.0)
 		elif attacker_status == "UNREADY":
-			attacker.set("is_air_ready", false)
-			attacker.set("air_cooldown_timer", 120.0)
+			if attacker.has_method("set_air_unready"):
+				attacker.set_air_unready(120.0, 0.0)
 			
 	if target and target_hit:
 		var is_sea_transport = false
@@ -578,8 +578,8 @@ func _on_air_redeploy_synced(unit_name: String, target_city: String) -> void:
 			break
 			
 	if unit:
-		unit.set("is_air_ready", false)
-		unit.set("air_cooldown_timer", 120.0)
+		if unit.has_method("set_air_unready"):
+			unit.set_air_unready(120.0, 0.0)
 		
 		if cached_city_data.has(target_city):
 			var city_data = cached_city_data[target_city]

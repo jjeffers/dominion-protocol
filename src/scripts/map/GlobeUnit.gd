@@ -283,6 +283,7 @@ uniform bool is_entrenched = false;
 uniform bool is_engaged = false;
 uniform float engagement_angle = 0.0;
 uniform bool is_air_unit = false;
+uniform bool is_air_ready = true;
 
 void fragment() {
 	// Scale UV to create padding inside the 38x38 quad for the 34x34 sprite
@@ -298,6 +299,12 @@ void fragment() {
 		if (use_bg_color && c.r > 0.9 && c.g > 0.9 && c.b > 0.9 && c.a > 0.9) {
 			c = bg_color_override;
 		}
+	}
+	
+	if (is_air_unit && !is_air_ready && c.a > 0.1) {
+		float lum = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+		c.rgb = vec3(lum);
+		c.a *= 0.5;
 	}
 	
 	vec2 size = vec2(34.0, 34.0);
@@ -374,7 +381,11 @@ void fragment() {
 			ALPHA = c.a;
 		} else if (o > 0.1) {
 			ALBEDO = outline_color.rgb;
-			ALPHA = 1.0;
+			float out_alpha = 1.0;
+			if (is_air_unit && is_air_ready) {
+				out_alpha = (sin(TIME * 6.0) * 0.5) + 0.5;
+			}
+			ALPHA = out_alpha;
 		} else {
 			ALPHA = 0.0;
 		}
@@ -389,6 +400,7 @@ void fragment() {
 	outline_mat.set_shader_parameter("is_entrenched", entrenched)
 	outline_mat.set_shader_parameter("is_engaged", false)
 	outline_mat.set_shader_parameter("is_air_unit", unit_type == "Air")
+	outline_mat.set_shader_parameter("is_air_ready", is_air_ready)
 	outline_mat.set_shader_parameter("engagement_angle", 0.0)
 	# Default transparent outline so it does nothing if not explicitly set
 	outline_mat.set_shader_parameter("outline_color", Color(0, 0, 0, 0))
@@ -406,11 +418,12 @@ func set_faction_color(hex_color: String) -> void:
 
 func _update_air_readiness_visuals() -> void:
 	if unit_type == "Air" and sprite and sprite.material_override is ShaderMaterial:
+		sprite.material_override.set_shader_parameter("is_air_ready", is_air_ready)
 		if is_air_ready:
 			sprite.material_override.set_shader_parameter("outline_color", base_faction_color)
 		else:
-			# Duller color for UNREADY
-			var dull = Color(base_faction_color.r * 0.5, base_faction_color.g * 0.5, base_faction_color.b * 0.5, 0.5)
+			# Semi-transparent outline for UNREADY
+			var dull = Color(base_faction_color.r, base_faction_color.g, base_faction_color.b, 0.2)
 			sprite.material_override.set_shader_parameter("outline_color", dull)
 
 func set_selected(selected: bool) -> void:
@@ -1112,4 +1125,14 @@ func _set_seaborne(status: bool) -> void:
 	if sprite and sprite.material_override is ShaderMaterial:
 		sprite.material_override.set_shader_parameter("use_bg_color", is_seaborne)
 		sprite.material_override.set_shader_parameter("bg_color_override", Color("#1f679c"))
+
+func set_air_unready(override_time: float = -1.0, add_time: float = 0.0) -> void:
+	if unit_type != "Air":
+		return
+	is_air_ready = false
+	if override_time > 0.0:
+		air_cooldown_timer = override_time
+	if add_time > 0.0:
+		air_cooldown_timer += add_time
+	_update_air_readiness_visuals()
 

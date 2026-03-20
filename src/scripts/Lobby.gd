@@ -71,7 +71,8 @@ func _update_ui():
 	if NetworkManager.is_host:
 		start_btn.disabled = false
 		
-		if auto_start:
+		# If auto-starting is queued, wait until the client (at least 2 players total) connects and claims a faction
+		if auto_start and all_ready and NetworkManager.players.size() >= 2:
 			_on_start_game()
 
 
