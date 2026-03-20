@@ -283,6 +283,23 @@ func _on_unit_target_synced(unit_name: String, target_pos: Vector3, enemy_target
 			# Manual coordinate movement
 			# We DO NOT clear the target here. If they are engaged, they should keep shooting the enemy while retreating!
 			unit.set_target(target_pos)
+			
+		var u_type = unit.get("unit_type")
+		if (u_type == "Infantry" or u_type == "Armor") and target_pos != null:
+			var t_tile = _get_tile_from_vector3(target_pos)
+			if city_tile_cache.has(t_tile):
+				var c_name = city_tile_cache[t_tile]
+				var c_faction = ""
+				if active_scenario and active_scenario.has("factions"):
+					for f_name in active_scenario["factions"].keys():
+						if active_scenario["factions"][f_name].has("cities") and c_name in active_scenario["factions"][f_name]["cities"]:
+							c_faction = f_name
+							break
+				if c_faction != "" and c_faction != unit.get("faction_name"):
+					var main_node = get_node_or_null("/root/Main")
+					if main_node and main_node.has_method("post_news_event"):
+						var msg = "%s FORCE THREATENS %s" % [unit.get("faction_name").to_upper(), c_name.to_upper()]
+						main_node.post_news_event(msg, [c_faction])
 
 func _on_air_strike_requested(sender_id: int, unit_name: String, target_unit_name: String) -> void:
 	if not NetworkManager.is_host: return
@@ -514,6 +531,31 @@ func _on_air_strike_synced(unit_name: String, target_unit_name: String, counter_
 			if target_health != null:
 				val = target_health * 0.50
 		target.take_damage(val)
+		
+		if not counter:
+			var attacker_fac = attacker.get("faction_name") if attacker else "UNKNOWN"
+			var target_fac = target.get("faction_name") if target else "UNKNOWN"
+			var target_tile = _get_tile_from_vector3(target.current_position) if target else 0
+			var region = map_data.get_region(target_tile) if target else ""
+			if region == "": region = "WILDERNESS"
+			
+			var msg = "%s AIRSTRIKE SUCCESSFULLY BOMBED %s FACILITIES IN %s!" % [attacker_fac.to_upper(), target_fac.to_upper(), region.to_upper()]
+			var main_node = get_node_or_null("/root/Main")
+			if main_node and main_node.has_method("post_news_event"):
+				main_node.post_news_event(msg, [attacker_fac, target_fac])
+				
+	elif target and not target_hit and attacker_status == "UNREADY":
+		if not counter:
+			var attacker_fac = attacker.get("faction_name") if attacker else "UNKNOWN"
+			var target_fac = target.get("faction_name") if target else "UNKNOWN"
+			var target_tile = _get_tile_from_vector3(target.current_position) if target else 0
+			var region = map_data.get_region(target_tile) if target else ""
+			if region == "": region = "WILDERNESS"
+			
+			var msg = "%s AIRSTRIKE FAILED TO HIT %s TARGETS IN %s!" % [attacker_fac.to_upper(), target_fac.to_upper(), region.to_upper()]
+			var main_node = get_node_or_null("/root/Main")
+			if main_node and main_node.has_method("post_news_event"):
+				main_node.post_news_event(msg, [attacker_fac, target_fac])
 
 func _on_air_redeploy_synced(unit_name: String, target_city: String) -> void:
 	print("GlobeView handling _on_air_redeploy_synced for ", unit_name, " to ", target_city)

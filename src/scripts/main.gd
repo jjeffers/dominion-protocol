@@ -329,6 +329,8 @@ func post_news_event(msg: String, involved_factions: Array) -> void:
 		capture_banner.modulate.a = 1.0
 		capture_banner.show()
 		banner_timer = 10.0
+		DisplayServer.tts_speak(msg)
+		banner_timer = 10.0
 
 func _process(delta: float) -> void:
 	if is_instance_valid(match_timer_label):
