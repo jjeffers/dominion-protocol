@@ -182,12 +182,26 @@ func _find_high_value_target() -> Node3D:
 	if targets.size() == 0:
 		return null
 		
-	# Pick closest
+	# Pick closest, heavily prioritizing Capitols and injecting noise
 	var best_target = null
 	var best_dist = 99999.0
 	
+	var enemy_capitols = []
+	if main_scene and main_scene.scenario_data.has("factions"):
+		for f in main_scene.scenario_data["factions"]:
+			if f != faction_name and main_scene.scenario_data["factions"][f].has("capitol"):
+				enemy_capitols.append(main_scene.scenario_data["factions"][f]["capitol"])
+	
 	for t in targets:
 		var dist = t.global_position.distance_to(rally_point)
+		
+		# Heavily weight capitols by mathematically shrinking their perceived distance natively
+		if t.name in enemy_capitols:
+			dist *= 0.1 
+			
+		# Structural noise generation (10% variance) breaks deterministic array cycling permanently
+		dist *= randf_range(0.9, 1.1)
+		
 		if dist < best_dist:
 			best_dist = dist
 			best_target = t
@@ -452,6 +466,9 @@ func _get_closest_enemy(unit: Node3D) -> Node3D:
 					if d >= (threshold - 0.001):
 						continue # We would have to move inland to reach them, impossible!
 						
+			# Add 5% structural tactical noise to prevent uniform parallel targeting jams natively
+			d *= randf_range(0.95, 1.05)
+			
 			if d < best_dist:
 				best_dist = d
 				best = other
