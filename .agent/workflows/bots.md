@@ -7,11 +7,12 @@ This workflow launches two instances of the game. The host will act as the serve
 1. Start the Host Instance
 // turbo
 ```bash
-/usr/local/bin/godot --host --faction=Blue --bot=Blue --auto-start &
+godot --host --faction=Blue --bot=Blue --auto-start &
 ```
 
 2. Start the Client Instance
 // turbo
 ```bash
-sleep 2 && /usr/local/bin/godot --client --faction=Red --bot=Red &
+sleep 2 && godot --client --faction=Red --bot=Red &
 ```
+
