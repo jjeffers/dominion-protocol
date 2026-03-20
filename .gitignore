@@ -15,4 +15,10 @@ Thumbs.db
 dp.*
 dp.console.exe
 
+# Node
 node_modules/
+
+# Generated Map Assets
+src/data/quadsphere_globe.res
+src/data/map_data.bin
+src/data/quad_data.json

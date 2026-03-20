@@ -28,6 +28,11 @@ jobs:
           mv Godot_v4.6.1-stable_linux.x86_64 godot
           chmod +x godot
 
+      - name: Generate Procedural Maps
+        run: |
+          chmod +x build.sh
+          ./build.sh
+
       - name: Import Assets
         run: ./godot --path . --headless --export-pack "Linux" /dev/null || true
 
