@@ -31,7 +31,7 @@ func before_each():
 	get_tree().root.add_child(mock_main)
 	
 	var mock_globe_script = GDScript.new()
-	mock_globe_script.source_code = "extends Node3D\nvar units_list = []\nvar city_cooldowns = {}\nvar city_nodes = []\nvar radius = 1.0\nfunc sync_unit_purchase(c,t,f,cost):\n\tpass"
+	mock_globe_script.source_code = "extends Node3D\nvar units_list = []\nvar city_cooldowns = {}\nvar city_nodes = []\nvar radius = 1.0\n@rpc('authority', 'call_local', 'reliable')\nfunc sync_unit_purchase(c,t,f,cost):\n\tpass"
 	mock_globe_script.reload()
 	mock_globe = Node3D.new()
 	mock_globe.set_script(mock_globe_script)

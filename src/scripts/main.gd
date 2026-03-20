@@ -374,7 +374,7 @@ func _process(delta: float) -> void:
 			states.append("ENGAGED")
 		elif su.current_position != null and su.target_position != null and su.current_position.distance_to(su.target_position) > 0.0001:
 			var move_state = "MOVING"
-			if su.get("is_seaborne"):
+			if su.get("is_seaborne") and su.get("unit_type") != "Cruiser":
 				move_state = "SEA TRANSPORT"
 				
 			if su.current_terrain_modifier != 1.0:

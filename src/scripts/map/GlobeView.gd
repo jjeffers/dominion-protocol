@@ -49,6 +49,8 @@ var air_battle_sfx: AudioStreamPlayer
 
 var city_nodes: Array[Node3D] = []
 var friendly_city_positions: Array[Vector3] = []
+var friendly_unit_positions: Array[Vector3] = []
+var friendly_air_bubbles: Array[Dictionary] = []
 
 # Deployment State
 var deploying_unit_type: String = ""
@@ -64,7 +66,9 @@ func _get_standard_unit_name(faction: String, type: String) -> String:
 	if f == "":
 		f = "Neutral"
 	var t = type.capitalize()
-	
+	if t == "Air":
+		t = "AIR"
+		
 	if not unit_name_counters.has(f):
 		unit_name_counters[f] = {}
 	if not unit_name_counters[f].has(t):
@@ -277,7 +281,7 @@ func _on_unit_target_synced(unit_name: String, target_pos: Vector3, enemy_target
 					unit.set_movement_target_unit(enemy)
 		else:
 			# Manual coordinate movement
-			unit.clear_combat_target()
+			# We DO NOT clear the target here. If they are engaged, they should keep shooting the enemy while retreating!
 			unit.set_target(target_pos)
 
 func _on_air_strike_requested(sender_id: int, unit_name: String, target_unit_name: String) -> void:
@@ -573,8 +577,8 @@ func _process(delta: float) -> void:
 	# Compute friendly vision anchors for Fog of War
 	var local_faction = _get_local_faction()
 			
-	var friendly_unit_positions: Array[Vector3] = []
-	var friendly_air_bubbles: Array[Dictionary] = []
+	friendly_unit_positions.clear()
+	friendly_air_bubbles.clear()
 		
 	if local_faction != "":
 		for u in units_list:
@@ -910,7 +914,38 @@ func sync_unit_purchase(city_name: String, unit_type: String, faction: String, c
 	if ConsoleManager:
 		var col = "red" if faction.to_lower() == "red" else "#3388ff"
 		var fac = "[color=" + col + "]" + faction + "[/color]"
-		ConsoleManager.log_message(fac + " deployed " + unit_type + " in " + city_name)
+
+		var local_fac = _get_local_faction()
+		var should_log = true
+
+		if local_fac != "" and faction != local_fac:
+			should_log = false
+			# Find city tile to evaluate local horizon
+			for cn in city_nodes:
+				if cn.name == "Unit_City_" + city_name:
+					var c_pos = cn.global_position
+					var vision_range = 0.036
+					for f_pos in friendly_unit_positions:
+						if c_pos.distance_to(f_pos) <= vision_range:
+							should_log = true
+							break
+					if not should_log:
+						for f_c_pos in friendly_city_positions:
+							if c_pos.distance_to(f_c_pos) <= vision_range:
+								should_log = true
+								break
+					if not should_log:
+						for bubble in friendly_air_bubbles:
+							if c_pos.distance_to(bubble.pos) <= bubble.range:
+								should_log = true
+								break
+					break
+
+		if should_log:
+			ConsoleManager.local_log_message(fac + " deployed " + unit_type + " in " + city_name)
+	
+	# Universally enforce native deploy locks across host and all clients internally
+	city_cooldowns[city_name] = 300.0
 	
 	if active_scenario.has("factions") and active_scenario["factions"].has(faction):
 		var money = active_scenario["factions"][faction].get("money", 0.0)
@@ -1589,10 +1624,7 @@ func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
 								intended_enemy = u
 								break
 				
-				if NetworkManager and NetworkManager.players.has(multiplayer.get_unique_id()):
-					selected_unit.clear_combat_target()
-				else:
-					selected_unit.clear_combat_target()
+				# We deliberately bypass clear_combat_target() here so that units explicitly retreating on click orders do not lose their engagement bounds prematurely and can continue defending themselves.
 					
 				if intended_enemy:
 					# Real intercept command against the exact enemy

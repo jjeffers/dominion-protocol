@@ -18,9 +18,13 @@ signal unit_target_synced(unit_name: String, target_pos: Vector3, enemy_target_n
 signal air_strike_requested(sender_id: int, unit_name: String, target_unit_name: String)
 signal air_strike_synced(unit_name: String, target_unit_name: String, counter_unit_name: String, attacker_status: String, defender_status: String, target_hit: bool)
 signal air_redeploy_synced(unit_name: String, target_city: String)
+signal unit_damage_synced(target_unit_name: String, amount: float, attacker_name: String)
+signal unit_health_synced(target_unit_name: String, amount: float)
 
 # Dictionary of players: { id: { "name": String, "faction": String } }
 var players: Dictionary = {}
+
+var _sync_timer: float = 0.0
 
 func _ready():
 	multiplayer.connected_to_server.connect(_on_connected_ok)
@@ -55,6 +59,36 @@ func join_game(ip: String, port: int) -> Error:
 	return error
 
 # --- Multiplayer Peer Signals ---
+
+func _process(delta: float) -> void:
+	if is_host and multiplayer.has_multiplayer_peer():
+		_sync_timer += delta
+		if _sync_timer >= 1.0: # Every 1.0 seconds
+			_sync_timer -= 1.0
+			_broadcast_positions()
+
+func _broadcast_positions() -> void:
+	var pos_dict = {}
+	var units = get_tree().get_nodes_in_group("units")
+	for unit in units:
+		if unit.get("current_position") != null:
+			pos_dict[unit.name] = unit.current_position
+	
+	if pos_dict.size() > 0:
+		rpc("sync_unit_positions", pos_dict)
+
+@rpc("authority", "unreliable")
+func sync_unit_positions(pos_dict: Dictionary) -> void:
+	# Ignore on host since they authoritative anyway
+	if is_host:
+		return
+		
+	var units = get_tree().get_nodes_in_group("units")
+	for unit in units:
+		if pos_dict.has(unit.name):
+			# If the unit has strayed, abruptly clamp it back to the host's authoritative 3D location. 
+			# Future polish could seamlessly lerp the deviation, but a rigid snap is optimal for tactical validation.
+			unit.current_position = pos_dict[unit.name]
 
 func _on_connected_ok():
 	print("Connected to server successfully! Self ID: ", multiplayer.get_unique_id())
@@ -220,3 +254,11 @@ func request_air_redeploy(unit_name: String, target_city: String):
 @rpc("authority", "call_local", "reliable")
 func sync_air_redeploy(unit_name: String, target_city: String):
 	air_redeploy_synced.emit(unit_name, target_city)
+
+@rpc("authority", "call_local", "reliable")
+func sync_unit_damage(target_unit_name: String, amount: float, attacker_name: String):
+	unit_damage_synced.emit(target_unit_name, amount, attacker_name)
+
+@rpc("authority", "call_local", "reliable")
+func sync_unit_health(target_unit_name: String, amount: float):
+	unit_health_synced.emit(target_unit_name, amount)

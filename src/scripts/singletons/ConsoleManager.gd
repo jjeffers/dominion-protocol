@@ -58,6 +58,16 @@ func log_message(msg: String) -> void:
 	else:
 		sync_log_message(msg)
 
+func local_log_message(msg: String) -> void:
+	var time_str = get_elapsed_time_string()
+	var formatted_msg = "[color=gray][" + time_str + "][/color] " + msg
+	
+	output_log.append_text(formatted_msg + "\n")
+	print(formatted_msg.strip_edges()) # Also send to stdout for terminal
+	
+	if panel.visible:
+		output_log.scroll_to_line(output_log.get_line_count() - 1)
+
 var match_time: float = 0.0
 
 func _process(delta: float) -> void:

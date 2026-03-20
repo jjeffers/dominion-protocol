@@ -7,11 +7,11 @@ class MockGlobeView extends Node:
 	var city_tile_cache: Dictionary = {}
 	var map_data = self
 	
-	func get_terrain(tile_id: String) -> String:
+	func get_terrain(tile_id: int) -> String:
 		return mock_terrain
 		
-	func _get_tile_from_vector3(pos: Vector3) -> String:
-		return "mock_tile_id"
+	func _get_tile_from_vector3(pos: Vector3) -> int:
+		return 100
 
 var mock_view: MockGlobeView
 var unit
@@ -33,7 +33,7 @@ const EXPECTED_TEC = {
 		"FOREST": {"movement": 0.5, "defense": 0.75},
 		"JUNGLE": {"movement": 0.25, "defense": 0.5},
 		"DESERT": {"movement": 0.5, "defense": 1.0},
-		"MOUNTAIN": {"movement": 0.1, "defense": 0.5},
+		"MOUNTAINS": {"movement": 0.1, "defense": 0.5},
 		"POLAR": {"movement": 0.25, "defense": 1.0},
 		"CITY": {"movement": 1.0, "defense": 0.5},
 		"OCEAN": {"movement": 1.5, "defense": 1.5},
@@ -44,7 +44,7 @@ const EXPECTED_TEC = {
 		"FOREST": {"movement": 0.5, "defense": 0.75},
 		"JUNGLE": {"movement": 0.25, "defense": 0.75},
 		"DESERT": {"movement": 1.0, "defense": 1.0},
-		"MOUNTAIN": {"movement": 0.1, "defense": 1.0},
+		"MOUNTAINS": {"movement": 0.1, "defense": 1.0},
 		"POLAR": {"movement": 0.25, "defense": 1.0},
 		"CITY": {"movement": 1.0, "defense": 0.75},
 		"OCEAN": {"movement": 1.5, "defense": 1.5},
@@ -57,8 +57,8 @@ func test_all_infantry_movement():
 	for terrain in EXPECTED_TEC["Infantry"].keys():
 		mock_view.city_tile_cache.clear()
 		if terrain == "CITY":
-			mock_view.mock_terrain = "MOUNTAIN"
-			mock_view.city_tile_cache["mock_tile_id"] = "test_city"
+			mock_view.mock_terrain = "MOUNTAINS"
+			mock_view.city_tile_cache[100] = "test_city"
 		else:
 			mock_view.mock_terrain = terrain
 		
@@ -71,8 +71,8 @@ func test_all_infantry_defense():
 	for terrain in EXPECTED_TEC["Infantry"].keys():
 		mock_view.city_tile_cache.clear()
 		if terrain == "CITY":
-			mock_view.mock_terrain = "MOUNTAIN"
-			mock_view.city_tile_cache["mock_tile_id"] = "test_city"
+			mock_view.mock_terrain = "MOUNTAINS"
+			mock_view.city_tile_cache[100] = "test_city"
 		else:
 			mock_view.mock_terrain = terrain
 		
@@ -87,8 +87,8 @@ func test_all_armor_movement():
 	for terrain in EXPECTED_TEC["Armor"].keys():
 		mock_view.city_tile_cache.clear()
 		if terrain == "CITY":
-			mock_view.mock_terrain = "MOUNTAIN"
-			mock_view.city_tile_cache["mock_tile_id"] = "test_city"
+			mock_view.mock_terrain = "MOUNTAINS"
+			mock_view.city_tile_cache[100] = "test_city"
 		else:
 			mock_view.mock_terrain = terrain
 		
@@ -101,8 +101,8 @@ func test_all_armor_defense():
 	for terrain in EXPECTED_TEC["Armor"].keys():
 		mock_view.city_tile_cache.clear()
 		if terrain == "CITY":
-			mock_view.mock_terrain = "MOUNTAIN"
-			mock_view.city_tile_cache["mock_tile_id"] = "test_city"
+			mock_view.mock_terrain = "MOUNTAINS"
+			mock_view.city_tile_cache[100] = "test_city"
 		else:
 			mock_view.mock_terrain = terrain
 		

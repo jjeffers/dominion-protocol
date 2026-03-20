@@ -40,8 +40,6 @@ func _ready():
 			_on_host_pressed()
 		elif arg == "--client":
 			_on_join_pressed()
-		elif arg.begins_with("--bot"):
-			_on_host_pressed()
 
 
 func _load_config():

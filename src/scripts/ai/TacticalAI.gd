@@ -13,7 +13,7 @@ var owned_units: Array[Node3D] = []
 var rally_point: Vector3 = Vector3.ZERO
 var target_city: Node3D = null
 
-var process_timer: float = 0.0
+var process_timer: float = -10.0
 const PROCESS_INTERVAL: float = 2.0 # Evaluate AI logic every 2 seconds
 
 var globe_view: Node3D = null
@@ -139,10 +139,10 @@ func _handle_production() -> void:
 		if enemy_has_air and money >= 30.0:
 			buy_type = "Air"
 			cost = 30.0
-		elif money >= 10.0:
+		elif money >= 20.0:
 			buy_type = "Armor"
-			cost = 10.0
-		elif money >= 5.0:
+			cost = 20.0
+		elif money >= 10.0:
 			buy_type = "Infantry"
 			cost = 5.0
 	else:
@@ -153,16 +153,20 @@ func _handle_production() -> void:
 		elif money >= 30.0:
 			buy_type = "Air"
 			cost = 30.0
-		elif money >= 10.0:
+		elif money >= 20.0:
 			buy_type = "Armor"
-			cost = 10.0
-		elif money >= 5.0:
+			cost = 20.0
+		elif money >= 10.0:
 			buy_type = "Infantry"
 			cost = 5.0
 			
 	if buy_type != "":
-		# Spawn using Host RPC directly
-		globe_view.sync_unit_purchase(best_city, buy_type, faction_name, cost)
+		var c_name = best_city if typeof(best_city) == TYPE_STRING else best_city.name
+		# Spawn using Host RPC directly, with offline fallback for unit tests
+		if network_manager and network_manager.multiplayer.has_multiplayer_peer() and network_manager.multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
+			globe_view.rpc("sync_unit_purchase", c_name, buy_type, faction_name, cost)
+		else:
+			globe_view.sync_unit_purchase(c_name, buy_type, faction_name, cost)
 
 func _find_high_value_target() -> Node3D:
 	var main_scene = get_node_or_null("/root/Main")
@@ -208,8 +212,35 @@ func _handle_attacking() -> void:
 		return
 		
 	# Move rally point progressively towards target city
-	rally_point = rally_point.slerp(target_city.global_position, 0.1).normalized() * globe_view.radius
+	if is_instance_valid(target_city):
+		rally_point = rally_point.slerp(target_city.global_position, 0.1).normalized() * globe_view.radius
 	
+	var target_assignments = {}
+	var occupied_tiles = []
+	
+	# Pre-cache all occupied tiles and persistent attack arrays to prevent iteration toggling natively
+	for ou in globe_view.units_list:
+		if is_instance_valid(ou) and not ou.get("is_dead"):
+			var ou_pos = ou.get("target_position")
+			if ou_pos == null:
+				ou_pos = ou.get("current_position")
+			if ou_pos != null:
+				var t_id = globe_view._get_tile_from_vector3(ou_pos)
+				if not occupied_tiles.has(t_id):
+					occupied_tiles.append(t_id)
+			
+			if ou.get("faction_name") == faction_name and ou.has_meta("attack_target_name"):
+				var t_name = ou.get_meta("attack_target_name")
+				if not target_assignments.has(t_name):
+					target_assignments[t_name] = []
+				
+				var t_hex = -2
+				if ou.has_meta("attack_target_hex"):
+					t_hex = ou.get_meta("attack_target_hex")
+				
+				if t_hex != -2:
+					target_assignments[t_name].append(t_hex)
+					
 	for u in owned_units:
 		if not is_instance_valid(u) or u.get("unit_type") == "Air":
 			continue
@@ -229,12 +260,113 @@ func _handle_attacking() -> void:
 					_issue_move_order(u, kite_pos)
 					continue
 				else:
-					# Attack!
-					_issue_move_order(u, closest_enemy.global_position, closest_enemy.name)
+					# Attack! We allow the AI to push targets UNLESS the unit is already fiercely brawling
+					if u.get("is_engaged"):
+						continue
+						
+					var t_name = closest_enemy.name
+					if not target_assignments.has(t_name):
+						target_assignments[t_name] = []
+						
+					var enemy_tile = globe_view._get_tile_from_vector3(closest_enemy.global_position)
+					
+					# Discard old metadata if target shifted hexes or swapped targets
+					var tracked_enemy = u.get_meta("attack_target_name") if u.has_meta("attack_target_name") else ""
+					var tracked_home_tile = u.get_meta("attack_enemy_tile") if u.has_meta("attack_enemy_tile") else -1
+					var my_assignment = u.get_meta("attack_target_hex") if u.has_meta("attack_target_hex") else -2
+					
+					if tracked_enemy != t_name or tracked_home_tile != enemy_tile:
+						my_assignment = -2 # Invalidated
+					
+					if my_assignment != -2:
+						# Persist existing un-toggled assignment
+						if my_assignment == -1:
+							_issue_move_order(u, closest_enemy.global_position, t_name)
+						else:
+							var n_pos = globe_view.map_data.get_centroid(my_assignment).normalized() * globe_view.radius
+							
+							var current_target_pos = u.get("target_position")
+							var current_target_tile = -1
+							if current_target_pos != null:
+								current_target_tile = globe_view._get_tile_from_vector3(current_target_pos)
+								
+							if current_target_tile != my_assignment or not u.get("in_motion"):
+								_issue_move_order(u, n_pos, "") # Strip name to snap to tile center
+					else:
+						var count = target_assignments[t_name].size()
+						
+						if count == 0:
+							target_assignments[t_name].append(-1) # Lead attacker takes exact center
+							u.set_meta("attack_target_name", t_name)
+							u.set_meta("attack_enemy_tile", enemy_tile)
+							u.set_meta("attack_target_hex", -1)
+							_issue_move_order(u, closest_enemy.global_position, t_name)
+						else:
+							var neighbors = globe_view.map_data.get_neighbors(enemy_tile)
+							var best_neighbor = -1
+							var min_dist = INF
+							var u_type = u.get("unit_type")
+							
+							# Scramble neighbor array to prevent directional biases natively
+							var shuffled_neighbors = neighbors.duplicate()
+							shuffled_neighbors.shuffle()
+							
+							for n in shuffled_neighbors:
+								if occupied_tiles.has(n) or target_assignments[t_name].has(n):
+									continue # Hex physically occupied or already assigned to a friendly
+									
+								var n_terrain = globe_view.map_data.get_terrain(n)
+								var is_valid = false
+								
+								if globe_view.city_tile_cache.has(n):
+									is_valid = true
+								elif u_type == "Infantry" or u_type == "Armor":
+									if n_terrain != "OCEAN" and n_terrain != "DEEP_OCEAN" and n_terrain != "LAKE":
+										is_valid = true
+								elif u_type == "Cruiser":
+									if n_terrain == "OCEAN" or n_terrain == "DEEP_OCEAN" or n_terrain == "LAKE" or n_terrain == "COAST":
+										is_valid = true
+										
+								if is_valid:
+									var n_pos = globe_view.map_data.get_centroid(n).normalized() * globe_view.radius
+									var dist = u.global_position.distance_to(n_pos)
+									if dist < min_dist:
+										min_dist = dist
+										best_neighbor = n
+										
+							if best_neighbor != -1:
+								target_assignments[t_name].append(best_neighbor)
+								occupied_tiles.append(best_neighbor)
+								u.set_meta("attack_target_name", t_name)
+								u.set_meta("attack_enemy_tile", enemy_tile)
+								u.set_meta("attack_target_hex", best_neighbor)
+								
+								var n_pos = globe_view.map_data.get_centroid(best_neighbor).normalized() * globe_view.radius
+								
+								var current_target_pos = u.get("target_position")
+								var current_target_tile = -1
+								if current_target_pos != null:
+									current_target_tile = globe_view._get_tile_from_vector3(current_target_pos)
+									
+								if current_target_tile != best_neighbor or not u.get("in_motion"):
+									_issue_move_order(u, n_pos, "") # Flank units strip t_name to override Engine snapping
+							else:
+								# All neighbor hexes invalid or full, force march directly behind to queue naturally
+								u.set_meta("attack_target_name", t_name)
+								u.set_meta("attack_enemy_tile", enemy_tile)
+								u.set_meta("attack_target_hex", -1)
+								_issue_move_order(u, closest_enemy.global_position, t_name)
+								
 					continue
+		
+		# Clear target metadata if no close enemy applies
+		if u.has_meta("attack_target_name"):
+			u.remove_meta("attack_target_name")
 		
 		# Otherwise march to target
 		if not u.get("is_engaged"):
+			if u.get("unit_type") == "Cruiser":
+				continue # Cruisers shouldn't march blindly across landmasses
 			var dist = u.global_position.distance_to(target_city.global_position)
 			if dist > 0.05:
 				_issue_move_order(u, target_city.global_position)
@@ -299,9 +431,27 @@ func _handle_air_ops() -> void:
 func _get_closest_enemy(unit: Node3D) -> Node3D:
 	var best = null
 	var best_dist = 99999.0
+	var is_cruiser = unit.get("unit_type") == "Cruiser"
 	for other in globe_view.units_list:
 		if is_instance_valid(other) and other != unit and not other.get("is_dead") and other.get("faction_name") != faction_name:
 			var d = unit.global_position.distance_to(other.global_position)
+			
+			if is_cruiser:
+				var e_tile = globe_view._get_tile_from_vector3(other.global_position)
+				var e_terrain = globe_view.map_data.get_terrain(e_tile)
+				if globe_view.city_tile_cache.has(e_tile):
+					if e_terrain == "OCEAN" or e_terrain == "LAKE":
+						e_terrain = "DOCKS"
+					else:
+						e_terrain = "CITY"
+						
+				if e_terrain != "OCEAN" and e_terrain != "LAKE" and e_terrain != "COAST" and e_terrain != "DEEP_OCEAN" and e_terrain != "DOCKS":
+					# Target is firmly on land! We can only engage if they are ALREADY within firing range!
+					var enemy_range = 0.0165 if other.get("unit_type") == "Cruiser" else 0.012
+					var threshold = (0.0165 + enemy_range) / 2.0
+					if d >= (threshold - 0.001):
+						continue # We would have to move inland to reach them, impossible!
+						
 			if d < best_dist:
 				best_dist = d
 				best = other

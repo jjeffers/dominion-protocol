@@ -58,6 +58,20 @@ var movement_target_unit: GlobeUnit = null
 var is_engaged: bool = false
 var is_dead: bool = false
 
+func _ready() -> void:
+	if NetworkManager != null:
+		NetworkManager.unit_damage_synced.connect(_on_unit_damage_synced)
+		NetworkManager.unit_health_synced.connect(_on_unit_health_synced)
+
+func _on_unit_damage_synced(target_unit_name: String, amount: float, attacker_name: String) -> void:
+	if target_unit_name == name:
+		take_damage(amount, attacker_name)
+
+func _on_unit_health_synced(target_unit_name: String, amount: float) -> void:
+	if target_unit_name == name:
+		health = amount
+		_update_health_bar()
+
 var radius: float = 1.0
 var current_position: Vector3
 var target_position: Vector3
@@ -101,11 +115,13 @@ const TEC_MODIFIERS: Dictionary = {
 		"FOREST": {"movement": 0.5, "defense": 0.75},
 		"JUNGLE": {"movement": 0.25, "defense": 0.5},
 		"DESERT": {"movement": 0.5, "defense": 1.0},
-		"MOUNTAIN": {"movement": 0.1, "defense": 0.5},
+		"MOUNTAINS": {"movement": 0.1, "defense": 0.5},
 		"POLAR": {"movement": 0.25, "defense": 1.0},
 		"CITY": {"movement": 1.0, "defense": 0.5},
 		"DOCKS": {"movement": 1.0, "defense": 0.5},
 		"OCEAN": {"movement": 1.5, "defense": 1.5},
+		"DEEP_OCEAN": {"movement": 1.5, "defense": 1.5},
+		"COAST": {"movement": 1.5, "defense": 1.5},
 		"LAKE": {"movement": 1.5, "defense": 1.5}
 	},
 	"Armor": {
@@ -113,11 +129,13 @@ const TEC_MODIFIERS: Dictionary = {
 		"FOREST": {"movement": 0.5, "defense": 0.75},
 		"JUNGLE": {"movement": 0.25, "defense": 0.75},
 		"DESERT": {"movement": 1.0, "defense": 1.0},
-		"MOUNTAIN": {"movement": 0.1, "defense": 1.0},
+		"MOUNTAINS": {"movement": 0.1, "defense": 1.0},
 		"POLAR": {"movement": 0.25, "defense": 1.0},
 		"CITY": {"movement": 1.0, "defense": 0.75},
 		"DOCKS": {"movement": 1.0, "defense": 0.75},
 		"OCEAN": {"movement": 1.5, "defense": 1.5},
+		"DEEP_OCEAN": {"movement": 1.5, "defense": 1.5},
+		"COAST": {"movement": 1.5, "defense": 1.5},
 		"LAKE": {"movement": 1.5, "defense": 1.5}
 	},
 	"Cruiser": {
@@ -125,11 +143,13 @@ const TEC_MODIFIERS: Dictionary = {
 		"FOREST": {"movement": 0.0, "defense": 1.0},
 		"JUNGLE": {"movement": 0.0, "defense": 1.0},
 		"DESERT": {"movement": 0.0, "defense": 1.0},
-		"MOUNTAIN": {"movement": 0.0, "defense": 1.0},
+		"MOUNTAINS": {"movement": 0.0, "defense": 1.0},
 		"POLAR": {"movement": 0.0, "defense": 1.0},
 		"CITY": {"movement": 0.0, "defense": 0.75},
 		"DOCKS": {"movement": 5.0, "defense": 0.75},
 		"OCEAN": {"movement": 5.0, "defense": 1.0},
+		"DEEP_OCEAN": {"movement": 5.0, "defense": 1.0},
+		"COAST": {"movement": 5.0, "defense": 1.0},
 		"LAKE": {"movement": 5.0, "defense": 1.0}
 	}
 }
@@ -480,7 +500,7 @@ func clear_combat_target() -> void:
 	if engagement_mesh:
 		engagement_mesh.clear_surfaces()
 
-func take_damage(amount: float) -> void:
+func take_damage(amount: float, attacker_name: String = "Unknown") -> void:
 	if is_dead:
 		return
 		
@@ -532,7 +552,7 @@ func take_damage(amount: float) -> void:
 		is_dead = true
 		clear_combat_target()
 		
-		if ConsoleManager:
+		if ConsoleManager != null and (NetworkManager == null or NetworkManager.is_host):
 			var col = "red" if faction_name.to_lower() == "red" else "#3388ff"
 			var fac = "[color=" + col + "]" + faction_name + "[/color]"
 			ConsoleManager.log_message(fac + " " + unit_type + " destroyed")
@@ -650,29 +670,7 @@ func _process(delta: float) -> void:
 				if sprite and sprite.material_override is ShaderMaterial:
 					sprite.material_override.set_shader_parameter("is_entrenched", true)
 		
-		# Health Recovery Logic (Only counts while resting in a friendly city)
-		if not is_dead and health < 100.0 and not is_engaged:
-			if current_position != null:
-				var p = get_parent()
-				if p and p.has_method("_get_tile_from_vector3"):
-					var tile_id = p._get_tile_from_vector3(current_position)
-					if p.city_tile_cache.has(tile_id):
-						var c_name = p.city_tile_cache[tile_id]
-						var is_friendly_city = false
-						if p.active_scenario.has("factions") and p.active_scenario["factions"].has(faction_name):
-							if p.active_scenario["factions"][faction_name].has("cities") and c_name in p.active_scenario["factions"][faction_name]["cities"]:
-								is_friendly_city = true
-						
-						if is_friendly_city:
-							time_in_city += delta
-							if time_in_city >= 30.0:
-								time_in_city -= 30.0
-								health = min(health + 10.0, 100.0)
-								_update_health_bar()
-						else:
-							time_in_city = 0.0
-					else:
-						time_in_city = 0.0
+
 	else:
 		time_motionless = 0.0
 		time_in_city = 0.0
@@ -717,20 +715,25 @@ func _process(delta: float) -> void:
 					if combat_timer >= 5.0:
 						combat_timer -= 5.0
 						
-						var dmg = 15.0
-						if unit_type.capitalize() == "Armor":
-							dmg = 25.0
-						elif unit_type.capitalize() == "Cruiser":
-							dmg = 30.0
-							
-						# Amphibious assault penalty for land units in sea transport
-						if is_seaborne and unit_type.capitalize() != "Cruiser":
-							if combat_target.unit_type.capitalize() == "Cruiser":
-								dmg = 10.0
+						var is_offline = (NetworkManager == null or not NetworkManager.multiplayer.has_multiplayer_peer())
+						if is_offline or NetworkManager.is_host:
+							var dmg = 15.0
+							if unit_type.capitalize() == "Armor":
+								dmg = 25.0
+							elif unit_type.capitalize() == "Cruiser":
+								dmg = 30.0
+								
+							# Amphibious assault penalty for land units in sea transport
+							if is_seaborne and unit_type.capitalize() != "Cruiser":
+								if combat_target.unit_type.capitalize() == "Cruiser":
+									dmg = 10.0
+								else:
+									dmg *= 0.25
+								
+							if not is_offline:
+								NetworkManager.rpc("sync_unit_damage", combat_target.name, dmg, self.name)
 							else:
-								dmg *= 0.25
-							
-						combat_target.take_damage(dmg)
+								combat_target.take_damage(dmg, self.name)
 						
 					# Defender advantage
 					if not combat_target.is_engaged and not combat_target.is_dead:
@@ -855,19 +858,112 @@ func _process(delta: float) -> void:
 								break
 					
 		if lookahead_terrain_modifier <= 0.0:
-			# Path is physically blocked by another unit. 
-			# Do NOT cancel the movement order! Simply remain halted this frame, 
-			# queuing up in place until the obstruction moves or is destroyed.
-			pass
+			# Path is physically blocked by another unit or terrain. 
+			# Implement lateral Obstruction Avoidance to slide left or right around the barrier natively.
+			var slide_success = false
+			var to_target = (target_position - current_position).normalized()
+			var surface_normal = current_position.normalized()
+			var right_vec = to_target.cross(surface_normal).normalized()
+			
+			for slide_dir in [1.0, -1.0]: # Try Right, then Left
+				var slide_mag = step * 1.5 * slide_dir
+				var try_pos = (current_position + (to_target * step * 0.5) + (right_vec * slide_mag)).normalized() * radius
+				
+				var s_mod = 1.0
+				var t_id = p._get_tile_from_vector3(try_pos) if (p and p.has_method("_get_tile_from_vector3")) else -1
+				if t_id != -1:
+					var s_terr = p.map_data.get_terrain(t_id)
+					var s_eff_terr = s_terr
+					if p.get("city_tile_cache") != null and p.city_tile_cache.has(t_id):
+						s_eff_terr = "DOCKS" if (s_terr == "OCEAN" or s_terr == "LAKE") else "CITY"
+					if TEC_MODIFIERS[u_type].has(s_eff_terr):
+						s_mod = TEC_MODIFIERS[u_type][s_eff_terr]["movement"]
+				
+				if s_mod > 0.0:
+					var s_blocked = false
+					var all_units = get_tree().get_nodes_in_group("units")
+					for other in all_units:
+						if other != self and is_instance_valid(other) and not other.get("is_dead"):
+							var t_type = other.get("unit_type")
+							if not t_type or t_type.capitalize() == "Air" or self.unit_type.capitalize() == "Air": continue
+							var tr = 0.0165 if t_type.capitalize() == "Cruiser" else 0.012
+							var c_thresh = (my_range + tr) / 3.0
+							if other.get("current_position") != null:
+								var d_next = try_pos.distance_to(other.get("current_position"))
+								if d_next < c_thresh:
+									var d_now = current_position.distance_to(other.get("current_position"))
+									if d_next < d_now:
+										s_blocked = true
+										break
+					if not s_blocked:
+						current_position = try_pos
+						slide_success = true
+						break
+			
+			if not slide_success:
+				pass # Path completely walled off, halt here.
 		else:
 			current_position = next_pos
-			global_position = current_position
-			look_at(Vector3.ZERO, Vector3.UP)
 			_draw_path(angle)
 		_draw_path(angle)
 	else:
 		current_terrain_modifier = 1.0
 		# Evaluate terrain at organic rest to ensure graphics adhere.
+		var u_type_low = unit_type.to_lower()
+		var can_capture = (u_type_low == "infantry" or u_type_low == "armor")
+		
+		# Evaluate city presence for Capture and Health Recovery
+		if time_motionless > 0.0 and p and p.has_method("_get_tile_from_vector3"):
+			var inside_city = false
+			var current_tile = p._get_tile_from_vector3(current_position)
+			
+			if p.get("city_tile_cache") != null and p.city_tile_cache.has(current_tile):
+				inside_city = true
+				var c_name = p.city_tile_cache[current_tile]
+				var c_faction = ""
+				
+				# Identify the current controlling faction of this city from the scenario dictionary
+				if p.get("active_scenario") and p.active_scenario.has("factions"):
+					for f_name in p.active_scenario["factions"].keys():
+						if p.active_scenario["factions"][f_name].has("cities") and c_name in p.active_scenario["factions"][f_name]["cities"]:
+							c_faction = f_name
+							break
+							
+				time_in_city += delta
+				if c_faction == self.faction_name:
+					# Friendly City: Health Recovery Protocol
+					if not is_dead and health < 100.0 and not is_engaged:
+						if time_in_city >= 30.0:
+							time_in_city -= 30.0
+							var is_offline = (NetworkManager == null or not NetworkManager.multiplayer.has_multiplayer_peer())
+							if is_offline or NetworkManager.is_host:
+								var hp_gain = min(10.0, 100.0 - health)
+								if hp_gain > 0:
+									if not is_offline:
+										NetworkManager.rpc("sync_unit_health", name, health + hp_gain)
+									else:
+										health = health + hp_gain
+										_update_health_bar()
+				else:
+					# Hostile City: Capture Protocol
+					if can_capture:
+						if time_in_city >= 5.0:
+							time_in_city = 0.0
+							var is_offline = (NetworkManager == null or not NetworkManager.multiplayer.has_multiplayer_peer())
+							if is_offline or NetworkManager.is_host:
+								if not is_offline:
+									NetworkManager.rpc("capture_city", c_name, self.faction_name)
+								else:
+									if NetworkManager and NetworkManager.has_method("capture_city"):
+										NetworkManager.capture_city(c_name, self.faction_name)
+					else:
+						time_in_city = 0.0 # Non-capturing units strictly reset clock upon evaluation
+						
+			if not inside_city:
+				time_in_city = 0.0 # Reset if motionless inherently outside defined nodes
+		else:
+			time_in_city = 0.0 # Reset completely if actively in motion or evaluating blanks
+		
 		if current_position != null:
 			p = get_parent()
 			if p and p.has_method("_get_tile_from_vector3"):
@@ -892,6 +988,13 @@ func _process(delta: float) -> void:
 		# Explicitly snap to target position if we arrived organically without combat overrides
 		if not is_engaged and current_position != null and target_position != null and current_position.distance_to(target_position) <= 0.0001:
 			target_position = current_position
+			
+	# 4. Final Transform Output (Always attach visuals to math coordinates unconditionally)
+	if current_position != null:
+		global_position = current_position
+		if current_position.length_squared() > 0.0001:
+			look_at(Vector3.ZERO, Vector3.UP)
+
 						
 func _draw_engagement_line() -> void:
 	if not engagement_mesh or not is_instance_valid(combat_target): return
