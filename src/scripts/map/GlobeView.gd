@@ -58,6 +58,7 @@ var deploying_unit_type: String = ""
 var deploying_unit_cost: float = 0.0
 var city_cooldowns: Dictionary = {}
 var cached_city_data: Dictionary = {}
+var recent_threats: Dictionary = {}
 var deployment_ghost: Sprite3D
 
 var unit_name_counters: Dictionary = {}
@@ -303,10 +304,14 @@ func _on_unit_target_synced(unit_name: String, target_pos: Vector3, enemy_target
 							c_faction = f_name
 							break
 				if c_faction != "" and c_faction != unit.get("faction_name"):
-					var main_node = get_node_or_null("/root/Main")
-					if main_node and main_node.has_method("post_news_event"):
-						var msg = "%s FORCE THREATENS %s" % [unit.get("faction_name").to_upper(), c_name.to_upper()]
-						main_node.post_news_event(msg, [c_faction])
+					var current_time = Time.get_ticks_msec() / 1000.0
+					var threat_key = c_name + "_" + c_faction + "_" + unit.get("faction_name")
+					if not recent_threats.has(threat_key) or (current_time - recent_threats[threat_key] > 20.0):
+						recent_threats[threat_key] = current_time
+						var main_node = get_node_or_null("/root/Main")
+						if main_node and main_node.has_method("post_news_event"):
+							var msg = "%s FORCE THREATENS %s" % [unit.get("faction_name").to_upper(), c_name.to_upper()]
+							main_node.post_news_event(msg, [c_faction])
 
 func _on_air_strike_requested(sender_id: int, unit_name: String, target_unit_name: String) -> void:
 	if not NetworkManager.is_host: return
