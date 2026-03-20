@@ -36,8 +36,8 @@ const EXPECTED_TEC = {
 		"MOUNTAINS": {"movement": 0.1, "defense": 0.5},
 		"POLAR": {"movement": 0.25, "defense": 1.0},
 		"CITY": {"movement": 1.0, "defense": 0.5},
-		"OCEAN": {"movement": 1.5, "defense": 1.5},
-		"LAKE": {"movement": 1.5, "defense": 1.5}
+		"OCEAN": {"movement": 3.0, "defense": 1.0},
+		"LAKE": {"movement": 3.0, "defense": 1.0}
 	},
 	"Armor": {
 		"PLAINS": {"movement": 1.5, "defense": 1.0},
@@ -47,8 +47,8 @@ const EXPECTED_TEC = {
 		"MOUNTAINS": {"movement": 0.1, "defense": 1.0},
 		"POLAR": {"movement": 0.25, "defense": 1.0},
 		"CITY": {"movement": 1.0, "defense": 0.75},
-		"OCEAN": {"movement": 1.5, "defense": 1.5},
-		"LAKE": {"movement": 1.5, "defense": 1.5}
+		"OCEAN": {"movement": 3.0, "defense": 1.0},
+		"LAKE": {"movement": 3.0, "defense": 1.0}
 	}
 }
 

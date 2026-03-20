@@ -64,8 +64,8 @@ func test_air_strike_sea_damage():
 	
 	gv._on_air_strike_synced("Air1", "Sea1", "", "UNREADY", "", true)
 	
-	# Ocean terrain gives Infantry(Sea fallback) a 1.5x damage penalty. 35 * 1.5 = 52.5 damage.
-	assert_eq(target.health, 27.5, "Air strike on Sea should do exactly 35 flat damage (80 -> 27.5 with 1.5x modifier)")
+	# Ocean terrain gives Infantry(Sea fallback) a 1.0x damage penalty. 35 * 1.0 = 35 damage.
+	assert_eq(target.health, 45.0, "Air strike on Sea should do exactly 35 flat damage (80 -> 45 with 1.0x modifier)")
 
 func test_air_redeploy():
 	var gv = globe_view_scene.instantiate()
@@ -159,6 +159,6 @@ func test_air_strike_sea_transport_damage():
 	# Armor takes 0.5 damage from Air normally.
 	# The test expects 35 flat damage base.
 	# GlobeUnit `take_damage(amount)` does: health -= amount * terrain_modifier.
-	# Armor takes 1.5x damage in Ocean.
-	# So 35 * 1.5 = 52.5. 100 - 52.5 = 47.5.
-	assert_eq(target.health, 47.5, "Air strike on Sea Transport land unit should do exactly 35 flat base damage, yielding 52.5 total damage")
+	# Armor takes 1.0x damage in Ocean.
+	# So 35 * 1.0 = 35. 100 - 35 = 65.
+	assert_eq(target.health, 65.0, "Air strike on Sea Transport land unit should do exactly 35 flat base damage, yielding 35 total damage")

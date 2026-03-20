@@ -120,10 +120,10 @@ const TEC_MODIFIERS: Dictionary = {
 		"POLAR": {"movement": 0.25, "defense": 1.0},
 		"CITY": {"movement": 1.0, "defense": 0.5},
 		"DOCKS": {"movement": 1.0, "defense": 0.5},
-		"OCEAN": {"movement": 1.5, "defense": 1.5},
-		"DEEP_OCEAN": {"movement": 1.5, "defense": 1.5},
-		"COAST": {"movement": 1.5, "defense": 1.5},
-		"LAKE": {"movement": 1.5, "defense": 1.5}
+		"OCEAN": {"movement": 3.0, "defense": 1.0},
+		"DEEP_OCEAN": {"movement": 3.0, "defense": 1.0},
+		"COAST": {"movement": 3.0, "defense": 1.0},
+		"LAKE": {"movement": 3.0, "defense": 1.0}
 	},
 	"Armor": {
 		"PLAINS": {"movement": 1.5, "defense": 1.0},
@@ -134,10 +134,10 @@ const TEC_MODIFIERS: Dictionary = {
 		"POLAR": {"movement": 0.25, "defense": 1.0},
 		"CITY": {"movement": 1.0, "defense": 0.75},
 		"DOCKS": {"movement": 1.0, "defense": 0.75},
-		"OCEAN": {"movement": 1.5, "defense": 1.5},
-		"DEEP_OCEAN": {"movement": 1.5, "defense": 1.5},
-		"COAST": {"movement": 1.5, "defense": 1.5},
-		"LAKE": {"movement": 1.5, "defense": 1.5}
+		"OCEAN": {"movement": 3.0, "defense": 1.0},
+		"DEEP_OCEAN": {"movement": 3.0, "defense": 1.0},
+		"COAST": {"movement": 3.0, "defense": 1.0},
+		"LAKE": {"movement": 3.0, "defense": 1.0}
 	},
 	"Cruiser": {
 		"PLAINS": {"movement": 0.0, "defense": 1.0},
@@ -743,7 +743,11 @@ func _process(delta: float) -> void:
 								if combat_target.unit_type.capitalize() == "Cruiser":
 									dmg = 10.0
 								else:
-									dmg *= 0.25
+									dmg *= 0.50
+									
+							# Suffer 2x damage from sea units if self is a sea unit attacking a land unit in sea transport
+							if unit_type.capitalize() == "Cruiser" and combat_target.get("is_seaborne") and combat_target.unit_type.capitalize() != "Cruiser":
+								dmg *= 2.0
 								
 							if not is_offline:
 								NetworkManager.rpc("sync_unit_damage", combat_target.name, dmg, self.name)

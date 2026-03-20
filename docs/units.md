@@ -69,8 +69,7 @@ Infantry | Jungle | 0.25 | 0.5
 Infantry | Desert | 0.5 | 1.0 
 Infantry | Mountains | 0.1 | 0.50
 Infantry | Polar | 0.25 | 1.0
-Infantry | City | 1 | 0.50 
-Infantry | Ocean | 1.5 | 1.5 
+Infantry | City | 1 | 0.50  
 Armor | Plains | 1.5 | 1.0  
 Armor | Forest | 0.5 | 0.75 
 Armor | Jungle | 0.25 | 0.75 
@@ -78,20 +77,29 @@ Armor | Desert | 1.0  | 1.0
 Armor | Mountains | 0.1 | 1.0 
 Armor | Polar | 0.25 | 1.0 
 Armor | City | 1.0 | 0.75 
-Armor | Ocean | 1.5 | 1.5 
 
 ##### TEC Terms
 - Movement Modifier: The factor by which the base movement rate is multiplied. For example, an armor unit on plains terrain has a movement rate of 1.5 * 1.0 = 1.5 unit widths per 10 seconds.
 - Defensive Modifier: The factor by which incoming damage is multiplied. For example, an armor unit on plains terrain takes 1.0 * damage per 5 seconds on units it is engaged with. (Low numbers are better for the defender.)
 
+##### SEA TRANSPORT MODE
+- Land units that move into OCEAN, DOCKS, or LAKE enter a state called SEA TRANSPORT.
+- SEA TRANSPORT mode has a move rate of 3.
+- While in SEA TRANSPORT mode land units have a background color of the OCEAN.
+- Land units in SEA TRANSPORT mode inflict 10 points of damage per 5 seconds on other sea units they are engaged with.
+- Land units in SEA TRANSPORT mode suffer 2x the damage from other sea units they are engaged with.
+- Land units in SEA TRANSPORT mode attack land units on land (aka AMPHIBIOUS ASSAULT) inflict damage at 50% of their normal damage.
+- Land units in SEA TRANSPORT mode that move onto land revert back out of SEA TRANSPORT mode to their regular mode and the unit background goes back to white.
+
+
 ## Air Units
 - Represents 1k to 1.5k aircraft, including bombers, transports, fighters, EW/ECW, strike aircraft, etc.
 - Air units do not have health, they have instead 2 states: READY and UNREADY.
-
 - An air unit icon represents the "base of operations" for an air unit.
 - Air units cost 30 credits.
 - Air units have an operations radius of 10*(land unit icon width).
 - When an air unit is selected, the UI draws a red circle centered on the air unit with a radius equal to the operations radius.
+- UNREADY air units recover to READY status after 4 minutes.
 
 ### Air Unit Visibilty 
 - READY air units provide vision of all units within their operations radius.
@@ -100,23 +108,35 @@ Armor | Ocean | 1.5 | 1.5
 ### Air Unit Operations
 - When an air unit is selected and and that air unit is READY, operations can be selectd by using the keyboard:
     - 'a' orders an AIR STRIKE.
+    - 'b' orders STRATEGIC BOMBING.
     - 'r' orders a REDEPLOY.
-
+    
 #### AIR STRIKE
-- When an air strike order is used, the air unit's operations radius wil show as a red circle centered on the air unit.
+- When an AIR STRIKE order is used, the air unit's operations radius wil show as a red circle centered on the air unit.
 - AIR STRIKE orders targeting land units will do damage to the land unit equal to 50% of the target unit's health before applying any defensive modifiers.
 - AIR STRIKE orders targeting sea units will do 35 points of damage.
 - After the AIR STRIKE (successful or not) the air unit becomes UNREADY.
 
+#### STRATEGIC BOMBING
+- When a STRATEGIC BOMBING order is used:
+    - the air unit's operations radius wil show as a red circle centered on the air unit.
+    - all enemy cities within the operations radius will be highlighted.
+    - the target reticle will show when the mouse is over a highlighted enemy city
+    - if the user right clicks on an enemy city, the air unit attempts to bomb that city
+    - if successful (not shot down, aborted, etc):
+        - a console log message and a news message will be displayed that indicates which city was bombed
+        - the faction that owns the city will lose 10 credits
+- After the STRATEGIC BOMBING (successful or not) the air unit becomes UNREADY.
+
 #### COUNTERING AIR OPERATIONS
-- Enemy air units have a % chance to intercept AIR STRIKE operations within their operations radius.
-    - The base % chance is linearly scaled based on the distance from the defending air unit to the location of the AIR STRIKE.
-    - If there is more than one air unit can intercept the AIR STRIKE, the % odds are cumulative.
+- Enemy air units have a % chance to intercept air unit operations within their operations radius.
+    - The base % chance is linearly scaled based on the distance from the defending air unit to the location of the  air unit.
+    - If there is more than one air unit can intercept the  air unit, the % odds are cumulative.
     - An UNREADY air unit has an interception % penalty of 90% (it becomes much less effective at interception).
     - If an INTERCEPTION occurs:
         - If mulitple air units can perform the INTERCEPTION, following sorting criteria is used:
             - READY air units vs UNREADY air units
-            - air units closest to the AIR STRIKE 
+            - air units closest to the  air unit 
         - Determine mission outcome:
             - 25% chance of mission success. The strike succeds, damage is inflicted. Enemy air unit is destroyed. Attacking air unit becomes UNREADY.
             - 50% chance of mission abort. No damage is done. Both air units become UNREADY.
@@ -125,7 +145,7 @@ Armor | Ocean | 1.5 | 1.5
                 - mission success odds increase to 90%
                 - mission abort odds become 10%
                 - 0% chance the attacking unit is shot down (destroyed)
-        - If an UNREADY air unit participates in an INTERCEPTION, the amount of time to recover to the READY state increases by another 2 minutes.
+        - If an UNREADY air unit participates in an INTERCEPTION, the amount of time to recover to the READY state increases by another 4 minutes.
     - If no INTERCEPTION or after INTERCEPTION occurs:
         - If attacking a land unit, outcome is:
             - 90% success. Damage is inflicted.The attacking air unit becomes UNREADY.
@@ -133,17 +153,14 @@ Armor | Ocean | 1.5 | 1.5
             - 1% chance of mission failue, no damage is done and attacking air unit is DESTROYED.
         - If attacking a cruiser the mission abort in increased to 25%, mission loss is 10%.
         
-
-- UNREADY air units recover to READY status after 2 minutes.
-
 #### REDEPLOY
 - Choosing REDEPLOY will enter a mode where:
     - the redeoploy radius is indicated by a green circle centered on the city the air unit is in. The radius for the REDPLOY order is x10 the operations radius.
     - Eligible cities for REDEPLOY are marked with colored highlights where the color matches the faction color.
     - the reployment icon is shown following the mouse 
-    - clicking on an eligble city will REDEPLOY the air unit to the city, placing that air unit into one of the 3x3 sections.  
-
-
+    - clicking on an eligble city will REDEPLOY the air unit to the city, placing that air unit into one of the 3x3 sections.
+- REDEPLOY orders can never be intercepted for fail (they always are successful).
+- After the REDEPLOY (successful or not) the air unit becomes UNREADY.
 
 ### Air Units in Captured Cities
 - Air units in cities that are captured are destroyed.
