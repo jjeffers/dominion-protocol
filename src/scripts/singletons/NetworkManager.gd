@@ -6,6 +6,7 @@ var peer = ENetMultiplayerPeer.new()
 var is_host = false
 var local_player_name: String = ""
 var last_disconnect_reason: String = ""
+var match_id: String = "0"
 
 signal connection_succeeded
 signal connection_failed(reason: String)
@@ -113,6 +114,14 @@ func _on_peer_connected(id: int):
 func _on_peer_disconnected(id: int):
 	print("Peer disconnected: ", id)
 	if players.has(id):
+		var p_name = players[id].get("player_name", "")
+		if p_name == "":
+			p_name = players[id].get("name", "")
+			
+		if "[BOT]" in p_name:
+			if get_tree().root.has_node("ConsoleManager"):
+				get_tree().root.get_node("ConsoleManager").log_message("%s has disconnected." % p_name, Color.GRAY)
+				
 		players.erase(id)
 	if is_host:
 		_sync_players_to_all()

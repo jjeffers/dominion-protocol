@@ -1,0 +1,48 @@
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+Vulkan 1.4.318 - Forward+ - Using Device #0: Intel - Intel(R) Graphics (RPL-P)
+
+MainMenu Args: ["--host", "--faction=Blue", "--bot=Blue", "--auto-start"]
+Hosting on port 7001
+MainMenu: Connection established, swapping scene...
+Peer connected: 566711918
+Server ordered game start!
+Lobby: Starting background load for main.tscn
+Server ordered game start!
+Lobby: Starting background load for main.tscn
+Server ordered game start!
+Lobby: Starting background load for main.tscn
+[Client 1] Resource loading completed in 132 ms
+MapData: Successfully loaded 781926 quad tiles from Binary buffer.
+MapData: Successfully loaded 195322 regional claims.
+MapData: Successfully loaded 781926 quad tiles from Binary buffer.
+MapData: Successfully loaded 195322 regional claims.
+MapData: Culled 192886 unused region tiles based on scenario configuration.
+GlobeView: Generating Dynamic Faction Borders...
+GlobeView: Finished Faction Borders. Factions drawn: 2
+ - Faction: Blue edges: 119
+ - Faction: Red edges: 182
+Loaded city spritesheet slices successfully!
+Placing City: London at Tile: 534458
+Placing City: Paris at Tile: 529400
+Placing City: Munich at Tile: 529374
+Placing City: Amsterdam at Tile: 536253
+Placing City: Berlin at Tile: 537677
+Placing City: Luxembourg at Tile: 531556
+Placing City: Brussels at Tile: 533366
+Placing City: Hamburg at Tile: 539855
+Placing City: Bordeaux at Tile: 130497
+Placing City: Königsberg at Tile: 543441
+Placing City: Prague at Tile: 533700
+Placing City: Marseille at Tile: 133767
+MainScene: Spawning TacticalAI for unassigned or bot-managed faction Blue
+MainScene: Spawning TacticalAI for unassigned or bot-managed faction Red
+[color=gray][00:00:06][/color] 
+==================================
+[color=gray][00:00:06][/color]     GLOBAL CONFLICT AUTHORIZED
+[color=gray][00:00:06][/color] ==================================
+Peer disconnected: 566711918
+Unit Purchase: Blue bought Infantry at London for 5.0
+[color=gray][00:00:18][/color] [color=#3388ff]Blue[/color] deployed Infantry in London
+Unit Purchase: Red bought Infantry at Hamburg for 5.0
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+     at: cleanup (core/object/object.cpp:2641)

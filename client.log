@@ -1,0 +1,44 @@
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+Vulkan 1.4.318 - Forward+ - Using Device #0: Intel - Intel(R) Graphics (RPL-P)
+
+MainMenu Args: ["--client", "--faction=Red", "--bot=Red"]
+Joining 127.0.0.1:7001
+Connected to server successfully! Self ID: 566711918
+MainMenu: Connection established, swapping scene...
+Peer connected: 1
+Server ordered game start!
+Lobby: Starting background load for main.tscn
+Server ordered game start!
+Lobby: Starting background load for main.tscn
+Server ordered game start!
+Lobby: Starting background load for main.tscn
+[Client 566711918] Resource loading completed in 98 ms
+MapData: Successfully loaded 781926 quad tiles from Binary buffer.
+MapData: Successfully loaded 195322 regional claims.
+MapData: Successfully loaded 781926 quad tiles from Binary buffer.
+MapData: Successfully loaded 195322 regional claims.
+MapData: Culled 192886 unused region tiles based on scenario configuration.
+GlobeView: Generating Dynamic Faction Borders...
+GlobeView: Finished Faction Borders. Factions drawn: 2
+ - Faction: Blue edges: 119
+ - Faction: Red edges: 182
+Loaded city spritesheet slices successfully!
+Placing City: London at Tile: 534458
+Placing City: Paris at Tile: 529400
+Placing City: Munich at Tile: 529374
+Placing City: Amsterdam at Tile: 536253
+Placing City: Berlin at Tile: 537677
+Placing City: Luxembourg at Tile: 531556
+Placing City: Brussels at Tile: 533366
+Placing City: Hamburg at Tile: 539855
+Placing City: Bordeaux at Tile: 130497
+Placing City: Königsberg at Tile: 543441
+Placing City: Prague at Tile: 533700
+Placing City: Marseille at Tile: 133767
+[color=gray][00:00:02][/color] 
+==================================
+[color=gray][00:00:02][/color]     GLOBAL CONFLICT AUTHORIZED
+[color=gray][00:00:02][/color] ==================================
+TESTING RIGHT CLICK Raycast hit target: { "position": (-0.087995, 0.767854, -0.635364), "normal": (0.987074, 0.075285, -0.141485), "face_index": -1, "collider_id": 72293025832, "collider": @Area3D@259:<Area3D#72293025832>, "shape": 0, "rid": RID(17952963297297) }
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+     at: cleanup (core/object/object.cpp:2641)

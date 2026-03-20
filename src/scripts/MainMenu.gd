@@ -34,6 +34,12 @@ func _ready():
 	for arg in args:
 		if arg.begins_with("--bot"):
 			player_name_input.text = "[BOT] TacticalAI"
+		elif arg.begins_with("--port="):
+			var p = arg.split("=")[1]
+			host_port_input.text = p
+			join_port_input.text = p
+		elif arg.begins_with("--match-id="):
+			NetworkManager.match_id = arg.split("=")[1]
 			
 	for arg in args:
 		if arg == "--host":

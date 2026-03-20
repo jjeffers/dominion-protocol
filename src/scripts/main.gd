@@ -301,8 +301,19 @@ func _on_city_captured(city_name: String, new_faction: String, old_faction: Stri
 
 func _on_victory_declared(winning_faction: String) -> void:
 	print(">>> GAME OVER: ", winning_faction, " IS VICTORIOUS!")
+	
+	var role = "Host" if NetworkManager.is_host else "Client"
+	var local_fac = "Unassigned"
+	if NetworkManager.players.has(multiplayer.get_unique_id()):
+		local_fac = NetworkManager.players[multiplayer.get_unique_id()].get("faction", "")
+	print("[MATCH_RESULT] MATCH=%s ROLE=%s FACTION=%s WINNER=%s" % [NetworkManager.match_id, role, local_fac, winning_faction])
+	
 	victory_banner.text = "%s WINS!" % winning_faction.to_upper()
 	victory_banner.show()
+
+	if "[BOT]" in NetworkManager.local_player_name:
+		await get_tree().create_timer(10.0).timeout
+		get_tree().quit()
 
 func post_news_event(msg: String, involved_factions: Array) -> void:
 	print(">>> NEWS EVENT: ", msg)

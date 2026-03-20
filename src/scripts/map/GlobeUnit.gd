@@ -697,7 +697,7 @@ func _process(delta: float) -> void:
 					# We have a valid overlap. Process combat.
 					
 					# Hard stop if we hit max overlap (center tile collision)
-					if dist < (engagement_threshold * 0.5):
+					if dist < (engagement_threshold * 0.9):
 						in_motion = false
 					
 					# Calculate direction to target in local space
