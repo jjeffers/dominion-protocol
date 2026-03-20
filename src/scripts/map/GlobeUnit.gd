@@ -274,7 +274,7 @@ uniform sampler2D tex_albedo : source_color, filter_nearest;
 uniform vec4 outline_color : source_color = vec4(1.0, 1.0, 0.0, 1.0);
 uniform float outline_width = 2.0;
 
-uniform bool use_bg_color = false;
+uniform int use_bg_color = 0;
 uniform vec4 bg_color_override : source_color = vec4(0.0);
 
 uniform float health_pct = 1.0;
@@ -294,7 +294,7 @@ void fragment() {
 		c = texture(tex_albedo, uv);
 		
 		// Sea Transport: Replace white background with ocean color
-		if (use_bg_color && c.r > 0.9 && c.g > 0.9 && c.b > 0.9 && c.a > 0.9) {
+		if (use_bg_color > 0 && c.r > 0.9 && c.g > 0.9 && c.b > 0.9 && c.a > 0.9) {
 			c = bg_color_override;
 		}
 	}
@@ -389,6 +389,9 @@ void fragment() {
 	outline_mat.set_shader_parameter("is_engaged", false)
 	outline_mat.set_shader_parameter("is_air_unit", unit_type == "Air")
 	outline_mat.set_shader_parameter("engagement_angle", 0.0)
+	# Explicitly define shader variables to protect Windows Vulkan/DX initialization arrays
+	outline_mat.set_shader_parameter("use_bg_color", 1 if is_seaborne else 0)
+	outline_mat.set_shader_parameter("bg_color_override", Color("#1f679c"))
 	# Default transparent outline so it does nothing if not explicitly set
 	outline_mat.set_shader_parameter("outline_color", Color(0, 0, 0, 0))
 	outline_mat.render_priority = 10
@@ -1106,6 +1109,6 @@ func _set_seaborne(status: bool) -> void:
 		return
 	is_seaborne = status
 	if sprite and sprite.material_override is ShaderMaterial:
-		sprite.material_override.set_shader_parameter("use_bg_color", is_seaborne)
+		sprite.material_override.set_shader_parameter("use_bg_color", 1 if is_seaborne else 0)
 		sprite.material_override.set_shader_parameter("bg_color_override", Color("#1f679c"))
 
