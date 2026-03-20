@@ -44,6 +44,15 @@ jobs:
         run: |
           ./godot --path . --headless -s addons/gut/gut_cmdln.gd -gdir=test -ginclude_subdirs -gexit
 
+      - name: Upload Procedural Maps
+        uses: actions/upload-artifact@v4
+        with:
+          name: procedural-maps
+          path: |
+            src/data/map_data.bin
+            src/data/quad_data.json
+            src/data/quadsphere_globe.res
+
   export-game:
     name: Export Game
     needs: test-game
@@ -54,6 +63,12 @@ jobs:
         with:
           fetch-depth: 0 # Required to fetch tags for git describe
           lfs: true
+
+      - name: Download Procedural Maps
+        uses: actions/download-artifact@v4
+        with:
+          name: procedural-maps
+          path: src/data/
 
       - name: Inject Version String
         run: |
