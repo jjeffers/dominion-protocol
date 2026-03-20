@@ -466,6 +466,11 @@ func _get_closest_enemy(unit: Node3D) -> Node3D:
 					if d >= (threshold - 0.001):
 						continue # We would have to move inland to reach them, impossible!
 						
+			if not is_cruiser and unit.get("unit_type") != "Air":
+				if other.get("unit_type") == "Cruiser":
+					# Land units aggressively deprioritize engaging Naval assets avoiding inherent Sea Transport vulnerabilities
+					d *= 3.0
+					
 			# Add 5% structural tactical noise to prevent uniform parallel targeting jams natively
 			d *= randf_range(0.95, 1.05)
 			
