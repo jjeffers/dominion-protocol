@@ -61,3 +61,30 @@ func test_submarine_hidden_from_moving_cruiser():
 	
 	# Assertion: Sub remains invisible if the only adjacent enemies are also in motion
 	assert_false(sub.is_detected, "Moving Submarine MUST REMAIN HIDDEN if adjacent cruisers are also moving")
+
+func test_submarine_revealed_when_engaged_in_combat():
+	var sub = GlobeUnit.new()
+	sub.name = "RedSub3"
+	sub.unit_type = "Submarine"
+	sub.faction_name = "Red"
+	add_child_autofree(sub)
+	
+	var cruiser = GlobeUnit.new()
+	cruiser.name = "BlueCruiser3"
+	cruiser.unit_type = "Cruiser"
+	cruiser.faction_name = "Blue"
+	add_child_autofree(cruiser)
+	
+	# Spawn them
+	sub.spawn(Vector3(0, 0, 1))
+	cruiser.spawn(Vector3(0, 0.013, 1).normalized()) # Within engagement threshold, but beyond collision
+	
+	# Force Submarine into combat via target setting (simulating engagement)
+	sub.set_combat_target(cruiser)
+	assert_true(sub.is_engaged, "Submarine must be successfully engaged.")
+	
+	# Evaluate physical rules
+	sub._process(1.0)
+	
+	# Assertion: Submarines lose their cloak immediately upon striking targets
+	assert_true(sub.is_detected, "Submarines MUST automatically become visible the instant they attack.")

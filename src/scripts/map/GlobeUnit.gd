@@ -838,7 +838,9 @@ func _process(delta: float) -> void:
 	# Evaluate Submarine Detection
 	var previously_detected = is_detected
 	if unit_type.capitalize() == "Submarine":
-		if in_motion:
+		if is_engaged:
+			is_detected = true
+		elif in_motion:
 			var newly_detected = false
 			var all_units = get_tree().get_nodes_in_group("units")
 			for other in all_units:
