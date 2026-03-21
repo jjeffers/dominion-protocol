@@ -2556,7 +2556,10 @@ func _spawn_unit(unit_def: Dictionary, faction_name: String, c_dict: Dictionary,
 				if is_land_unit and is_water:
 					continue
 					
-				var candidate_pos = map_data.get_centroid(candidate_id).normalized() * radius
+				var centroid = map_data.get_centroid(candidate_id)
+				if centroid.is_zero_approx():
+					continue
+				var candidate_pos = centroid.normalized() * radius
 				
 				# Ensure that if we are forced to stack, we at least stack on the correct terrain type
 				if fallback_pos == base_raw_pos:
