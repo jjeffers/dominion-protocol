@@ -40,6 +40,7 @@ var selected_unit_mesh: MeshInstance3D
 var target_bracket: Sprite3D
 var air_strike_bracket: Sprite3D
 var air_redeploy_bracket: Sprite3D
+
 # List of 3D positional nodes to trace against the camera horizon
 var cullable_nodes: Array[Node3D] = []
 var map_collider: StaticBody3D
@@ -47,6 +48,8 @@ var air_strike_sfx: AudioStreamPlayer
 var air_redeploy_sfx: AudioStreamPlayer
 var air_battle_sfx: AudioStreamPlayer
 var city_loss_sfx: AudioStreamPlayer
+var nuke_sfx: AudioStreamPlayer
+var capitols: Dictionary = {}
 
 var city_nodes: Array[Node3D] = []
 var friendly_city_positions: Array[Vector3] = []
@@ -138,6 +141,14 @@ func _ready() -> void:
 	if loss_stream:
 		city_loss_sfx.stream = loss_stream
 	add_child(city_loss_sfx)
+
+	nuke_sfx = AudioStreamPlayer.new()
+	var n_sfx_stream = load("res://src/assets/audio/combat-explosion.mp3") as AudioStream
+	if n_sfx_stream:
+		nuke_sfx.stream = n_sfx_stream
+	add_child(nuke_sfx)
+
+
 	
 	if NetworkManager:
 		NetworkManager.unit_target_synced.connect(_on_unit_target_synced)
@@ -925,6 +936,9 @@ func _unhandled_input(event: InputEvent) -> void:
 				
 	if event.is_action_pressed("ui_cancel") or (event is InputEventKey and event.physical_keycode == KEY_ESCAPE and event.pressed):
 		if current_air_operation_mode != "":
+			if current_air_operation_mode == "NUKE":
+				if air_strike_bracket: air_strike_bracket.visible = false
+			if target_bracket: target_bracket.visible = false
 			current_air_operation_mode = ""
 			_update_city_highlights(false)
 			if selected_unit and selected_unit.get("unit_type") == "Air":
@@ -989,7 +1003,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			current_latitude = clampf(_drag_start_lat + lat_delta, -PI/2.1, PI/2.1)
 			
 			_update_camera()
-		elif selected_unit:
+		elif selected_unit or current_air_operation_mode != "":
 			_handle_hover(event.position)
 			
 		# Always update terrain HUD regardless of unit selection
@@ -1138,6 +1152,23 @@ func _update_camera() -> void:
 	camera_pivot.transform = t
 	
 	focus_changed.emit(current_longitude, current_latitude)
+
+@rpc("any_peer", "call_local", "reliable")
+func sync_nuke_purchase(faction: String, cost: float) -> void:
+	if active_scenario.has("factions") and active_scenario["factions"].has(faction):
+		var fac_data = active_scenario["factions"][faction]
+		var money = fac_data.get("money", 0.0)
+		fac_data["money"] = money - cost
+		fac_data["nukes"] = fac_data.get("nukes", 0) + 1
+		if ConsoleManager:
+			var col = "red" if faction.to_lower() == "red" else "#3388ff"
+			var fac = "[color=" + col + "]" + faction + "[/color]"
+			# Print to all consoles universally since everyone dreads a nuke
+			ConsoleManager.log_message("SYSTEM: " + fac + " has acquired a Nuclear Weapon.")
+		# Ping local economy UI to refresh
+		var main_node = get_node_or_null("/root/Main")
+		if main_node and main_node.has_method("_update_economy_ui"):
+			main_node._update_economy_ui()
 
 @rpc("any_peer", "call_local", "reliable")
 func sync_unit_purchase(city_name: String, unit_type: String, faction: String, cost: float) -> void:
@@ -1369,7 +1400,7 @@ func _load_cities(active_cities: Array[String]) -> void:
 		
 	print("Loaded city spritesheet slices successfully!")
 	
-	var capitols: Dictionary = {}
+	capitols.clear()
 	if active_scenario.has("factions"):
 		for faction in active_scenario["factions"].values():
 			var cap = faction.get("capital", faction.get("capitol", ""))
@@ -1758,6 +1789,52 @@ func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
 						sync_unit_purchase(c_name, u_type, local_faction, cost)
 				return
 				
+			if current_air_operation_mode == "NUKE":
+				var hit_tile = _get_tile_from_vector3(hit_point)
+				var is_valid_target = true
+				var tile_width = 0.006 
+				var nbrs = map_data.get_neighbors(hit_tile)
+				if nbrs.size() > 0:
+					var c1 = map_data.get_centroid(hit_tile).normalized()
+					var c2 = map_data.get_centroid(nbrs[0]).normalized()
+					tile_width = c1.distance_to(c2) * (radius * 1.02)
+					
+				var local_fac = _get_local_faction()
+				if local_fac == "" and get_node_or_null("/root/NetworkManager") and NetworkManager.players.has(multiplayer.get_unique_id()):
+					local_fac = NetworkManager.players[multiplayer.get_unique_id()].get("faction", "")
+					
+				for fac_name in active_scenario.get("factions", {}).keys():
+					if fac_name == local_fac: continue
+					var cap_name = active_scenario["factions"][fac_name].get("capitol", "")
+					if cap_name != "" and active_scenario.has("cities") and active_scenario["cities"].has(cap_name):
+						var c_data = active_scenario["cities"][cap_name]
+						var cap_pos = _lat_lon_to_vector3(deg_to_rad(c_data["latitude"]), deg_to_rad(c_data["longitude"]), radius)
+						var dist = cap_pos.distance_to(hit_point)
+						if dist <= (tile_width * 1.5):
+							is_valid_target = false
+							break
+							
+				if is_valid_target:
+					var max_others = 0
+					for fac in active_scenario["factions"].keys():
+						if fac != local_fac:
+							max_others = max(max_others, active_scenario["factions"][fac].get("nukes_launched", 0))
+					var my_launched = active_scenario["factions"].get(local_fac, {}).get("nukes_launched", 0)
+					
+					if my_launched < max_others + 4: # Can launch up to 3 MORE than the max others
+						# Snap the hit point to the exact centroid of the tile to guarantee perfect collision centering
+						var snapped_target = map_data.get_centroid(hit_tile).normalized() * radius
+						if get_node_or_null("/root/NetworkManager") and multiplayer.has_multiplayer_peer():
+							rpc_id(1, "request_nuke_launch", snapped_target, local_fac)
+						else:
+							request_nuke_launch(snapped_target, local_fac)
+					else:
+						ConsoleManager.log_message("Command refused: Maximum unilateral launch threshold exceeded.")
+						
+					current_air_operation_mode = ""
+					if air_strike_bracket: air_strike_bracket.visible = false
+				return
+				
 			if current_air_operation_mode != "" and selected_unit and selected_unit.get("unit_type") == "Air":
 				var tile_id = _get_tile_from_vector3(hit_point)
 				var local_fac = _get_local_faction()
@@ -1798,7 +1875,6 @@ func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
 							if air_strike_bracket: air_strike_bracket.visible = false
 							if air_redeploy_bracket: air_redeploy_bracket.visible = false
 							air_ops_immediate_mesh.clear_surfaces()
-					return
 					return
 					
 				elif current_air_operation_mode == "STRATEGIC_BOMBING":
@@ -1867,6 +1943,8 @@ func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
 		elif not is_left_click and selected_unit:
 			# If right click when mode is active, cancel mode!
 			if current_air_operation_mode != "":
+				if current_air_operation_mode == "NUKE":
+					if air_strike_bracket: air_strike_bracket.visible = false
 				current_air_operation_mode = ""
 				_update_city_highlights(false)
 				if selected_unit.get("unit_type") == "Air":
@@ -1955,8 +2033,49 @@ func _handle_hover(screen_pos: Vector2) -> void:
 			
 		# Scale unit-relative pixel size for 128x128 graphic. Visual matching of tile_width * 3.0
 		var tex_width = 128.0
-		if target_bracket.texture:
+		if target_bracket and target_bracket.texture:
 			tex_width = float(target_bracket.texture.get_width())
+			
+		if current_air_operation_mode == "NUKE":
+			var is_valid_target = true
+			var local_fac = _get_local_faction()
+			if local_fac == "" and get_node_or_null("/root/NetworkManager") and NetworkManager.players.has(multiplayer.get_unique_id()):
+				local_fac = NetworkManager.players[multiplayer.get_unique_id()].get("faction", "")
+				
+			for fac_name in active_scenario.get("factions", {}).keys():
+				if fac_name == local_fac: continue
+				var cap_name = active_scenario["factions"][fac_name].get("capitol", "")
+				if cap_name != "" and active_scenario.has("cities") and active_scenario["cities"].has(cap_name):
+					var c_data = active_scenario["cities"][cap_name]
+					var cap_pos = _lat_lon_to_vector3(deg_to_rad(c_data["latitude"]), deg_to_rad(c_data["longitude"]), radius)
+					var dist = cap_pos.distance_to(result.position)
+					if dist <= (tile_width * 1.5):
+						is_valid_target = false
+						break
+						
+			if is_valid_target:
+				var max_others = 0
+				for fac in active_scenario["factions"].keys():
+					if fac != local_fac:
+						max_others = max(max_others, active_scenario["factions"][fac].get("nukes_launched", 0))
+				var my_launched = active_scenario["factions"].get(local_fac, {}).get("nukes_launched", 0)
+				if my_launched < max_others + 4:
+					if air_strike_bracket.material_override:
+						air_strike_bracket.material_override.albedo_color = Color(1.0, 0.0, 0.0) # Red
+				else:
+					if air_strike_bracket.material_override:
+						air_strike_bracket.material_override.albedo_color = Color(0.5, 0.5, 0.5) # Gray (Threshold Blocked)
+			else:
+				if air_strike_bracket.material_override:
+					air_strike_bracket.material_override.albedo_color = Color(0.5, 0.5, 0.5) # Gray
+			
+			target_bracket.visible = false
+			air_redeploy_bracket.visible = false
+			air_strike_bracket.position = snap_pos
+			air_strike_bracket.look_at(Vector3.ZERO, Vector3.UP)
+			air_strike_bracket.pixel_size = (tile_width * 3.0) / 128.0
+			air_strike_bracket.visible = true
+			return
 			
 		var show_air_strike = false
 		var show_air_redeploy = false
@@ -2004,6 +2123,8 @@ func _handle_hover(screen_pos: Vector2) -> void:
 		
 		# Set pixel scale so texture fits directly over 3x3 tile block 
 		target_bracket.pixel_size = (tile_width * 3.0) / tex_width
+		if air_strike_bracket.material_override:
+			air_strike_bracket.material_override.albedo_color = Color(1.0, 0.0, 0.0)
 		air_strike_bracket.pixel_size = (tile_width * 3.0) / 128.0
 		air_redeploy_bracket.pixel_size = (tile_width * 3.0) / 128.0
 		
@@ -2028,6 +2149,7 @@ func _handle_hover(screen_pos: Vector2) -> void:
 		target_bracket.visible = false
 		air_strike_bracket.visible = false
 		air_redeploy_bracket.visible = false
+
 
 	if deploying_unit_type != "":
 		# Handle the ghost positioning similarly but checking for valid city deployment
@@ -2515,6 +2637,22 @@ func _get_local_faction() -> String:
 			return NetworkManager.players[id].get("faction", "")
 	return ""
 
+func start_nuke_targeting() -> void:
+	if selected_unit:
+		selected_unit.set_selected(false)
+		selected_unit = null
+	current_air_operation_mode = "NUKE"
+	if has_method("_update_city_highlights"):
+		call("_update_city_highlights", false)
+	if target_bracket: target_bracket.visible = false
+	if air_strike_bracket: air_strike_bracket.visible = true
+	if air_redeploy_bracket: air_redeploy_bracket.visible = false
+	if air_ops_immediate_mesh: air_ops_immediate_mesh.clear_surfaces()
+	deploying_unit_type = ""
+	if deployment_ghost: deployment_ghost.visible = false
+	
+	ConsoleManager.log_message("Nuclear Targeting Protocol Enabled. Select Target.")
+
 func _spawn_border_units(count: int, faction1: String, faction2: String, faction_regions: Dictionary, owning_faction: String) -> void:
 	var f1_regs = faction_regions[faction1]
 	var f2_regs = faction_regions[faction2]
@@ -2672,3 +2810,114 @@ func _draw_air_ops_radius(unit: Node3D, is_redeploy: bool = false) -> void:
 		air_ops_immediate_mesh.surface_add_vertex(pts_outer[i1])
 		
 	air_ops_immediate_mesh.surface_end()
+
+@rpc("any_peer", "call_local", "reliable")
+func request_nuke_launch(target_pos: Vector3, launching_faction: String) -> void:
+	print("DEBUG [Server? ", multiplayer.get_unique_id() == 1, "]: request_nuke_launch received for ", launching_faction)
+	if multiplayer.get_unique_id() == 1 or not multiplayer.has_multiplayer_peer():
+		var fac_data = active_scenario["factions"].get(launching_faction, {})
+		print("DEBUG Server: Faction nukes inventory = ", fac_data.get("nukes", 0))
+		if fac_data.get("nukes", 0) > 0:
+			fac_data["nukes"] -= 1
+			fac_data["nukes_launched"] = fac_data.get("nukes_launched", 0) + 1
+			print("DEBUG Server: Inventory decremented. Broadcasting sync_nuke_launch to all peers.")
+			rpc("sync_nuke_launch", target_pos, launching_faction)
+			var main_node = get_node_or_null("/root/Main")
+			if main_node and main_node.has_method("rpc"):
+				main_node.rpc("sync_economy", active_scenario)
+		else:
+			print("DEBUG Server: NAUGHTY CLIENT! Nuke launch rejected. Inventory is 0.")
+
+@rpc("authority", "call_local", "reliable")
+func sync_nuke_launch(target_pos: Vector3, launching_faction: String) -> void:
+	print("DEBUG [Peer ", multiplayer.get_unique_id(), "]: sync_nuke_launch received.")
+	ConsoleManager.log_message("[color=red]NUCLEAR LAUNCH DETECTED.[/color] Incoming to sector.")
+	if nuke_sfx and nuke_sfx.stream:
+		nuke_sfx.play()
+	
+	# Wait for visual impact roughly 5 seconds (not exact visually, but mechanically delays destruction)
+	var timer = get_tree().create_timer(5.0)
+	timer.timeout.connect(func(): _process_nuke_impact(target_pos))
+
+func _process_nuke_impact(target_pos: Vector3) -> void:
+	ConsoleManager.log_message("[color=red]NUCLEAR IMPACT REPORTED. CATASTROPHIC DAMAGE.[/color]")
+	
+	var hit_tile = _get_tile_from_vector3(target_pos)
+	var nbrs = map_data.get_neighbors(hit_tile)
+	var tile_width = 0.006 
+	if nbrs.size() > 0:
+		var c1 = map_data.get_centroid(hit_tile).normalized()
+		var c2 = map_data.get_centroid(nbrs[0]).normalized()
+		tile_width = c1.distance_to(c2) * (radius * 1.02)
+		
+	var unit_width = tile_width * 3.35 # Approximate relative sprite scale
+	var inner_radius = unit_width * 1.35
+	var outer_radius = unit_width * 2.25
+	var surface_target = target_pos.normalized() * radius
+	print("DEBUG: Blast center: ", surface_target, ", inner_radius: ", inner_radius, " outer: ", outer_radius)
+	
+	# Instantiate visual 3D fireball
+	var sphere = MeshInstance3D.new()
+	var mesh = SphereMesh.new()
+	mesh.radius = 1.0
+	mesh.height = 2.0
+	mesh.radial_segments = 32
+	mesh.rings = 16
+	sphere.mesh = mesh
+	var mat = StandardMaterial3D.new()
+	mat.albedo_color = Color(1.0, 0.3, 0.0, 0.8) # Blinding Orange blast
+	mat.emission_enabled = true
+	mat.emission = Color(1.0, 0.2, 0.0)
+	mat.emission_energy_multiplier = 4.0
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	sphere.material_override = mat
+	sphere.position = surface_target
+	add_child(sphere)
+	
+	sphere.scale = Vector3.ZERO
+	var twn = create_tween()
+	# Expand drastically to inner radius
+	twn.tween_property(sphere, "scale", Vector3(inner_radius, inner_radius, inner_radius), 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	# Turn to ash cloud
+	twn.tween_property(mat, "albedo_color", Color(0.2, 0.2, 0.2, 0.6), 1.0)
+	twn.parallel().tween_property(mat, "emission_energy_multiplier", 0.0, 1.0)
+	# Slow dissipate and expand to outer damage radius over 8.5 seconds (10s total)
+	twn.tween_property(sphere, "scale", Vector3(outer_radius, outer_radius, outer_radius), 8.5)
+	twn.parallel().tween_property(mat, "albedo_color:a", 0.0, 8.5)
+	twn.tween_callback(sphere.queue_free)
+	
+	for u in units_list:
+		if is_instance_valid(u) and not u.get("is_dead"):
+			var dist = u.current_position.distance_to(surface_target)
+			if dist <= inner_radius:
+				u.take_damage(9999.0)
+			elif dist <= outer_radius:
+				if u.get("unit_type") != "Air":
+					var fraction = (dist - inner_radius) / (outer_radius - inner_radius)
+					var dmg = lerp(90.0, 10.0, fraction)
+					u.take_damage(dmg)
+				
+	# Terrain conversion
+	var affected_tiles = [hit_tile]
+	var q = [hit_tile]
+	var visited = {hit_tile: true}
+	
+	for _i in range(3):
+		var next_q = []
+		for t in q:
+			for n in map_data.get_neighbors(t):
+				if not visited.has(n):
+					visited[n] = true
+					var t_pos = map_data.get_centroid(n).normalized() * radius
+					if t_pos.distance_to(surface_target) <= tile_width * 1.5:
+						affected_tiles.append(n)
+						next_q.append(n)
+		q = next_q
+		
+	for t_id in affected_tiles:
+		var current_t = map_data.get_terrain(t_id)
+		if current_t == "CITY" or current_t == "DOCKS":
+			map_data.set_terrain(t_id, "RUINS")
+		else:
+			map_data.set_terrain(t_id, "WASTELAND")

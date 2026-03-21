@@ -9,10 +9,11 @@ const REGIONS_PATH = "res://src/data/region_data.json"
 const TILE_STRUCT_SIZE = 32
 const RESOLUTION = 361
 
-enum Terrain { OCEAN=0, PLAINS=1, DESERT=2, FOREST=3, MOUNTAINS=4, JUNGLE=5 }
+enum Terrain { OCEAN=0, PLAINS=1, DESERT=2, FOREST=3, MOUNTAINS=4, JUNGLE=5, WASTELAND=6, RUINS=7 }
 
 var _quad_data: PackedByteArray
 var _region_map: Dictionary = {}
+var _terrain_overrides: Dictionary = {}
 
 static var use_mock_data: bool = false
 
@@ -110,6 +111,9 @@ func get_centroid(tile_id: int) -> Vector3:
 
 ## Returns the terrain type as a string
 func get_terrain(tile_id: int) -> String:
+	if _terrain_overrides.has(tile_id):
+		return _terrain_overrides[tile_id]
+		
 	if tile_id < 0 or tile_id * TILE_STRUCT_SIZE >= _quad_data.size():
 		return "OCEAN"
 		
@@ -123,7 +127,13 @@ func get_terrain(tile_id: int) -> String:
 		Terrain.FOREST: return "FOREST"
 		Terrain.MOUNTAINS: return "MOUNTAINS"
 		Terrain.JUNGLE: return "JUNGLE"
+		Terrain.WASTELAND: return "WASTELAND"
+		Terrain.RUINS: return "RUINS"
 	return "OCEAN"
+
+## Sets a runtime terrain override for a specific tile
+func set_terrain(tile_id: int, new_terrain: String) -> void:
+	_terrain_overrides[tile_id] = new_terrain
 
 ## Returns the sovereign Region string
 func get_region(tile_id: int) -> String:

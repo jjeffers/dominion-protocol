@@ -126,7 +126,9 @@ const TEC_MODIFIERS: Dictionary = {
 		"OCEAN": {"movement": 3.0, "defense": 1.0},
 		"DEEP_OCEAN": {"movement": 3.0, "defense": 1.0},
 		"COAST": {"movement": 3.0, "defense": 1.0},
-		"LAKE": {"movement": 3.0, "defense": 1.0}
+		"LAKE": {"movement": 3.0, "defense": 1.0},
+		"WASTELAND": {"movement": 1.0, "defense": 1.0},
+		"RUINS": {"movement": 1.0, "defense": 1.0}
 	},
 	"Armor": {
 		"PLAINS": {"movement": 1.5, "defense": 1.0},
@@ -140,7 +142,9 @@ const TEC_MODIFIERS: Dictionary = {
 		"OCEAN": {"movement": 3.0, "defense": 1.0},
 		"DEEP_OCEAN": {"movement": 3.0, "defense": 1.0},
 		"COAST": {"movement": 3.0, "defense": 1.0},
-		"LAKE": {"movement": 3.0, "defense": 1.0}
+		"LAKE": {"movement": 3.0, "defense": 1.0},
+		"WASTELAND": {"movement": 1.0, "defense": 1.0},
+		"RUINS": {"movement": 1.0, "defense": 1.0}
 	},
 	"Cruiser": {
 		"PLAINS": {"movement": 0.0, "defense": 1.0},
@@ -154,7 +158,9 @@ const TEC_MODIFIERS: Dictionary = {
 		"OCEAN": {"movement": 5.0, "defense": 1.0},
 		"DEEP_OCEAN": {"movement": 5.0, "defense": 1.0},
 		"COAST": {"movement": 5.0, "defense": 1.0},
-		"LAKE": {"movement": 5.0, "defense": 1.0}
+		"LAKE": {"movement": 5.0, "defense": 1.0},
+		"WASTELAND": {"movement": 0.0, "defense": 1.0},
+		"RUINS": {"movement": 5.0, "defense": 1.0}
 	},
 	"Submarine": {
 		"PLAINS": {"movement": 0.0, "defense": 1.0},
@@ -168,7 +174,9 @@ const TEC_MODIFIERS: Dictionary = {
 		"OCEAN": {"movement": 4.0, "defense": 1.0},
 		"DEEP_OCEAN": {"movement": 4.0, "defense": 1.0},
 		"COAST": {"movement": 4.0, "defense": 1.0},
-		"LAKE": {"movement": 4.0, "defense": 1.0}
+		"LAKE": {"movement": 4.0, "defense": 1.0},
+		"WASTELAND": {"movement": 0.0, "defense": 1.0},
+		"RUINS": {"movement": 4.0, "defense": 1.0}
 	}
 }
 
@@ -704,6 +712,30 @@ func _process(delta: float) -> void:
 	else:
 		if destination_bracket:
 			destination_bracket.visible = false
+			
+	var current_terrain = "PLAINS"
+	var parent_map = get_parent()
+	if parent_map and parent_map.has_method("_get_tile_from_vector3") and current_position != null:
+		var tile_id = parent_map._get_tile_from_vector3(current_position)
+		if parent_map.get("city_tile_cache") != null and parent_map.city_tile_cache.has(tile_id):
+			var raw_terrain = "PLAINS"
+			if parent_map.get("map_data") != null:
+				raw_terrain = parent_map.map_data.get_terrain(tile_id)
+			if raw_terrain == "OCEAN" or raw_terrain == "LAKE":
+				current_terrain = "DOCKS"
+			elif raw_terrain == "RUINS":
+				current_terrain = "RUINS"
+			else:
+				current_terrain = "CITY"
+		elif parent_map.get("map_data") != null:
+			current_terrain = parent_map.map_data.get_terrain(tile_id)
+
+	if current_terrain == "WASTELAND" or current_terrain == "RUINS":
+		health -= 5.0 * (delta / 30.0)
+		if health <= 0.0:
+			take_damage(9999.0) # reuse death flow
+		is_recovering = false
+			
 	if not in_motion:
 		time_motionless += delta
 		if time_motionless >= 30.0:
@@ -711,8 +743,6 @@ func _process(delta: float) -> void:
 				entrenched = true
 				if sprite and sprite.material_override is ShaderMaterial:
 					sprite.material_override.set_shader_parameter("is_entrenched", true)
-		
-
 	else:
 		time_motionless = 0.0
 		time_in_city = 0.0

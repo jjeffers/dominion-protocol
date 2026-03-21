@@ -17,6 +17,7 @@
             "oil": [],
             "money": 10,
             "fuel": 0,
+            "nukes": 1,
             "units": [
                 {
                     "type": "infantry",
@@ -87,6 +88,7 @@
             "oil": [],
             "money": 10,
             "fuel": 0,
+            "nukes": 1,
             "units": [
                 {
                     "type": "infantry",

@@ -21,6 +21,7 @@ var last_hovered_tile_id: int = -1
 @onready var economy_panel: Panel = $EconomyStatusPanel
 @onready var credits_label: Label = $EconomyStatusPanel/CreditsLabel
 @onready var cities_label: Label = $EconomyStatusPanel/CitiesLabel
+@onready var nukes_label: Label = $EconomyStatusPanel/NukesLabel
 
 @onready var purchase_menu: Panel = $PurchaseMenu
 @onready var purchase_infantry_btn: Button = $PurchaseMenu/VBoxContainer/InfantryRow/PurchaseInfantryBtn
@@ -28,6 +29,7 @@ var last_hovered_tile_id: int = -1
 @onready var purchase_air_btn: Button = $PurchaseMenu/VBoxContainer/AirRow/PurchaseAirBtn
 @onready var purchase_cruiser_btn: Button = $PurchaseMenu/VBoxContainer/CruiserRow/PurchaseCruiserBtn
 @onready var purchase_submarine_btn: Button = $PurchaseMenu/VBoxContainer/SubmarineRow/PurchaseSubmarineBtn
+@onready var purchase_nuke_btn: Button = $PurchaseMenu/VBoxContainer/NukeRow/PurchaseNukeBtn
 
 var city_icon: TextureRect
 var map_data: MapData
@@ -41,6 +43,7 @@ var banner_timer: float = 0.0
 var war_start_audio: AudioStreamPlayer
 var victory_banner: Label
 var air_ops_prompt: Label
+var nuke_hint_prompt: Label
 
 const TERRAIN_COLORS: Dictionary = {
 	"OCEAN": Color("#1f679c"),
@@ -85,6 +88,7 @@ func _ready() -> void:
 	purchase_air_btn.pressed.connect(_on_purchase_air)
 	purchase_cruiser_btn.pressed.connect(_on_purchase_cruiser)
 	purchase_submarine_btn.pressed.connect(_on_purchase_submarine)
+	purchase_nuke_btn.pressed.connect(_on_purchase_nuke)
 	
 	# Initialize HUD State
 	terrain_panel.hide()
@@ -142,6 +146,20 @@ func _ready() -> void:
 	air_ops_prompt.hide()
 	add_child(air_ops_prompt)
 
+	# Setup Nuke Hint Prompt
+	nuke_hint_prompt = Label.new()
+	nuke_hint_prompt.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	nuke_hint_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	nuke_hint_prompt.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	nuke_hint_prompt.position.y = -100
+	nuke_hint_prompt.add_theme_font_size_override("font_size", 28)
+	nuke_hint_prompt.add_theme_color_override("font_color", Color.YELLOW)
+	nuke_hint_prompt.add_theme_color_override("font_outline_color", Color.BLACK)
+	nuke_hint_prompt.add_theme_constant_override("outline_size", 6)
+	nuke_hint_prompt.text = "[N] - Launch Nuclear Weapon"
+	nuke_hint_prompt.hide()
+	add_child(nuke_hint_prompt)
+
 	# Setup Match Timer Label
 	match_timer_label = Label.new()
 	match_timer_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
@@ -180,6 +198,29 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.physical_keycode == KEY_ESCAPE:
 			if purchase_menu.visible:
 				purchase_menu.hide()
+		elif event.physical_keycode == KEY_N:
+			if purchase_menu.visible:
+				purchase_menu.hide()
+			ConsoleManager.log_message("SYSTEM: N key registered.")
+			var local_id = multiplayer.get_unique_id() if multiplayer.has_multiplayer_peer() else 0
+			var local_faction = ""
+			var nm = get_node_or_null("/root/NetworkManager")
+			if nm and nm.players.has(local_id):
+				local_faction = nm.players[local_id].get("faction", "")
+			
+			if local_faction == "":
+				ConsoleManager.log_message("SYSTEM: local_faction missing")
+			else:
+				var active_s = globe_view.get("active_scenario")
+				if typeof(active_s) == TYPE_DICTIONARY and active_s.has("factions") and active_s["factions"].has(local_faction):
+					var available_nukes = active_s["factions"][local_faction].get("nukes", 0)
+					if available_nukes > 0:
+						if globe_view.has_method("start_nuke_targeting"):
+							globe_view.start_nuke_targeting()
+					else:
+						ConsoleManager.log_message("SYSTEM: No nukes available (" + str(available_nukes) + ")")
+				else:
+					ConsoleManager.log_message("SYSTEM: Scenario parsing failed")
 
 func _on_purchase_infantry() -> void:
 	purchase_menu.hide()
@@ -200,6 +241,24 @@ func _on_purchase_cruiser() -> void:
 func _on_purchase_submarine() -> void:
 	purchase_menu.hide()
 	globe_view.start_deployment("Submarine", 35.0)
+
+func _on_purchase_nuke() -> void:
+	purchase_menu.hide()
+	var local_id = multiplayer.get_unique_id() if multiplayer.has_multiplayer_peer() else 0
+	var local_faction = ""
+	var nm = get_node_or_null("/root/NetworkManager")
+	if nm and nm.players.has(local_id):
+		local_faction = nm.players[local_id].get("faction", "")
+		
+	if local_faction != "" and scenario_data.has("factions") and scenario_data["factions"].has(local_faction):
+		var fac_data = scenario_data["factions"][local_faction]
+		var costs = 20.0
+		if fac_data.get("money", 0.0) >= costs:
+			print("DEBUG: Attempting to purchase Nuke. Calling sync_nuke_purchase RPC...")
+			if get_node_or_null("/root/NetworkManager") and multiplayer.has_multiplayer_peer():
+				globe_view.rpc("sync_nuke_purchase", local_faction, costs)
+			else:
+				globe_view.sync_nuke_purchase(local_faction, costs)
 
 func _on_globe_hovered_tile_changed(tile_id: int, terrain: String, c_name: String, region_name: String) -> void:
 	last_hovered_tile_id = tile_id
@@ -486,19 +545,27 @@ func _update_economy_ui() -> void:
 	var nm = get_node_or_null("/root/NetworkManager")
 	if nm and nm.players.has(local_id):
 		local_faction = nm.players[local_id].get("faction", "")
-		
 	var credits = 0.0
 	var controlled_cities = 0
 	var total_cities = active_cities.size()
+	var nukes = 0
 	
 	if local_faction != "" and scenario_data.has("factions") and scenario_data["factions"].has(local_faction):
 		var fac_data = scenario_data["factions"][local_faction]
 		credits = fac_data.get("money", 0.0)
+		nukes = fac_data.get("nukes", 0)
 		if fac_data.has("cities"):
 			controlled_cities = fac_data["cities"].size()
 			
 	credits_label.text = "Credits: %.0f" % floor(credits)
 	cities_label.text = "Cities: %d/%d" % [controlled_cities, total_cities]
+	nukes_label.text = "Nukes: " + str(nukes)
+	
+	if nuke_hint_prompt:
+		if nukes > 0:
+			nuke_hint_prompt.show()
+		else:
+			nuke_hint_prompt.hide()
 	
 	# Update Purchase Availability
 	purchase_infantry_btn.disabled = credits < 5.0
@@ -506,3 +573,4 @@ func _update_economy_ui() -> void:
 	purchase_air_btn.disabled = credits < 30.0
 	purchase_cruiser_btn.disabled = credits < 50.0
 	purchase_submarine_btn.disabled = credits < 35.0
+	purchase_nuke_btn.disabled = credits < 20.0

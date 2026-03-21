@@ -101,7 +101,7 @@ layout_mode = 1
 offset_left = 60.0
 offset_top = 60.0
 offset_right = 360.0
-offset_bottom = 160.0
+offset_bottom = 200.0
 
 [node name="CreditsLabel" type="Label" parent="EconomyStatusPanel"]
 layout_mode = 1
@@ -121,12 +121,27 @@ anchors_preset = 12
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_top = -90.0
+offset_bottom = -50.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_font_sizes/font_size = 24
+text = "Cities: 0/0"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="NukesLabel" type="Label" parent="EconomyStatusPanel"]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
 offset_top = -50.0
 offset_bottom = -10.0
 grow_horizontal = 2
 grow_vertical = 0
 theme_override_font_sizes/font_size = 24
-text = "Cities: 0/0"
+text = "Nukes: 0"
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -139,9 +154,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -200.0
-offset_top = -250.0
+offset_top = -290.0
 offset_right = 200.0
-offset_bottom = 250.0
+offset_bottom = 290.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -235,6 +250,20 @@ theme_override_font_sizes/font_size = 24
 text = "Submarine (35c)"
 
 [node name="PurchaseSubmarineBtn" type="Button" parent="PurchaseMenu/VBoxContainer/SubmarineRow"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = " Purchase "
+
+[node name="NukeRow" type="HBoxContainer" parent="PurchaseMenu/VBoxContainer"]
+layout_mode = 2
+
+[node name="UnitName" type="Label" parent="PurchaseMenu/VBoxContainer/NukeRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 24
+text = "Nuclear Weapon (20c)"
+
+[node name="PurchaseNukeBtn" type="Button" parent="PurchaseMenu/VBoxContainer/NukeRow"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = " Purchase "

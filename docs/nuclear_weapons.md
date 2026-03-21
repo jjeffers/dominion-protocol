@@ -12,11 +12,10 @@
         - The launchig faction inventory is reduced by 1.
         - A nuclear weapon alarm is played for all players. The sound asset is "nuke-alert.mp3".
         - A news message is display "NUCLEAR WEAPON LAUNCH DETECTED"
-    - A 5-second delay is counted down, then the nuclear weapon hits.
-     - A black grey circle is shown on the global map immediately after launch, and it expands to the radius of the blast over 1 second.
-    - The black "nuke zone" fades after a few seconds.
-    - Any and all units (sea, air, and land) are killed within radius of 1.5 unit widths of the targe location.
-    - Land and sea units between 1.5 and 2.0 unit widths receive damage equal 90 health, scaled down to 10 health at 2.0 unit widths.
+    - A 10-second visual fireball effect is triggered upon successful strike impact.
+    - An emissive orange sphere expands to the primary blast radius over 0.5 seconds, then cools into a grey ash cloud while swelling to the secondary radius and fading out over the remaining 9.5 seconds.
+    - Any and all units (sea, air, and land) are killed within radius of 1.35 unit widths of the targe location.
+    - Land and sea units between 1.35 and 2.25 unit widths receive damage equal 90 health, scaled down to 10 health at 2.25 unit widths.
     - The original 1.5 radius blast circle converted land terrain to WASTELAND, and converts both CITY and DOCKS to RUINS.
     - A news message is displayed to all players indicating the launch of the nuclear weapon and the target location.
 
