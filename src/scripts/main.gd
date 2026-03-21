@@ -52,7 +52,9 @@ const TERRAIN_COLORS: Dictionary = {
 	"JUNGLE": Color("#163510"),
 	"DESERT": Color("#e6c27a"),
 	"MOUNTAIN": Color("#8c8c8c"),
-	"POLAR": Color("#ffffff")
+	"POLAR": Color("#ffffff"),
+	"WASTELAND": Color("#2b2b2b"),
+	"RUINS": Color("#1a1a1a")
 }
 
 func _ready() -> void:
@@ -277,7 +279,9 @@ func _on_globe_hovered_tile_changed(tile_id: int, terrain: String, c_name: Strin
 		city_name.show()
 		
 		# Show city icon and hide underlying terrain color
-		if terrain == "OCEAN" or terrain == "LAKE":
+		if terrain == "RUINS":
+			terrain_name.text = "RUINS"
+		elif terrain == "OCEAN" or terrain == "LAKE":
 			terrain_name.text = "DOCKS"
 		else:
 			terrain_name.text = "CITY"

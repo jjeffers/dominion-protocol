@@ -16,11 +16,13 @@
     - An emissive orange sphere expands to the primary blast radius over 0.5 seconds, then cools into a grey ash cloud while swelling to the secondary radius and fading out over the remaining 9.5 seconds.
     - Any and all units (sea, air, and land) are killed within radius of 1.35 unit widths of the targe location.
     - Land and sea units between 1.35 and 2.25 unit widths receive damage equal 90 health, scaled down to 10 health at 2.25 unit widths.
-    - The original 1.5 radius blast circle converted land terrain to WASTELAND, and converts both CITY and DOCKS to RUINS.
+    - Terrain within the 1.35 unit width blast zone is permanently converted to WASTELAND, and converts both CITY and DOCKS to RUINS.
     - A news message is displayed to all players indicating the launch of the nuclear weapon and the target location.
+    - Cities struck by a nuclear weapon have a production cooldown increase of 10 minutes, and the owning player loses 10 credits.
 
 ## WASTELAND and RUINS
 - Units in these terrains suffer attrition at 5 health per 30 seconds.
 - RUINS and WASTELAND terrain cannot be repaired or rebuilt (they are permanent).
 - RUINS prevent units from repairing.
 - RUINS cannot be used for deployment.
+- RUINS and WASTELAND have the same movement penalties as DESERT.

@@ -32,6 +32,9 @@ var outline_immediate_mesh: ImmediateMesh
 var air_ops_mesh_instance: MeshInstance3D
 var air_ops_immediate_mesh: ImmediateMesh
 
+var nuke_ash_mesh: ImmediateMesh
+var nuke_ash_mesh_instance: MeshInstance3D
+
 var current_air_operation_mode: String = ""
 
 var selected_unit: Node3D = null
@@ -2831,7 +2834,7 @@ func request_nuke_launch(target_pos: Vector3, launching_faction: String) -> void
 @rpc("authority", "call_local", "reliable")
 func sync_nuke_launch(target_pos: Vector3, launching_faction: String) -> void:
 	print("DEBUG [Peer ", multiplayer.get_unique_id(), "]: sync_nuke_launch received.")
-	ConsoleManager.log_message("[color=red]NUCLEAR LAUNCH DETECTED.[/color] Incoming to sector.")
+	ConsoleManager.local_log_message("[color=red]NUCLEAR LAUNCH DETECTED.[/color] Incoming to sector.")
 	if nuke_sfx and nuke_sfx.stream:
 		nuke_sfx.play()
 	
@@ -2840,7 +2843,7 @@ func sync_nuke_launch(target_pos: Vector3, launching_faction: String) -> void:
 	timer.timeout.connect(func(): _process_nuke_impact(target_pos))
 
 func _process_nuke_impact(target_pos: Vector3) -> void:
-	ConsoleManager.log_message("[color=red]NUCLEAR IMPACT REPORTED. CATASTROPHIC DAMAGE.[/color]")
+	ConsoleManager.local_log_message("[color=red]NUCLEAR IMPACT REPORTED. CATASTROPHIC DAMAGE.[/color]")
 	
 	var hit_tile = _get_tile_from_vector3(target_pos)
 	var nbrs = map_data.get_neighbors(hit_tile)
@@ -2903,21 +2906,78 @@ func _process_nuke_impact(target_pos: Vector3) -> void:
 	var q = [hit_tile]
 	var visited = {hit_tile: true}
 	
-	for _i in range(3):
+	for _i in range(15):
 		var next_q = []
 		for t in q:
 			for n in map_data.get_neighbors(t):
 				if not visited.has(n):
 					visited[n] = true
 					var t_pos = map_data.get_centroid(n).normalized() * radius
-					if t_pos.distance_to(surface_target) <= tile_width * 1.5:
+					if t_pos.distance_to(surface_target) <= inner_radius:
 						affected_tiles.append(n)
 						next_q.append(n)
 		q = next_q
 		
 	for t_id in affected_tiles:
-		var current_t = map_data.get_terrain(t_id)
-		if current_t == "CITY" or current_t == "DOCKS":
+		if city_tile_cache.has(t_id):
 			map_data.set_terrain(t_id, "RUINS")
 		else:
 			map_data.set_terrain(t_id, "WASTELAND")
+			
+	_rebuild_nuke_ash_layer()
+	
+func _rebuild_nuke_ash_layer() -> void:
+	if not nuke_ash_mesh_instance:
+		nuke_ash_mesh = ImmediateMesh.new()
+		nuke_ash_mesh_instance = MeshInstance3D.new()
+		nuke_ash_mesh_instance.mesh = nuke_ash_mesh
+		var ash_mat = StandardMaterial3D.new()
+		ash_mat.vertex_color_use_as_albedo = true
+		ash_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		ash_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		ash_mat.no_depth_test = true
+		ash_mat.render_priority = 5 # Draw flat over terrain
+		nuke_ash_mesh_instance.material_override = ash_mat
+		add_child(nuke_ash_mesh_instance)
+
+	nuke_ash_mesh.clear_surfaces()
+	nuke_ash_mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+	
+	for t_id in map_data._terrain_overrides.keys():
+		var ter = map_data._terrain_overrides[t_id]
+		if ter == "WASTELAND" or ter == "RUINS":
+			var nbrs = map_data.get_neighbors(t_id)
+			if nbrs.size() != 4: continue
+			
+			var center = map_data.get_centroid(t_id).normalized() * (radius * 1.002)
+			var n_pos = []
+			var n_ruined = []
+			for n in nbrs:
+				n_pos.append(map_data.get_centroid(n).normalized() * (radius * 1.002))
+				var n_ter = map_data.get_terrain(n)
+				n_ruined.append(n_ter == "WASTELAND" or n_ter == "RUINS")
+				
+			var c_pos = []
+			var c_alpha = []
+			for i in range(4):
+				var next_i = (i+1)%4
+				c_pos.append((center + n_pos[i] + n_pos[next_i]).normalized() * (radius * 1.002))
+				if n_ruined[i] and n_ruined[next_i]:
+					c_alpha.append(0.95)
+				else:
+					c_alpha.append(0.0)
+					
+			var center_alpha = 0.95
+			for i in range(4):
+				var next_i = (i+1)%4
+				
+				nuke_ash_mesh.surface_set_color(Color(0.05, 0.05, 0.05, center_alpha))
+				nuke_ash_mesh.surface_add_vertex(center)
+				
+				nuke_ash_mesh.surface_set_color(Color(0.05, 0.05, 0.05, c_alpha[i]))
+				nuke_ash_mesh.surface_add_vertex(c_pos[i])
+				
+				nuke_ash_mesh.surface_set_color(Color(0.05, 0.05, 0.05, c_alpha[next_i]))
+				nuke_ash_mesh.surface_add_vertex(c_pos[next_i])
+
+	nuke_ash_mesh.surface_end()
