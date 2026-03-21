@@ -17,6 +17,7 @@ extends Control
 @onready var health_bar_fg: ColorRect = $UnitStatusPanel/VBoxContainer/IconMarginContainer/UnitIcon/HealthBarBg/HealthBarFg
 @onready var entrench_bar: ColorRect = $UnitStatusPanel/VBoxContainer/IconMarginContainer/UnitIcon/EntrenchBar
 var last_hovered_tile_id: int = -1
+var hovered_c_name: String = ""
 
 @onready var economy_panel: Panel = $EconomyStatusPanel
 @onready var credits_label: Label = $EconomyStatusPanel/CreditsLabel
@@ -264,8 +265,10 @@ func _on_purchase_nuke() -> void:
 
 func _on_globe_hovered_tile_changed(tile_id: int, terrain: String, c_name: String, region_name: String) -> void:
 	last_hovered_tile_id = tile_id
+	hovered_c_name = c_name
 	if tile_id < 0:
 		terrain_panel.hide()
+		hovered_c_name = ""
 		return
 		
 	# Only show terrain panel if we aren't looking at a unit
@@ -393,7 +396,7 @@ func post_news_event(msg: String, involved_factions: Array) -> void:
 		if nm.players.has(local_id):
 			local_fac = nm.players[local_id].get("faction", "")
 			
-	if local_fac in involved_factions or local_fac == "":
+	if involved_factions.is_empty() or local_fac in involved_factions or local_fac == "":
 		capture_banner.text = msg
 		capture_banner.modulate.a = 1.0
 		capture_banner.show()
@@ -402,6 +405,21 @@ func post_news_event(msg: String, involved_factions: Array) -> void:
 func _process(delta: float) -> void:
 	if is_instance_valid(match_timer_label):
 		match_timer_label.text = ConsoleManager.get_elapsed_time_string()
+
+	# Dynamic Cooldown text check
+	if hovered_c_name != "" and globe_view and globe_view.city_cooldowns.has(hovered_c_name):
+		var cd = int(globe_view.city_cooldowns[hovered_c_name])
+		if cd > 0:
+			var mins = cd / 60
+			var secs = cd % 60
+			city_name.text = hovered_c_name + " [CD: %02d:%02d]" % [mins, secs]
+			city_name.add_theme_color_override("font_color", Color.RED)
+		else:
+			city_name.text = hovered_c_name
+			city_name.remove_theme_color_override("font_color")
+	elif hovered_c_name != "":
+		city_name.text = hovered_c_name
+		city_name.remove_theme_color_override("font_color")
 
 	if banner_timer > 0.0:
 		banner_timer -= delta

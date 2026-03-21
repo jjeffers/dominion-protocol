@@ -2834,7 +2834,15 @@ func request_nuke_launch(target_pos: Vector3, launching_faction: String) -> void
 @rpc("authority", "call_local", "reliable")
 func sync_nuke_launch(target_pos: Vector3, launching_faction: String) -> void:
 	print("DEBUG [Peer ", multiplayer.get_unique_id(), "]: sync_nuke_launch received.")
-	ConsoleManager.local_log_message("[color=red]NUCLEAR LAUNCH DETECTED.[/color] Incoming to sector.")
+	
+	var hint = _get_location_hint_string(target_pos)
+	var alert_msg = "NUCLEAR LAUNCH DETECTED" + hint.to_upper()
+	ConsoleManager.local_log_message("[color=red]" + alert_msg + "[/color]")
+	
+	var main_node = get_node_or_null("/root/Main")
+	if main_node and main_node.has_method("post_news_event"):
+		main_node.post_news_event(alert_msg, [])
+	
 	if nuke_sfx and nuke_sfx.stream:
 		nuke_sfx.play()
 	
@@ -2843,7 +2851,13 @@ func sync_nuke_launch(target_pos: Vector3, launching_faction: String) -> void:
 	timer.timeout.connect(func(): _process_nuke_impact(target_pos))
 
 func _process_nuke_impact(target_pos: Vector3) -> void:
-	ConsoleManager.local_log_message("[color=red]NUCLEAR IMPACT REPORTED. CATASTROPHIC DAMAGE.[/color]")
+	var hint = _get_location_hint_string(target_pos)
+	var alert_msg = "NUCLEAR IMPACT CATASTROPHE" + hint.to_upper()
+	ConsoleManager.local_log_message("[color=red]" + alert_msg + "[/color]")
+	
+	var main_node = get_node_or_null("/root/Main")
+	if main_node and main_node.has_method("post_news_event"):
+		main_node.post_news_event(alert_msg, [])
 	
 	var hit_tile = _get_tile_from_vector3(target_pos)
 	var nbrs = map_data.get_neighbors(hit_tile)
@@ -2918,11 +2932,28 @@ func _process_nuke_impact(target_pos: Vector3) -> void:
 						next_q.append(n)
 		q = next_q
 		
+	var hit_city_factions = {}
 	for t_id in affected_tiles:
 		if city_tile_cache.has(t_id):
+			var c_name = city_tile_cache[t_id]
 			map_data.set_terrain(t_id, "RUINS")
+			city_cooldowns[c_name] = city_cooldowns.get(c_name, 0.0) + 600.0
+			var owner = _get_city_faction(c_name)
+			if owner != "":
+				hit_city_factions[owner] = hit_city_factions.get(owner, 0) + 1
 		else:
 			map_data.set_terrain(t_id, "WASTELAND")
+			
+	if multiplayer.get_unique_id() == 1 or not multiplayer.has_multiplayer_peer():
+		var economy_changed = false
+		for owner in hit_city_factions.keys():
+			var penalty = hit_city_factions[owner] * 10.0
+			active_scenario["factions"][owner]["money"] = max(0, active_scenario["factions"][owner].get("money", 0.0) - penalty)
+			economy_changed = true
+			
+		if economy_changed:
+			if main_node and main_node.has_method("rpc"):
+				main_node.rpc("sync_economy", active_scenario)
 			
 	_rebuild_nuke_ash_layer()
 	
@@ -2981,3 +3012,19 @@ func _rebuild_nuke_ash_layer() -> void:
 				nuke_ash_mesh.surface_add_vertex(c_pos[next_i])
 
 	nuke_ash_mesh.surface_end()
+
+func _get_location_hint_string(target_pos: Vector3) -> String:
+	var hit_tile = _get_tile_from_vector3(target_pos)
+	if city_tile_cache.has(hit_tile):
+		return " over " + city_tile_cache[hit_tile]
+	var region = map_data.get_region(hit_tile)
+	if region != "":
+		return " in " + region
+	return ""
+
+func _get_city_faction(city_name: String) -> String:
+	if active_scenario.has("factions"):
+		for f_name in active_scenario["factions"].keys():
+			if active_scenario["factions"][f_name].has("cities") and city_name in active_scenario["factions"][f_name]["cities"]:
+				return f_name
+	return ""
