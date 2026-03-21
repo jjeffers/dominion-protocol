@@ -64,6 +64,7 @@ func _evaluate_state() -> void:
 			_handle_rallying()
 			_handle_production()
 			_handle_air_ops()
+			_handle_nuke_ops()
 			if owned_units.size() >= 3 or (aggression_factor > 0.8 and owned_units.size() > 0):
 				current_state = AIState.ATTACKING
 				
@@ -71,6 +72,7 @@ func _evaluate_state() -> void:
 			_handle_attacking()
 			_handle_production()
 			_handle_air_ops()
+			_handle_nuke_ops()
 			if owned_units.size() == 0:
 				current_state = AIState.PRODUCING
 				
@@ -126,6 +128,20 @@ func _handle_production() -> void:
 	
 	var buy_type = ""
 	var cost = 0.0
+	
+	# Nuke consideration (AI wants nukes if capability and aggression are high)
+	var wants_nuke = false
+	var fac_nukes = fac_data.get("nukes", 0)
+	if capability_level > 1 and money >= 20.0 and fac_nukes < 3:
+		if randf() < 1.0:
+			wants_nuke = true
+			
+	if wants_nuke:
+		if network_manager and network_manager.multiplayer.has_multiplayer_peer() and network_manager.multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
+			globe_view.rpc("sync_nuke_purchase", faction_name, 20.0)
+		else:
+			globe_view.sync_nuke_purchase(faction_name, 20.0)
+		return
 	
 	if capability_level > 1:
 		# Intelligent composition: Look at enemy units
@@ -534,3 +550,93 @@ func _get_closest_friendly_city(unit: Node3D) -> Node3D:
 				best_city = cn
 				
 	return best_city
+
+func _handle_nuke_ops() -> void:
+	var main_scene = get_node_or_null("/root/Main")
+	if not main_scene or not main_scene.scenario_data.has("factions"): return
+	var fac_data = main_scene.scenario_data["factions"].get(faction_name, {})
+	var nukes = fac_data.get("nukes", 0)
+	if nukes <= 0: return
+	
+	# Verify +3 launch threshold
+	var my_launched = fac_data.get("nukes_launched", 0)
+	var max_others = 0
+	for f in main_scene.scenario_data["factions"].keys():
+		if f != faction_name:
+			max_others = max(max_others, main_scene.scenario_data["factions"][f].get("nukes_launched", 0))
+	if my_launched >= max_others + 3:
+		return
+		
+	# Gather all enemy capitols for SDI check (1.5 radius)
+	var enemy_capitols_pos = []
+	for f in main_scene.scenario_data["factions"].keys():
+		if f != faction_name:
+			var cap = main_scene.scenario_data["factions"][f].get("capitol", "")
+			if cap != "":
+				for cn in globe_view.city_nodes:
+					if is_instance_valid(cn) and cn.name == cap:
+						enemy_capitols_pos.append(cn.global_position)
+						break
+	
+	var best_score = -INF
+	var best_target_pos = Vector3.ZERO
+	
+	var potential_targets = []
+	for cn in globe_view.city_nodes:
+		if is_instance_valid(cn):
+			potential_targets.append(cn.global_position)
+	for u in globe_view.units_list:
+		if is_instance_valid(u) and not u.get("is_dead") and u.get("faction_name") != faction_name:
+			potential_targets.append(u.global_position)
+			
+	var inner_rad = 1.35 * 0.006
+	var outer_rad = 2.25 * 0.006
+	var sdi_rad = 1.5 * 0.006
+	
+	for t_pos in potential_targets:
+		var blocked_by_sdi = false
+		for cap_pos in enemy_capitols_pos:
+			if t_pos.distance_to(cap_pos) <= sdi_rad:
+				blocked_by_sdi = true
+				break
+		if blocked_by_sdi:
+			continue
+			
+		var score = 0.0
+		# Evaluate Units
+		for u in globe_view.units_list:
+			if is_instance_valid(u) and not u.get("is_dead"):
+				var d = t_pos.distance_to(u.global_position)
+				if d <= inner_rad:
+					if u.get("faction_name") == faction_name:
+						score -= 50.0
+					else:
+						score += 10.0
+				elif d <= outer_rad:
+					if u.get("faction_name") == faction_name:
+						score -= 20.0
+					else:
+						score += 4.0
+						
+		# Evaluate Cities
+		for cn in globe_view.city_nodes:
+			if is_instance_valid(cn):
+				var d = t_pos.distance_to(cn.global_position)
+				if d <= inner_rad:
+					var city_fac = globe_view._get_city_faction(cn.name)
+					if city_fac == faction_name:
+						score -= 100.0
+					elif city_fac == "neutral":
+						score -= 5.0
+					else:
+						score += 15.0
+						
+		if score > best_score:
+			best_score = score
+			best_target_pos = t_pos
+			
+	# Threshold: 14 means at least 1 city (+15) or >1 enemy units.
+	if best_score >= 14.0:
+		if network_manager and network_manager.is_host:
+			globe_view.request_nuke_launch(best_target_pos, faction_name)
+
