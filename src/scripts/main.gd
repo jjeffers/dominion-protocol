@@ -83,7 +83,7 @@ func _ready() -> void:
 	# Ensure GlobeView explicitly relies on the scenario definitions to draw features
 	globe_view._instantiate_scenario(scenario_data)
 	
-	if multiplayer.is_server() or not multiplayer.has_multiplayer_peer():
+	if not multiplayer.has_multiplayer_peer() or multiplayer.is_server():
 		_spawn_tactical_ais()
 	
 	purchase_infantry_btn.pressed.connect(_on_purchase_infantry)

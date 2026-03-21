@@ -1140,7 +1140,7 @@ func sync_city_capture(city_name: String, new_faction: String, old_faction: Stri
 	city_captured.emit(city_name, new_faction, old_faction)
 	
 	# Process Victory Condition
-	if faction_eliminated and multiplayer.is_server():
+	if faction_eliminated and multiplayer.has_multiplayer_peer() and multiplayer.is_server():
 		var remaining_factions = []
 		for f_name in active_scenario["factions"].keys():
 			if not active_scenario["factions"][f_name].get("eliminated", false):
@@ -1237,7 +1237,7 @@ func sync_unit_purchase(city_name: String, unit_type: String, faction: String, c
 	active_scenario["factions"][faction]["units"].append(unit_def)
 	
 	# If we are the host, immediately broadcast the updated economy down to the clients so their UI updates
-	if multiplayer.is_server() and has_node("/root/Main"):
+	if multiplayer.has_multiplayer_peer() and multiplayer.is_server() and has_node("/root/Main"):
 		var main_node = get_node("/root/Main")
 		if main_node.has_method("sync_economy"):
 			main_node.rpc("sync_economy", active_scenario)
