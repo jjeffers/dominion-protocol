@@ -19,32 +19,34 @@ func _update_texture() -> void:
 	if not sprite: return
 	
 	var tex: Texture2D
-	if unit_type == "Air" or unit_type == "Cruiser":
+	if unit_type == "Air" or unit_type == "Cruiser" or unit_type == "Submarine" or unit_type == "Armor":
 		var atlas = load("res://src/assets/spritesheet.png") as Texture2D
 		if atlas:
 			var img = atlas.get_image()
 			if img:
-				var region = Rect2(0, 64, 32, 32)
+				var region = Rect2(0, 64, 32, 32) # Default Air
 				if unit_type == "Cruiser":
 					region = Rect2(32, 192, 32, 32)
+				elif unit_type == "Submarine":
+					region = Rect2(0, 32, 32, 32)
+				elif unit_type == "Armor":
+					region = Rect2(0, 192, 32, 32)
 				var cropped_img = img.get_region(region)
 				
 				if cropped_img.get_format() != Image.FORMAT_RGBA8:
 					cropped_img.convert(Image.FORMAT_RGBA8)
 					
 				var padded_img = Image.create(34, 34, false, Image.FORMAT_RGBA8)
-				if unit_type == "Cruiser":
-					padded_img.fill(Color.WHITE)
-				else:
+				if unit_type == "Air":
 					padded_img.fill(Color(0, 0, 0, 0))
+				else:
+					padded_img.fill(Color.WHITE)
 					
 				padded_img.blend_rect(cropped_img, Rect2(0, 0, 32, 32), Vector2(1, 1))
 				
 				tex = ImageTexture.create_from_image(padded_img)
 	else:
 		var tex_path = "res://src/assets/extracted_sprite.png"
-		if unit_type == "Armor":
-			tex_path = "res://src/assets/armor_sprite.png"
 		tex = load(tex_path) as Texture2D
 
 	if tex:
@@ -109,6 +111,7 @@ var entrenched: bool = false
 var is_recovering: bool = false
 var time_motionless: float = 0.0
 var time_in_city: float = 0.0
+var is_detected: bool = false
 
 const TEC_MODIFIERS: Dictionary = {
 	"Infantry": {
@@ -152,6 +155,20 @@ const TEC_MODIFIERS: Dictionary = {
 		"DEEP_OCEAN": {"movement": 5.0, "defense": 1.0},
 		"COAST": {"movement": 5.0, "defense": 1.0},
 		"LAKE": {"movement": 5.0, "defense": 1.0}
+	},
+	"Submarine": {
+		"PLAINS": {"movement": 0.0, "defense": 1.0},
+		"FOREST": {"movement": 0.0, "defense": 1.0},
+		"JUNGLE": {"movement": 0.0, "defense": 1.0},
+		"DESERT": {"movement": 0.0, "defense": 1.0},
+		"MOUNTAINS": {"movement": 0.0, "defense": 1.0},
+		"POLAR": {"movement": 0.0, "defense": 1.0},
+		"CITY": {"movement": 0.0, "defense": 0.75},
+		"DOCKS": {"movement": 4.0, "defense": 0.75},
+		"OCEAN": {"movement": 4.0, "defense": 1.0},
+		"DEEP_OCEAN": {"movement": 4.0, "defense": 1.0},
+		"COAST": {"movement": 4.0, "defense": 1.0},
+		"LAKE": {"movement": 4.0, "defense": 1.0}
 	}
 }
 
@@ -443,12 +460,20 @@ func _recalc_base_priority() -> void:
 		base_render_priority = 10
 
 func set_visibility(is_vis: bool) -> void:
-	sprite.visible = is_vis
+	var final_vis = is_vis
+	if unit_type.capitalize() == "Submarine" and not is_detected:
+		final_vis = false
+		
 	var is_local_owned = is_vis
 	if multiplayer.has_multiplayer_peer():
 		var id = multiplayer.get_unique_id()
 		if NetworkManager.players.has(id) and NetworkManager.players[id].has("faction"):
-			is_local_owned = is_vis and faction_name == NetworkManager.players[id]["faction"]
+			var is_mine = (faction_name == NetworkManager.players[id]["faction"])
+			is_local_owned = is_vis and is_mine
+			if is_mine:
+				final_vis = true
+				
+	sprite.visible = final_vis
 	if path_mesh_instance:
 		path_mesh_instance.visible = is_local_owned
 	if destination_bracket:
@@ -490,6 +515,9 @@ func set_movement_target_unit(target: GlobeUnit) -> void:
 
 func set_combat_target(target: GlobeUnit) -> void:
 	if unit_type.capitalize() == "Air" or target.unit_type.capitalize() == "Air":
+		return
+		
+	if unit_type.capitalize() == "Submarine" and target.unit_type.capitalize() not in ["Cruiser", "Submarine"] and not target.get("is_seaborne"):
 		return
 		
 	# Block explicit retargeting lock-ons while we are already engaged!
@@ -735,18 +763,18 @@ func _process(delta: float) -> void:
 							var dmg = 15.0
 							if unit_type.capitalize() == "Armor":
 								dmg = 25.0
-							elif unit_type.capitalize() == "Cruiser":
+							elif unit_type.capitalize() in ["Cruiser", "Submarine"]:
 								dmg = 30.0
 								
 							# Amphibious assault penalty for land units in sea transport
-							if is_seaborne and unit_type.capitalize() != "Cruiser":
-								if combat_target.unit_type.capitalize() == "Cruiser":
+							if is_seaborne and unit_type.capitalize() not in ["Cruiser", "Submarine"]:
+								if combat_target.unit_type.capitalize() in ["Cruiser", "Submarine"]:
 									dmg = 10.0
 								else:
 									dmg *= 0.50
 									
 							# Suffer 2x damage from sea units if self is a sea unit attacking a land unit in sea transport
-							if unit_type.capitalize() == "Cruiser" and combat_target.get("is_seaborne") and combat_target.unit_type.capitalize() != "Cruiser":
+							if unit_type.capitalize() in ["Cruiser", "Submarine"] and combat_target.get("is_seaborne") and combat_target.unit_type.capitalize() not in ["Cruiser", "Submarine"]:
 								dmg *= 2.0
 								
 							if not is_offline:
@@ -774,6 +802,35 @@ func _process(delta: float) -> void:
 			# Target was deleted/died. Drop the lock instantly.
 			clear_combat_target()
 
+	# Evaluate Submarine Detection
+	if unit_type.capitalize() == "Submarine":
+		if in_motion:
+			var newly_detected = false
+			var all_units = get_tree().get_nodes_in_group("units")
+			for other in all_units:
+				if other != self and is_instance_valid(other) and not other.is_dead:
+					if other.faction_name != "" and self.faction_name != "" and other.faction_name != self.faction_name:
+						if other.unit_type.capitalize() in ["Cruiser", "Submarine"]:
+							var other_in_motion = false
+							if other.current_position != null and other.target_position != null:
+								other_in_motion = other.current_position.distance_to(other.target_position) > 0.0001
+							if not other_in_motion:
+								if current_position.distance_to(other.current_position) <= 0.024:
+									newly_detected = true
+									break
+			is_detected = newly_detected
+		elif is_detected:
+			var still_detected = false
+			var all_units = get_tree().get_nodes_in_group("units")
+			for other in all_units:
+				if other != self and is_instance_valid(other) and not other.is_dead:
+					if other.faction_name != "" and self.faction_name != "" and other.faction_name != self.faction_name:
+						if other.unit_type.capitalize() in ["Cruiser", "Submarine"]:
+							if current_position.distance_to(other.current_position) <= 0.024:
+								still_detected = true
+								break
+			is_detected = still_detected
+
 	# 2. Passive Scan (if not engaged after Step 1 evaluation)
 	if not is_engaged and not is_dead:
 		var all_units = get_tree().get_nodes_in_group("units")
@@ -781,6 +838,9 @@ func _process(delta: float) -> void:
 			if other != self and is_instance_valid(other) and not other.is_dead:
 				if other.faction_name != "" and self.faction_name != "" and other.faction_name != self.faction_name:
 					if other.unit_type.capitalize() == "Air" or self.unit_type.capitalize() == "Air":
+						continue
+						
+					if unit_type.capitalize() == "Submarine" and other.unit_type.capitalize() not in ["Cruiser", "Submarine"] and not other.get("is_seaborne"):
 						continue
 						
 					var target_range = 0.0165 if other.unit_type.capitalize() == "Cruiser" else 0.012
