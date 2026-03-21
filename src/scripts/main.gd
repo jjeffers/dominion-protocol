@@ -27,6 +27,7 @@ var last_hovered_tile_id: int = -1
 @onready var purchase_armor_btn: Button = $PurchaseMenu/VBoxContainer/ArmorRow/PurchaseArmorBtn
 @onready var purchase_air_btn: Button = $PurchaseMenu/VBoxContainer/AirRow/PurchaseAirBtn
 @onready var purchase_cruiser_btn: Button = $PurchaseMenu/VBoxContainer/CruiserRow/PurchaseCruiserBtn
+@onready var purchase_submarine_btn: Button = $PurchaseMenu/VBoxContainer/SubmarineRow/PurchaseSubmarineBtn
 
 var city_icon: TextureRect
 var map_data: MapData
@@ -83,6 +84,7 @@ func _ready() -> void:
 	purchase_armor_btn.pressed.connect(_on_purchase_armor)
 	purchase_air_btn.pressed.connect(_on_purchase_air)
 	purchase_cruiser_btn.pressed.connect(_on_purchase_cruiser)
+	purchase_submarine_btn.pressed.connect(_on_purchase_submarine)
 	
 	# Initialize HUD State
 	terrain_panel.hide()
@@ -194,6 +196,10 @@ func _on_purchase_air() -> void:
 func _on_purchase_cruiser() -> void:
 	purchase_menu.hide()
 	globe_view.start_deployment("Cruiser", 50.0)
+
+func _on_purchase_submarine() -> void:
+	purchase_menu.hide()
+	globe_view.start_deployment("Submarine", 35.0)
 
 func _on_globe_hovered_tile_changed(tile_id: int, terrain: String, c_name: String, region_name: String) -> void:
 	last_hovered_tile_id = tile_id
@@ -392,7 +398,7 @@ func _process(delta: float) -> void:
 			states.append("ENGAGED")
 		elif su.current_position != null and su.target_position != null and su.current_position.distance_to(su.target_position) > 0.0001:
 			var move_state = "MOVING"
-			if su.get("is_seaborne") and su.get("unit_type") != "Cruiser":
+			if su.get("is_seaborne") and su.get("unit_type") not in ["Cruiser", "Submarine"]:
 				move_state = "SEA TRANSPORT"
 				
 			if su.current_terrain_modifier != 1.0:
@@ -499,3 +505,4 @@ func _update_economy_ui() -> void:
 	purchase_armor_btn.disabled = credits < 10.0
 	purchase_air_btn.disabled = credits < 30.0
 	purchase_cruiser_btn.disabled = credits < 50.0
+	purchase_submarine_btn.disabled = credits < 35.0

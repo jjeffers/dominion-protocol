@@ -1735,7 +1735,7 @@ func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
 						var is_full = _is_city_full(c_name)
 						
 						var valid_terrain = true
-						if deploying_unit_type == "Cruiser":
+						if deploying_unit_type in ["Cruiser", "Submarine"]:
 							valid_terrain = _city_has_water(c_name)
 							
 						if has_city and has_money and not on_cooldown and not is_full and valid_terrain:
@@ -2411,7 +2411,7 @@ func _spawn_unit(unit_def: Dictionary, faction_name: String, c_dict: Dictionary,
 			if unit_def.has("type"):
 				unit_type_str = str(unit_def["type"]).capitalize()
 				
-			var is_sea_unit = (unit_type_str == "Cruiser")
+			var is_sea_unit = (unit_type_str in ["Cruiser", "Submarine"])
 			var is_land_unit = (unit_type_str == "Armor" or unit_type_str == "Infantry")
 
 			var fallback_pos = base_raw_pos

@@ -225,6 +225,20 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = " Purchase "
 
+[node name="SubmarineRow" type="HBoxContainer" parent="PurchaseMenu/VBoxContainer"]
+layout_mode = 2
+
+[node name="UnitName" type="Label" parent="PurchaseMenu/VBoxContainer/SubmarineRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 24
+text = "Submarine (35c)"
+
+[node name="PurchaseSubmarineBtn" type="Button" parent="PurchaseMenu/VBoxContainer/SubmarineRow"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = " Purchase "
+
 [node name="UnitStatusPanel" type="Panel" parent="."]
 visible = false
 layout_mode = 1

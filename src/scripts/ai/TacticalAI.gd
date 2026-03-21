@@ -130,15 +130,18 @@ func _handle_production() -> void:
 	if capability_level > 1:
 		# Intelligent composition: Look at enemy units
 		var enemy_has_air = false
-		var enemy_has_cruiser = false
+		var enemy_has_sea = false
 		for u in globe_view.units_list:
 			if is_instance_valid(u) and u.get("faction_name") != faction_name and not u.get("is_dead"):
 				if u.get("unit_type") == "Air": enemy_has_air = true
-				if u.get("unit_type") == "Cruiser": enemy_has_cruiser = true
+				if u.get("unit_type") in ["Cruiser", "Submarine"]: enemy_has_sea = true
 				
 		if enemy_has_air and money >= 30.0:
 			buy_type = "Air"
 			cost = 30.0
+		elif enemy_has_sea and money >= 35.0:
+			buy_type = "Submarine"
+			cost = 35.0
 		elif money >= 20.0:
 			buy_type = "Armor"
 			cost = 20.0
@@ -150,6 +153,9 @@ func _handle_production() -> void:
 		if money >= 50.0:
 			buy_type = "Cruiser"
 			cost = 50.0
+		elif money >= 35.0:
+			buy_type = "Submarine"
+			cost = 35.0
 		elif money >= 30.0:
 			buy_type = "Air"
 			cost = 30.0
@@ -337,7 +343,7 @@ func _handle_attacking() -> void:
 								elif u_type == "Infantry" or u_type == "Armor":
 									if n_terrain != "OCEAN" and n_terrain != "DEEP_OCEAN" and n_terrain != "LAKE":
 										is_valid = true
-								elif u_type == "Cruiser":
+								elif u_type in ["Cruiser", "Submarine"]:
 									if n_terrain == "OCEAN" or n_terrain == "DEEP_OCEAN" or n_terrain == "LAKE" or n_terrain == "COAST":
 										is_valid = true
 										
@@ -379,8 +385,8 @@ func _handle_attacking() -> void:
 		
 		# Otherwise march to target
 		if not u.get("is_engaged"):
-			if u.get("unit_type") == "Cruiser":
-				continue # Cruisers shouldn't march blindly across landmasses
+			if u.get("unit_type") in ["Cruiser", "Submarine"]:
+				continue # Sea units shouldn't march blindly across landmasses
 			var dist = u.global_position.distance_to(target_city.global_position)
 			if dist > 0.05:
 				_issue_move_order(u, target_city.global_position)
@@ -445,12 +451,15 @@ func _handle_air_ops() -> void:
 func _get_closest_enemy(unit: Node3D) -> Node3D:
 	var best = null
 	var best_dist = 99999.0
-	var is_cruiser = unit.get("unit_type") == "Cruiser"
+	var is_sea_unit = unit.get("unit_type") in ["Cruiser", "Submarine"]
 	for other in globe_view.units_list:
 		if is_instance_valid(other) and other != unit and not other.get("is_dead") and other.get("faction_name") != faction_name:
+			if other.get("unit_type") == "Submarine" and not other.get("is_detected"):
+				continue # AI cannot target hidden submarines out of fairness
+				
 			var d = unit.global_position.distance_to(other.global_position)
 			
-			if is_cruiser:
+			if is_sea_unit:
 				var e_tile = globe_view._get_tile_from_vector3(other.global_position)
 				var e_terrain = globe_view.map_data.get_terrain(e_tile)
 				if globe_view.city_tile_cache.has(e_tile):
@@ -461,13 +470,13 @@ func _get_closest_enemy(unit: Node3D) -> Node3D:
 						
 				if e_terrain != "OCEAN" and e_terrain != "LAKE" and e_terrain != "COAST" and e_terrain != "DEEP_OCEAN" and e_terrain != "DOCKS":
 					# Target is firmly on land! We can only engage if they are ALREADY within firing range!
-					var enemy_range = 0.0165 if other.get("unit_type") == "Cruiser" else 0.012
+					var enemy_range = 0.0165 if other.get("unit_type") in ["Cruiser", "Submarine"] else 0.012
 					var threshold = (0.0165 + enemy_range) / 2.0
 					if d >= (threshold - 0.001):
 						continue # We would have to move inland to reach them, impossible!
 						
-			if not is_cruiser and unit.get("unit_type") != "Air":
-				if other.get("unit_type") == "Cruiser":
+			if not is_sea_unit and unit.get("unit_type") != "Air":
+				if other.get("unit_type") in ["Cruiser", "Submarine"]:
 					# Land units aggressively deprioritize engaging Naval assets avoiding inherent Sea Transport vulnerabilities
 					d *= 3.0
 					

@@ -168,6 +168,8 @@ Armor | City | 1.0 | 0.75
 
 ## Sea Units
 - Sea units are never pinned by combat.
+- Sea units may only be deployed into cities with DOCKS and will only deploy to DOCKS terrain.
+- Sea units repair only at friendly DOCKS terrain.
 
 ### Cruisers
 - Represent surface fleet elements of 10-20 cruiser and battleship class ships plus about 100 support and escort ships.
@@ -177,3 +179,18 @@ Armor | City | 1.0 | 0.75
 - Cruisers may enage sea and land targets (off-shore bombardment).
 - Cruisers inflict 30 points per 5 seconds.
 - Cruisers may only move on ocean or lake terrain, or into city areas that are also on ocean or lake terrain (docks).
+
+
+### Submarines
+- A unit icon is at the 1st column, 2nd row of the spritesheet.
+- Represents 50-100 submarines.
+- Submarines cost 35 credits.
+- Submarines move with a relative move rate of 4.
+- Submarines have a combat engagement range of 1.0 unit widths (measured from the center of the unit icon).
+- Submarines may only enage sea targets.
+- Submarines inflict 30 points per 5 seconds.
+- Submarines may only move on ocean or lake terrain, or into city areas that are also on ocean or lake terrain (docks).
+- Visbility rules:
+    - Submarines are not visible to enemy units unless the submarine is moving and there is a stationary enemy sea unit within 2.0 unit widths.
+    - Once detected the submarine remains visible until they leave detection range.
+    

@@ -152,6 +152,12 @@
                 {
                     "type": "cruiser",
                     "location": "Hamburg"
+                },
+                {
+                    "type": "submarine",
+                    "latitude": 58.0,
+                    "longitude": 5.0,
+                    "notes": "Coast of Norway"
                 }
             ]
         }
