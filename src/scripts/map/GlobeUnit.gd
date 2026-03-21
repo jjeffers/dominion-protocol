@@ -112,6 +112,7 @@ var is_recovering: bool = false
 var time_motionless: float = 0.0
 var time_in_city: float = 0.0
 var is_detected: bool = false
+var is_moving: bool = false
 
 const TEC_MODIFIERS: Dictionary = {
 	"Infantry": {
@@ -832,6 +833,8 @@ func _process(delta: float) -> void:
 			# Target was deleted/died. Drop the lock instantly.
 			clear_combat_target()
 
+	is_moving = in_motion
+
 	# Evaluate Submarine Detection
 	var previously_detected = is_detected
 	if unit_type.capitalize() == "Submarine":
@@ -842,12 +845,12 @@ func _process(delta: float) -> void:
 				if other != self and is_instance_valid(other) and not other.is_dead:
 					if other.faction_name != "" and self.faction_name != "" and other.faction_name != self.faction_name:
 						if other.unit_type.capitalize() in ["Cruiser", "Submarine"]:
-							var other_in_motion = false
-							if other.current_position != null and other.target_position != null:
-								other_in_motion = other.current_position.distance_to(other.target_position) > 0.0001
+							var other_in_motion = other.get("is_moving") == true
+							var dist = current_position.distance_to(other.current_position)
 							if not other_in_motion:
-								if current_position.distance_to(other.current_position) <= 0.024:
+								if dist <= 0.024:
 									newly_detected = true
+									print("Submarine(", name, ") newly detected by ", other.name, " at dist: ", dist)
 									break
 			is_detected = newly_detected
 		elif is_detected:
