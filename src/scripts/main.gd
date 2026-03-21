@@ -136,7 +136,7 @@ func _ready() -> void:
 	air_ops_prompt.add_theme_color_override("font_color", Color.WHITE)
 	air_ops_prompt.add_theme_color_override("font_outline_color", Color.BLACK)
 	air_ops_prompt.add_theme_constant_override("outline_size", 6)
-	air_ops_prompt.text = "[T] - Air Strike | [R] - Redeploy | [ESC] - Cancel"
+	air_ops_prompt.text = "[T] - Air Strike | [B] - Bombing | [R] - Redeploy | [ESC] - Cancel"
 	air_ops_prompt.hide()
 	add_child(air_ops_prompt)
 
@@ -372,9 +372,11 @@ func _process(delta: float) -> void:
 			if su.get("is_air_ready"):
 				states.append("READY")
 				if globe_view.current_air_operation_mode == "":
-					air_ops_prompt.text = "[T] - Air Strike | [R] - Redeploy | [ESC] - Cancel"
+					air_ops_prompt.text = "[T] - Air Strike | [B] - Bombing | [R] - Redeploy | [ESC] - Cancel"
 				elif globe_view.current_air_operation_mode == "AIRSTRIKE":
 					air_ops_prompt.text = "LEFT CLICK ENEMY UNIT = AIRSTRIKE | [ESC] - Cancel"
+				elif globe_view.current_air_operation_mode == "STRATEGIC_BOMBING":
+					air_ops_prompt.text = "LEFT CLICK ENEMY CITY = BOMBING | [ESC] - Cancel"
 				elif globe_view.current_air_operation_mode == "REDEPLOY":
 					air_ops_prompt.text = "LEFT CLICK GREEN CITY = REDEPLOY | [ESC] - Cancel"
 				air_ops_prompt.show()

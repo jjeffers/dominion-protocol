@@ -18,6 +18,8 @@ signal game_started
 signal unit_target_synced(unit_name: String, target_pos: Vector3, enemy_target_name: String)
 signal air_strike_requested(sender_id: int, unit_name: String, target_unit_name: String)
 signal air_strike_synced(unit_name: String, target_unit_name: String, counter_unit_name: String, attacker_status: String, defender_status: String, target_hit: bool)
+signal strategic_bombing_requested(sender_id: int, unit_name: String, target_city: String)
+signal strategic_bombing_synced(unit_name: String, target_city: String, counter_unit_name: String, attacker_status: String, defender_status: String, success: bool)
 signal air_redeploy_synced(unit_name: String, target_city: String)
 signal unit_damage_synced(target_unit_name: String, amount: float, attacker_name: String)
 signal unit_health_synced(target_unit_name: String, amount: float)
@@ -251,6 +253,20 @@ func execute_air_strike(unit_name: String, target_unit_name: String, counter_uni
 @rpc("authority", "call_local", "reliable")
 func sync_air_strike(unit_name: String, target_unit_name: String, counter_unit_name: String, attacker_status: String, defender_status: String, target_hit: bool):
 	air_strike_synced.emit(unit_name, target_unit_name, counter_unit_name, attacker_status, defender_status, target_hit)
+
+@rpc("any_peer", "call_local")
+func request_strategic_bombing(unit_name: String, target_city: String):
+	var sender_id = multiplayer.get_remote_sender_id()
+	if is_host:
+		strategic_bombing_requested.emit(sender_id, unit_name, target_city)
+
+func execute_strategic_bombing(unit_name: String, target_city: String, counter_unit_name: String, attacker_status: String, defender_status: String, success: bool):
+	if is_host:
+		rpc("sync_strategic_bombing", unit_name, target_city, counter_unit_name, attacker_status, defender_status, success)
+
+@rpc("call_local", "authority")
+func sync_strategic_bombing(unit_name: String, target_city: String, counter_unit_name: String, attacker_status: String, defender_status: String, success: bool):
+	strategic_bombing_synced.emit(unit_name, target_city, counter_unit_name, attacker_status, defender_status, success)
 
 @rpc("any_peer", "call_local", "reliable")
 func request_air_redeploy(unit_name: String, target_city: String):

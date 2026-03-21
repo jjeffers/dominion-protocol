@@ -126,6 +126,7 @@ Armor | City | 1.0 | 0.75
     - if successful (not shot down, aborted, etc):
         - a console log message and a news message will be displayed that indicates which city was bombed
         - the faction that owns the city will lose 10 credits
+        - the city will be placed in a production cooldown state for 2 minutes, or if it is already in a production cooldown state, the cooldown will be extended by 2 minutes.
 - After the STRATEGIC BOMBING (successful or not) the air unit becomes UNREADY.
 
 #### COUNTERING AIR OPERATIONS

@@ -142,9 +142,11 @@ func _ready() -> void:
 	if NetworkManager:
 		NetworkManager.unit_target_synced.connect(_on_unit_target_synced)
 		NetworkManager.air_strike_synced.connect(_on_air_strike_synced)
+		NetworkManager.strategic_bombing_synced.connect(_on_strategic_bombing_synced)
 		NetworkManager.air_redeploy_synced.connect(_on_air_redeploy_synced)
 		if NetworkManager.is_host:
 			NetworkManager.air_strike_requested.connect(_on_air_strike_requested)
+			NetworkManager.strategic_bombing_requested.connect(_on_strategic_bombing_requested)
 	
 	# Add physics collider matching the exact globe surface
 	map_collider = StaticBody3D.new()
@@ -462,6 +464,167 @@ func _on_air_strike_requested(sender_id: int, unit_name: String, target_unit_nam
 
 	NetworkManager.execute_air_strike(unit_name, target_unit_name, counter_name, attacker_status, defender_status, target_hit)
 
+func _on_strategic_bombing_requested(sender_id: int, unit_name: String, target_city: String) -> void:
+	if not NetworkManager.is_host: return
+	
+	var attacker: Node3D = null
+	for u in units_list:
+		if is_instance_valid(u) and u.name == unit_name:
+			attacker = u
+			break
+			
+	if not attacker: return
+	
+	var attacker_faction = attacker.get("faction_name")
+	var attacker_player_name = "Unknown"
+	if NetworkManager.players.has(sender_id):
+		attacker_player_name = NetworkManager.players[sender_id].get("name", "Unknown")
+		
+	var target_tile = -1
+	for t_id in city_tile_cache:
+		if city_tile_cache[t_id] == target_city:
+			target_tile = t_id
+			break
+			
+	if target_tile == -1: return
+	var target_pos = map_data.get_centroid(target_tile).normalized() * radius
+		
+	ConsoleManager.log_message("\n[color=cyan]STRATEGIC BOMBING REQUESTED:[/color] [color=yellow]" + attacker_player_name + " (" + attacker_faction + ")[/color] targeting [color=red]" + target_city + "[/color]")
+		
+	var valid_counters = []
+	var total_interception_chance = 0.0
+	
+	for u in units_list:
+		if is_instance_valid(u) and u != attacker and u.get("unit_type") == "Air" and u.get("faction_name") != attacker_faction:
+			var ops_radius = 30.0 * _get_tile_width(_get_tile_from_vector3(u.current_position))
+			var dist = u.current_position.distance_to(target_pos)
+			if dist <= ops_radius:
+				valid_counters.append(u)
+				var chance = 1.0 - (dist / ops_radius)
+				if u.get("is_air_ready") == false: chance *= 0.1
+				total_interception_chance += chance
+					
+	total_interception_chance = clampf(total_interception_chance, 0.0, 1.0)
+	ConsoleManager.log_message("[color=gray]Interception Phase[/color]")
+	var int_roll = randf()
+	ConsoleManager.log_message(str("  -> Interceptors Available: ", valid_counters.size(), " | Target Chance: <= ", snappedf(total_interception_chance, 0.01), " | Rolled: ", snappedf(int_roll, 0.01)))
+	
+	var intercepted = false
+	var counter_name = ""
+	var attacker_status = ""
+	var defender_status = ""
+	var success = false
+	
+	if int_roll <= total_interception_chance and valid_counters.size() > 0:
+		intercepted = true
+		
+		var best_counter = null
+		var best_score = -9999.0
+		for u in valid_counters:
+			var is_ready = u.get("is_air_ready")
+			var dist = u.current_position.distance_to(target_pos)
+			var score = (1000.0 if is_ready else 0.0) - dist
+			if score > best_score:
+				best_score = score
+				best_counter = u
+				
+		counter_name = best_counter.name
+		var c_ready = best_counter.get("is_air_ready")
+		
+		var roll = randf()
+		var dogfight_success = false
+		var abort = false
+		var shot_down = false
+		
+		if c_ready:
+			if roll <= 0.25: dogfight_success = true
+			elif roll <= 0.75: abort = true
+			else: shot_down = true
+		else:
+			if roll <= 0.90: dogfight_success = true
+			else: abort = true
+			
+		if dogfight_success:
+			defender_status = "DESTROYED"
+			intercepted = false
+		elif abort:
+			attacker_status = "UNREADY"
+			defender_status = "ADD_COOLDOWN" if not c_ready else "UNREADY"
+			success = false
+		elif shot_down:
+			attacker_status = "DESTROYED"
+			defender_status = "ADD_COOLDOWN" if not c_ready else "UNREADY"
+			success = false
+			
+	if not intercepted:
+		success = true
+		attacker_status = "UNREADY"
+		
+	NetworkManager.execute_strategic_bombing(unit_name, target_city, counter_name, attacker_status, defender_status, success)
+
+func _on_strategic_bombing_synced(unit_name: String, target_city: String, counter_unit_name: String, attacker_status: String, defender_status: String, success: bool) -> void:
+	var attacker: Node3D = null
+	var counter: Node3D = null
+	
+	for u in units_list:
+		if not is_instance_valid(u): continue
+		if u.name == unit_name: attacker = u
+		if counter_unit_name != "" and u.name == counter_unit_name: counter = u
+		
+	if air_strike_sfx and attacker:
+		air_strike_sfx.play()
+
+	if counter and defender_status != "":
+		if defender_status == "DESTROYED":
+			if "health" in counter:
+				counter.take_damage(9999.0)
+		elif defender_status == "ADD_COOLDOWN":
+			if counter.has_method("add_unready_cooldown"):
+				counter.add_unready_cooldown(240.0)
+		elif defender_status == "UNREADY":
+			if counter.has_method("set_air_unready"):
+				counter.set_air_unready(120.0, 0.0)
+				
+	var attacker_fac = ""
+	if attacker and is_instance_valid(attacker):
+		attacker_fac = attacker.get("faction_name")
+		if attacker_status == "DESTROYED":
+			if "health" in attacker:
+				attacker.take_damage(9999.0)
+		elif attacker_status == "UNREADY":
+			if attacker.has_method("set_air_unready"):
+				attacker.set_air_unready(120.0, 0.0)
+				
+	var target_fac = ""
+	if active_scenario.has("factions"):
+		for fac in active_scenario["factions"].keys():
+			if active_scenario["factions"][fac].has("cities") and active_scenario["factions"][fac]["cities"].has(target_city):
+				target_fac = fac
+				break
+				
+	var main_node = get_node_or_null("/root/Main")
+
+	if success:
+		if target_fac != "":
+			active_scenario["factions"][target_fac]["money"] -= 10.0
+			var msg = "%s AIR FORCES SUCCESSFULLY STRATEGICALLY BOMBED %s!" % [attacker_fac.to_upper(), target_city.to_upper()]
+			ConsoleManager.log_message("[color=green]" + msg + "[/color]")
+			if main_node and main_node.has_method("post_news_event"):
+				main_node.post_news_event(msg, [attacker_fac, target_fac])
+			
+			city_cooldowns[target_city] = city_cooldowns.get(target_city, 0.0) + 120.0
+	else:
+		if attacker_status == "DESTROYED":
+			var msg = "%s STRATEGIC BOMBER OVER %s SHOT DOWN BY %s COUNTERMEASURES!" % [attacker_fac.to_upper(), target_city.to_upper(), target_fac.to_upper()]
+			ConsoleManager.log_message("[color=red]" + msg + "[/color]")
+			if main_node and main_node.has_method("post_news_event"):
+				main_node.post_news_event(msg, [attacker_fac, target_fac])
+		elif attacker_status == "UNREADY":
+			var msg = "%s STRATEGIC BOMBING MISSION IN %s ABORTED DUE TO %s INTERCEPTORS!" % [attacker_fac.to_upper(), target_city.to_upper(), target_fac.to_upper()]
+			ConsoleManager.log_message("[color=yellow]" + msg + "[/color]")
+			if main_node and main_node.has_method("post_news_event"):
+				main_node.post_news_event(msg, [attacker_fac, target_fac])
+
 func _on_air_strike_synced(unit_name: String, target_unit_name: String, counter_unit_name: String, attacker_status: String, defender_status: String, target_hit: bool) -> void:
 	print("GlobeView handling _on_air_strike_synced for ", unit_name, " targeting ", target_unit_name)
 	var attacker: Node3D = null
@@ -690,6 +853,10 @@ func _process(delta: float) -> void:
 						is_visible = true
 						break
 			
+		if is_visible and (current_air_operation_mode == "REDEPLOY" or current_air_operation_mode == "STRATEGIC_BOMBING" or deploying_unit_type != ""):
+			if node in units_list and node != selected_unit:
+				is_visible = false
+			
 		if is_visible:
 			if node.has_method("set_visibility"):
 				node.set_visibility(true)
@@ -740,10 +907,15 @@ func _process(delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.is_echo():
 		if selected_unit and selected_unit.get("unit_type") == "Air" and selected_unit.get("is_air_ready") and selected_unit.get("faction_name") == _get_local_faction():
-			if event.physical_keycode == KEY_T:
+			if event.physical_keycode == KEY_T or event.physical_keycode == KEY_A:
 				current_air_operation_mode = "AIRSTRIKE"
 				_draw_air_ops_radius(selected_unit, false)
 				_update_city_highlights(false)
+				return
+			elif event.physical_keycode == KEY_B:
+				current_air_operation_mode = "STRATEGIC_BOMBING"
+				_draw_air_ops_radius(selected_unit, false)
+				_update_city_highlights(true, false, true)
 				return
 			elif event.physical_keycode == KEY_R:
 				current_air_operation_mode = "REDEPLOY"
@@ -1321,7 +1493,7 @@ func _load_cities(active_cities: Array[String]) -> void:
 
 			cullable_nodes.append(city_node)
 
-func _update_city_highlights(active: bool, is_redeploy: bool = false) -> void:
+func _update_city_highlights(active: bool, is_redeploy: bool = false, is_strategic_bombing: bool = false) -> void:
 	var local_id = multiplayer.get_unique_id() if multiplayer.has_multiplayer_peer() else 0
 	var local_faction = ""
 	var nm = get_node_or_null("/root/NetworkManager")
@@ -1345,14 +1517,36 @@ func _update_city_highlights(active: bool, is_redeploy: bool = false) -> void:
 					var on_cooldown = false if is_redeploy else city_cooldowns.has(c_name)
 					var is_full = _is_city_full(c_name)
 					
-					if is_redeploy and selected_unit:
-						var origin_tile = _get_tile_from_vector3(selected_unit.current_position)
-						var origin_city = city_tile_cache.get(origin_tile, "")
-						if c_name == origin_city:
-							has_city = false
-							
-					if has_city and has_money and not on_cooldown and not is_full:
-						is_valid = true
+					
+					if is_strategic_bombing and selected_unit:
+						if not has_city:
+							var is_enemy = false
+							for e_fac in active_scenario["factions"].keys():
+								if e_fac != local_faction and active_scenario["factions"][e_fac].has("cities") and active_scenario["factions"][e_fac]["cities"].has(c_name):
+									is_enemy = true
+									break
+							if is_enemy:
+								var attacker_pos = selected_unit.current_position
+								var target_tile = -1
+								for t_id in city_tile_cache:
+									if city_tile_cache[t_id] == c_name:
+										target_tile = t_id
+										break
+								if target_tile != -1:
+									var target_pos = map_data.get_centroid(target_tile).normalized() * radius
+									var distance = attacker_pos.distance_to(target_pos)
+									var ops_radius = 30.0 * _get_tile_width(_get_tile_from_vector3(attacker_pos))
+									if distance <= ops_radius:
+										is_valid = true
+					else:
+						if is_redeploy and selected_unit:
+							var origin_tile = _get_tile_from_vector3(selected_unit.current_position)
+							var origin_city = city_tile_cache.get(origin_tile, "")
+							if c_name == origin_city:
+								has_city = false
+								
+						if has_city and has_money and not on_cooldown and not is_full:
+							is_valid = true
 						
 			if is_valid:
 				hr.visible = true
@@ -1605,6 +1799,31 @@ func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
 							if air_redeploy_bracket: air_redeploy_bracket.visible = false
 							air_ops_immediate_mesh.clear_surfaces()
 					return
+					return
+					
+				elif current_air_operation_mode == "STRATEGIC_BOMBING":
+					if dist <= ops_radius:
+						var c_name = city_tile_cache.get(tile_id, "")
+						if c_name != "":
+							var city_owner = ""
+							if active_scenario.has("factions"):
+								for fac in active_scenario["factions"].keys():
+									if active_scenario["factions"][fac].has("cities") and active_scenario["factions"][fac]["cities"].has(c_name):
+										city_owner = fac
+										break
+							if city_owner != "" and city_owner != local_fac:
+								if NetworkManager and NetworkManager.players.has(multiplayer.get_unique_id()):
+									NetworkManager.request_strategic_bombing.rpc_id(1, selected_unit.name, c_name)
+								
+								current_air_operation_mode = ""
+								_update_city_highlights(false)
+								selected_unit.set_selected(false)
+								selected_unit = null
+								if target_bracket: target_bracket.visible = false
+								if air_strike_bracket: air_strike_bracket.visible = false
+								if air_redeploy_bracket: air_redeploy_bracket.visible = false
+								air_ops_immediate_mesh.clear_surfaces()
+					return
 					
 				elif current_air_operation_mode == "REDEPLOY":
 					if dist <= ops_radius * 10.0:
@@ -1755,6 +1974,18 @@ func _handle_hover(screen_pos: Vector2) -> void:
 				if hovered_enemy:
 					if selected_unit.current_position.distance_to(hovered_enemy.current_position) <= ops_radius:
 						show_air_strike = true
+			elif current_air_operation_mode == "STRATEGIC_BOMBING":
+				var c_name = city_tile_cache.get(tile_id, "")
+				if c_name != "":
+					var city_owner = ""
+					if active_scenario.has("factions"):
+						for fac in active_scenario["factions"].keys():
+							if active_scenario["factions"][fac].has("cities") and active_scenario["factions"][fac]["cities"].has(c_name):
+								city_owner = fac
+								break
+					if city_owner != "" and city_owner != selected_unit.get("faction_name"):
+						if selected_unit.current_position.distance_to(result.position) <= ops_radius:
+							show_air_strike = true
 			
 			elif current_air_operation_mode == "REDEPLOY":
 				var c_name = city_tile_cache.get(tile_id, "")
