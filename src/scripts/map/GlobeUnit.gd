@@ -833,6 +833,7 @@ func _process(delta: float) -> void:
 			clear_combat_target()
 
 	# Evaluate Submarine Detection
+	var previously_detected = is_detected
 	if unit_type.capitalize() == "Submarine":
 		if in_motion:
 			var newly_detected = false
@@ -860,6 +861,9 @@ func _process(delta: float) -> void:
 								still_detected = true
 								break
 			is_detected = still_detected
+			
+		if is_detected != previously_detected:
+			set_visibility(true) # Force native cascade update when detection state toggles
 
 	# 2. Passive Scan (if not engaged after Step 1 evaluation)
 	if not is_engaged and not is_dead:
