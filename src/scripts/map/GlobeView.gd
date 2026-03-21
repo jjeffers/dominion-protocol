@@ -51,7 +51,8 @@ var air_strike_sfx: AudioStreamPlayer
 var air_redeploy_sfx: AudioStreamPlayer
 var air_battle_sfx: AudioStreamPlayer
 var city_loss_sfx: AudioStreamPlayer
-var nuke_sfx: AudioStreamPlayer
+var nuke_alert_sfx: AudioStreamPlayer
+var nuke_impact_sfx: AudioStreamPlayer
 var capitols: Dictionary = {}
 
 var city_nodes: Array[Node3D] = []
@@ -145,11 +146,17 @@ func _ready() -> void:
 		city_loss_sfx.stream = loss_stream
 	add_child(city_loss_sfx)
 
-	nuke_sfx = AudioStreamPlayer.new()
-	var n_sfx_stream = load("res://src/assets/audio/combat-explosion.mp3") as AudioStream
+	nuke_alert_sfx = AudioStreamPlayer.new()
+	var n_sfx_stream = load("res://src/assets/audio/nuke-alert.mp3") as AudioStream
 	if n_sfx_stream:
-		nuke_sfx.stream = n_sfx_stream
-	add_child(nuke_sfx)
+		nuke_alert_sfx.stream = n_sfx_stream
+	add_child(nuke_alert_sfx)
+	
+	nuke_impact_sfx = AudioStreamPlayer.new()
+	var n_imp_stream = load("res://src/assets/audio/combat-explosion.mp3") as AudioStream
+	if n_imp_stream:
+		nuke_impact_sfx.stream = n_imp_stream
+	add_child(nuke_impact_sfx)
 
 
 	
@@ -2816,8 +2823,9 @@ func _draw_air_ops_radius(unit: Node3D, is_redeploy: bool = false) -> void:
 
 @rpc("any_peer", "call_local", "reliable")
 func request_nuke_launch(target_pos: Vector3, launching_faction: String) -> void:
-	print("DEBUG [Server? ", multiplayer.get_unique_id() == 1, "]: request_nuke_launch received for ", launching_faction)
-	if multiplayer.get_unique_id() == 1 or not multiplayer.has_multiplayer_peer():
+	var is_server = multiplayer.has_multiplayer_peer() and multiplayer.get_unique_id() == 1
+	print("DEBUG [Server? ", is_server, "]: request_nuke_launch received for ", launching_faction)
+	if not multiplayer.has_multiplayer_peer() or multiplayer.get_unique_id() == 1:
 		var fac_data = active_scenario["factions"].get(launching_faction, {})
 		print("DEBUG Server: Faction nukes inventory = ", fac_data.get("nukes", 0))
 		if fac_data.get("nukes", 0) > 0:
@@ -2833,7 +2841,8 @@ func request_nuke_launch(target_pos: Vector3, launching_faction: String) -> void
 
 @rpc("authority", "call_local", "reliable")
 func sync_nuke_launch(target_pos: Vector3, launching_faction: String) -> void:
-	print("DEBUG [Peer ", multiplayer.get_unique_id(), "]: sync_nuke_launch received.")
+	var peer_id = multiplayer.get_unique_id() if multiplayer.has_multiplayer_peer() else 0
+	print("DEBUG [Peer ", peer_id, "]: sync_nuke_launch received.")
 	
 	var hint = _get_location_hint_string(target_pos)
 	var alert_msg = "NUCLEAR LAUNCH DETECTED" + hint.to_upper()
@@ -2843,8 +2852,8 @@ func sync_nuke_launch(target_pos: Vector3, launching_faction: String) -> void:
 	if main_node and main_node.has_method("post_news_event"):
 		main_node.post_news_event(alert_msg, [])
 	
-	if nuke_sfx and nuke_sfx.stream:
-		nuke_sfx.play()
+	if nuke_alert_sfx and nuke_alert_sfx.stream:
+		nuke_alert_sfx.play()
 	
 	# Wait for visual impact roughly 5 seconds (not exact visually, but mechanically delays destruction)
 	var timer = get_tree().create_timer(5.0)
@@ -2854,6 +2863,9 @@ func _process_nuke_impact(target_pos: Vector3) -> void:
 	var hint = _get_location_hint_string(target_pos)
 	var alert_msg = "NUCLEAR IMPACT CATASTROPHE" + hint.to_upper()
 	ConsoleManager.local_log_message("[color=red]" + alert_msg + "[/color]")
+	
+	if nuke_impact_sfx and nuke_impact_sfx.stream:
+		nuke_impact_sfx.play()
 	
 	var main_node = get_node_or_null("/root/Main")
 	if main_node and main_node.has_method("post_news_event"):
@@ -2944,7 +2956,7 @@ func _process_nuke_impact(target_pos: Vector3) -> void:
 		else:
 			map_data.set_terrain(t_id, "WASTELAND")
 			
-	if multiplayer.get_unique_id() == 1 or not multiplayer.has_multiplayer_peer():
+	if not multiplayer.has_multiplayer_peer() or multiplayer.get_unique_id() == 1:
 		var economy_changed = false
 		for owner in hit_city_factions.keys():
 			var penalty = hit_city_factions[owner] * 10.0

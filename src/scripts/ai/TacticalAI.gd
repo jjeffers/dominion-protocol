@@ -631,12 +631,19 @@ func _handle_nuke_ops() -> void:
 					else:
 						score += 15.0
 						
+		# Final Evaluation Variance
+		# Inject a +/- 40% noise into the score so it won't always perfectly target the absolute geometric epicenter
+		if score > 0:
+			score *= randf_range(0.6, 1.4)
+			
 		if score > best_score:
 			best_score = score
 			best_target_pos = t_pos
 			
 	# Threshold: 14 means at least 1 city (+15) or >1 enemy units.
-	if best_score >= 14.0:
+	# Randomize the threshold (14 to 22) so it occasionally "holds fire" waiting for a juicier target
+	var dynamic_threshold = randf_range(14.0, 22.0)
+	if best_score >= dynamic_threshold:
 		if network_manager and network_manager.is_host:
 			globe_view.request_nuke_launch(best_target_pos, faction_name)
 

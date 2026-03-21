@@ -22,3 +22,5 @@ node_modules/
 src/data/quadsphere_globe.res
 src/data/map_data.bin
 src/data/quad_data.json
+host.log
+client.log
