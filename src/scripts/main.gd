@@ -376,7 +376,7 @@ func _on_victory_declared(winning_faction: String) -> void:
 	
 	var role = "Host" if NetworkManager.is_host else "Client"
 	var local_fac = "Unassigned"
-	if NetworkManager.players.has(multiplayer.get_unique_id()):
+	if multiplayer.has_multiplayer_peer() and NetworkManager.players.has(multiplayer.get_unique_id()):
 		local_fac = NetworkManager.players[multiplayer.get_unique_id()].get("faction", "")
 	print("[MATCH_RESULT] MATCH=%s ROLE=%s FACTION=%s WINNER=%s" % [NetworkManager.match_id, role, local_fac, winning_faction])
 	

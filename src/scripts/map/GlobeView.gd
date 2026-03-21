@@ -1810,7 +1810,7 @@ func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
 					tile_width = c1.distance_to(c2) * (radius * 1.02)
 					
 				var local_fac = _get_local_faction()
-				if local_fac == "" and get_node_or_null("/root/NetworkManager") and NetworkManager.players.has(multiplayer.get_unique_id()):
+				if local_fac == "" and get_node_or_null("/root/NetworkManager") and multiplayer.has_multiplayer_peer() and NetworkManager.players.has(multiplayer.get_unique_id()):
 					local_fac = NetworkManager.players[multiplayer.get_unique_id()].get("faction", "")
 					
 				for fac_name in active_scenario.get("factions", {}).keys():
@@ -1848,7 +1848,7 @@ func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
 			if current_air_operation_mode != "" and selected_unit and selected_unit.get("unit_type") == "Air":
 				var tile_id = _get_tile_from_vector3(hit_point)
 				var local_fac = _get_local_faction()
-				if local_fac == "" and NetworkManager.players.has(multiplayer.get_unique_id()):
+				if local_fac == "" and multiplayer.has_multiplayer_peer() and NetworkManager.players.has(multiplayer.get_unique_id()):
 					local_fac = NetworkManager.players[multiplayer.get_unique_id()].get("faction", "")
 					
 				var is_ready = selected_unit.get("is_air_ready")
@@ -1874,7 +1874,7 @@ func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
 											intended_enemy = u
 											break
 						if intended_enemy:
-							if NetworkManager and NetworkManager.players.has(multiplayer.get_unique_id()):
+							if NetworkManager and multiplayer.has_multiplayer_peer() and NetworkManager.players.has(multiplayer.get_unique_id()):
 								NetworkManager.request_air_strike.rpc_id(1, selected_unit.name, intended_enemy.name)
 							
 							current_air_operation_mode = ""
@@ -1898,7 +1898,7 @@ func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
 										city_owner = fac
 										break
 							if city_owner != "" and city_owner != local_fac:
-								if NetworkManager and NetworkManager.players.has(multiplayer.get_unique_id()):
+								if NetworkManager and multiplayer.has_multiplayer_peer() and NetworkManager.players.has(multiplayer.get_unique_id()):
 									NetworkManager.request_strategic_bombing.rpc_id(1, selected_unit.name, c_name)
 								
 								current_air_operation_mode = ""
@@ -1916,7 +1916,7 @@ func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
 						var c_name = city_tile_cache.get(tile_id, "")
 						if c_name != "" and active_scenario.has("factions") and active_scenario["factions"].has(local_fac):
 							if active_scenario["factions"][local_fac].has("cities") and active_scenario["factions"][local_fac]["cities"].has(c_name):
-								if NetworkManager and NetworkManager.players.has(multiplayer.get_unique_id()):
+								if NetworkManager and multiplayer.has_multiplayer_peer() and NetworkManager.players.has(multiplayer.get_unique_id()):
 									NetworkManager.request_air_redeploy.rpc_id(1, selected_unit.name, c_name)
 								
 								current_air_operation_mode = ""
@@ -1980,7 +1980,7 @@ func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
 				var intended_enemy = null
 				var all_units = get_tree().get_nodes_in_group("units")
 				var local_fac = _get_local_faction()
-				if local_fac == "" and NetworkManager.players.has(multiplayer.get_unique_id()):
+				if local_fac == "" and multiplayer.has_multiplayer_peer() and NetworkManager.players.has(multiplayer.get_unique_id()):
 					local_fac = NetworkManager.players[multiplayer.get_unique_id()].get("faction", "")
 
 				for u in all_units:
@@ -1995,14 +1995,14 @@ func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
 					
 				if intended_enemy:
 					# Real intercept command against the exact enemy
-					if NetworkManager and NetworkManager.players.has(multiplayer.get_unique_id()):
+					if NetworkManager and multiplayer.has_multiplayer_peer() and NetworkManager.players.has(multiplayer.get_unique_id()):
 						NetworkManager.request_unit_move.rpc_id(1, selected_unit.name, Vector3.ZERO, intended_enemy.name)
 					else:
 						selected_unit.set_movement_target_unit(intended_enemy)
 					print("Unit Ordered to Travel to Enemy Position")
 				else:
 					# Explicit geometric walk sequence, no snapping to centroids or overlapping areas
-					if NetworkManager and NetworkManager.players.has(multiplayer.get_unique_id()):
+					if NetworkManager and multiplayer.has_multiplayer_peer() and NetworkManager.players.has(multiplayer.get_unique_id()):
 						NetworkManager.request_unit_move.rpc_id(1, selected_unit.name, exact_target_pos, "")
 					else:
 						selected_unit.set_target(exact_target_pos)
@@ -2049,7 +2049,7 @@ func _handle_hover(screen_pos: Vector2) -> void:
 		if current_air_operation_mode == "NUKE":
 			var is_valid_target = true
 			var local_fac = _get_local_faction()
-			if local_fac == "" and get_node_or_null("/root/NetworkManager") and NetworkManager.players.has(multiplayer.get_unique_id()):
+			if local_fac == "" and get_node_or_null("/root/NetworkManager") and multiplayer.has_multiplayer_peer() and NetworkManager.players.has(multiplayer.get_unique_id()):
 				local_fac = NetworkManager.players[multiplayer.get_unique_id()].get("faction", "")
 				
 			for fac_name in active_scenario.get("factions", {}).keys():
