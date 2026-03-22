@@ -2949,14 +2949,18 @@ func _process_nuke_impact(target_pos: Vector3) -> void:
 		q = next_q
 		
 	var hit_city_factions = {}
+	var penalized_cities = {}
 	for t_id in affected_tiles:
 		if city_tile_cache.has(t_id):
 			var c_name = city_tile_cache[t_id]
 			map_data.set_terrain(t_id, "RUINS")
-			city_cooldowns[c_name] = city_cooldowns.get(c_name, 0.0) + 600.0
-			var owner = _get_city_faction(c_name)
-			if owner != "":
-				hit_city_factions[owner] = hit_city_factions.get(owner, 0) + 1
+			
+			if not penalized_cities.has(c_name):
+				penalized_cities[c_name] = true
+				city_cooldowns[c_name] = city_cooldowns.get(c_name, 0.0) + 600.0
+				var owner = _get_city_faction(c_name)
+				if owner != "":
+					hit_city_factions[owner] = hit_city_factions.get(owner, 0) + 1
 		else:
 			var current_terrain = map_data.get_terrain(t_id)
 			if current_terrain != "OCEAN" and current_terrain != "LAKE":

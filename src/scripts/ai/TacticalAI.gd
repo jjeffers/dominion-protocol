@@ -8,6 +8,9 @@ var aggression_factor: float = 0.5
 var capability_level: int = 1
 var current_state: AIState = AIState.IDLE
 
+var target_purchase: String = ""
+var target_purchase_cost: float = 0.0
+
 var high_value_targets: Array[Node3D] = []
 var owned_units: Array[Node3D] = []
 var rally_point: Vector3 = Vector3.ZERO
@@ -126,69 +129,73 @@ func _handle_production() -> void:
 	# Unit costs from MainScene
 	# Infantry: 5.0, Armor: 10.0, Air: 30.0, Cruiser: 50.0
 	
-	var buy_type = ""
-	var cost = 0.0
-	
-	# Nuke consideration (AI wants nukes if capability and aggression are high)
-	var wants_nuke = false
 	var fac_nukes = fac_data.get("nukes", 0)
-	if capability_level > 1 and money >= 20.0 and fac_nukes < 3:
-		if randf() < 1.0:
-			wants_nuke = true
-			
-	if wants_nuke:
-		if network_manager and network_manager.multiplayer.has_multiplayer_peer() and network_manager.multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
-			globe_view.rpc("sync_nuke_purchase", faction_name, 20.0)
-		else:
-			globe_view.sync_nuke_purchase(faction_name, 20.0)
-		return
 	
-	if capability_level > 1:
-		# Intelligent composition: Look at enemy units
-		var enemy_has_air = false
-		var enemy_has_sea = false
-		for u in globe_view.units_list:
-			if is_instance_valid(u) and u.get("faction_name") != faction_name and not u.get("is_dead"):
-				if u.get("unit_type") == "Air": enemy_has_air = true
-				if u.get("unit_type") in ["Cruiser", "Submarine"]: enemy_has_sea = true
+	if target_purchase == "":
+		var wants_nuke = false
+		if capability_level > 1 and fac_nukes < 3:
+			if randf() < 0.1:
+				target_purchase = "Nuke"
+				target_purchase_cost = 20.0
 				
-		if enemy_has_air and money >= 30.0:
-			buy_type = "Air"
-			cost = 30.0
-		elif enemy_has_sea and money >= 35.0:
-			buy_type = "Submarine"
-			cost = 35.0
-		elif money >= 20.0:
-			buy_type = "Armor"
-			cost = 20.0
-		elif money >= 10.0:
-			buy_type = "Infantry"
-			cost = 5.0
-	else:
-		# Dumb composition: Buy most expensive
-		if money >= 50.0:
-			buy_type = "Cruiser"
-			cost = 50.0
-		elif money >= 35.0:
-			buy_type = "Submarine"
-			cost = 35.0
-		elif money >= 30.0:
-			buy_type = "Air"
-			cost = 30.0
-		elif money >= 20.0:
-			buy_type = "Armor"
-			cost = 20.0
-		elif money >= 10.0:
-			buy_type = "Infantry"
-			cost = 5.0
-			
-	if buy_type != "":
-		var c_name = best_city if typeof(best_city) == TYPE_STRING else best_city.name
-		# Spawn using Host RPC directly, with offline fallback for unit tests
-		if network_manager and network_manager.multiplayer.has_multiplayer_peer() and network_manager.multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
-			globe_view.rpc("sync_unit_purchase", c_name, buy_type, faction_name, cost)
+		if target_purchase == "":
+			if capability_level > 1:
+				# Intelligent composition: Look at enemy units
+				var enemy_has_air = false
+				var enemy_has_sea = false
+				for u in globe_view.units_list:
+					if is_instance_valid(u) and u.get("faction_name") != faction_name and not u.get("is_dead"):
+						if u.get("unit_type") == "Air": enemy_has_air = true
+						if u.get("unit_type") in ["Cruiser", "Submarine"]: enemy_has_sea = true
+						
+				if enemy_has_air and randf() < 0.6:
+					target_purchase = "Air"
+					target_purchase_cost = 30.0
+				elif enemy_has_sea and randf() < 0.6:
+					target_purchase = "Submarine"
+					target_purchase_cost = 35.0
+				elif randf() < 0.4:
+					target_purchase = "Armor"
+					target_purchase_cost = 20.0
+				else:
+					target_purchase = "Infantry"
+					target_purchase_cost = 5.0
+			else:
+				# Dumb composition: Pick mostly random
+				var roll = randf()
+				if roll < 0.1:
+					target_purchase = "Cruiser"
+					target_purchase_cost = 50.0
+				elif roll < 0.3:
+					target_purchase = "Submarine"
+					target_purchase_cost = 35.0
+				elif roll < 0.5:
+					target_purchase = "Air"
+					target_purchase_cost = 30.0
+				elif roll < 0.7:
+					target_purchase = "Armor"
+					target_purchase_cost = 20.0
+				else:
+					target_purchase = "Infantry"
+					target_purchase_cost = 5.0
+					
+	if target_purchase != "" and money >= target_purchase_cost:
+		if target_purchase == "Nuke":
+			if network_manager and network_manager.multiplayer.has_multiplayer_peer() and network_manager.multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
+				globe_view.rpc("sync_nuke_purchase", faction_name, 20.0)
+			else:
+				globe_view.sync_nuke_purchase(faction_name, 20.0)
 		else:
-			globe_view.sync_unit_purchase(c_name, buy_type, faction_name, cost)
+			var c_name = best_city if typeof(best_city) == TYPE_STRING else best_city.name
+			# Spawn using Host RPC directly, with offline fallback for unit tests
+			if network_manager and network_manager.multiplayer.has_multiplayer_peer() and network_manager.multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
+				globe_view.rpc("sync_unit_purchase", c_name, target_purchase, faction_name, target_purchase_cost)
+			else:
+				globe_view.sync_unit_purchase(c_name, target_purchase, faction_name, target_purchase_cost)
+				
+		# Reset our savings goal so we can pick a new target next time
+		target_purchase = ""
+		target_purchase_cost = 0.0
 
 func _find_high_value_target() -> Node3D:
 	var main_scene = get_node_or_null("/root/Main")

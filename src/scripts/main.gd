@@ -190,9 +190,10 @@ func _ready() -> void:
 	
 	var network_manager = get_node_or_null("/root/NetworkManager")
 	if network_manager and network_manager.is_host:
-		ConsoleManager.log_message("\n==================================")
+		ConsoleManager.log_message("==================================")
 		ConsoleManager.log_message("    GLOBAL CONFLICT AUTHORIZED    ")
 		ConsoleManager.log_message("==================================\n")
+		post_news_event("GLOBAL CONFLICT AUTHORIZED", [])
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:
