@@ -1375,6 +1375,55 @@ func _instantiate_scenario(scenario_data: Dictionary) -> void:
 				if faction.has("units"):
 					for unit_def in faction["units"]:
 						_spawn_unit(unit_def, faction_name, c_dict, faction_regions)
+						
+	_generate_country_labels(c_dict)
+
+func _generate_country_labels(city_dict: Dictionary) -> void:
+	if not active_scenario.has("countries"):
+		return
+		
+	var country_labels_parent = Node3D.new()
+	country_labels_parent.name = "CountryLabels"
+	add_child(country_labels_parent)
+	
+	for country_name in active_scenario["countries"]:
+		var data = active_scenario["countries"][country_name]
+		var cities = data.get("cities", [])
+		if cities.size() == 0:
+			continue
+			
+		var centroid = Vector3.ZERO
+		var valid_cities = 0
+		for city_name in cities:
+			if city_dict.has(city_name):
+				var c_lat = deg_to_rad(city_dict[city_name].get("latitude", 0.0))
+				var c_lon = deg_to_rad(city_dict[city_name].get("longitude", 0.0))
+				var pos = _lat_lon_to_vector3(c_lat, c_lon, radius)
+				centroid += pos.normalized()
+				valid_cities += 1
+		
+		if valid_cities > 0:
+			centroid = centroid / float(valid_cities)
+			centroid = centroid.normalized() * (radius * 1.003) # Project slightly above surface to prevent clipping
+			
+			var label = Label3D.new()
+			label.text = country_name
+			label.modulate = Color.BLACK
+			label.outline_render_priority = 0
+			label.outline_modulate = Color.WHITE
+			label.outline_size = 2
+			label.font_size = 18 + (cities.size() * 1.5) 
+			label.pixel_size = 0.00025
+			label.autowrap_mode = TextServer.AUTOWRAP_WORD
+			label.width = 350.0
+			label.position = centroid
+			country_labels_parent.add_child(label)
+			
+			var up_vec = Vector3.UP
+			if abs(centroid.normalized().y) > 0.99:
+				up_vec = Vector3.RIGHT
+			label.look_at(Vector3.ZERO, up_vec)
+			print("Added 3D Label for ", country_name, " at ", centroid, " scale: ", label.font_size)
 
 func _load_cities(active_cities: Array[String]) -> void:
 	var path = "res://src/data/city_data.json"

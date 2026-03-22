@@ -1,6 +1,7 @@
 extends "res://addons/gut/test.gd"
 
 var MainScene = preload("res://src/scenes/main.tscn")
+var CountryNameGenerator = preload("res://src/scripts/map/CountryNameGenerator.gd")
 
 func test_dynamic_country_generation():
 	var main = MainScene.instantiate()
@@ -44,25 +45,44 @@ func test_dynamic_country_generation():
 		if c != "London" and c != "Berlin":
 			unaligned.append(c)
 			
-	var countries = {}
-	var num_countries = 20
+	var temp_countries = {}
+	var num_countries = randi_range(20, 50)
 	var centroids = []
 	var available = unaligned.duplicate()
 	for i in range(num_countries):
 		var idx = randi() % available.size()
 		centroids.append(available[idx])
 		available.remove_at(idx)
-		countries["Country " + str(i + 1)] = {"cities": [], "color": "#708090"}
+		temp_countries["Country " + str(i + 1)] = {"cities": [], "color": "#FFD700"}
 		
 	for c_name in unaligned:
 		var best = ""
-		var best_score = INF
 		# Simple assignment for test
 		for i in range(centroids.size()):
-			# Skipping actual math since we just want to ensure it works syntactically and logic flows
+			if c_name == centroids[i]:
+				best = "Country " + str(i + 1)
+				break
 			if randf() < 0.2 or best == "":
 				best = "Country " + str(i + 1)
-		countries[best]["cities"].append(c_name)
+		temp_countries[best]["cities"].append(c_name)
+		
+	var countries = {}
+	for temp_key in temp_countries.keys():
+		var c_list: Array[String] = []
+		for c in temp_countries[temp_key]["cities"]:
+			c_list.append(c as String)
+			
+		if c_list.is_empty():
+			continue
+			
+		var generated_name = CountryNameGenerator.generate_name(c_list)
+		var base_name = generated_name
+		var counter = 2
+		while countries.has(generated_name):
+			generated_name = base_name + " " + str(counter)
+			counter += 1
+			
+		countries[generated_name] = temp_countries[temp_key]
 		
 	NetworkManager.initial_countries = countries
 	
@@ -72,11 +92,11 @@ func test_dynamic_country_generation():
 	assert_true(globe.active_scenario.has("countries"), "Dynamic countries should be generated")
 	
 	countries = globe.active_scenario["countries"]
-	assert_true(countries.size() >= 8 and countries.size() <= 30, "Number of dynamic countries should be between 8 and 30 (got %d)" % countries.size())
+	assert_true(countries.size() >= 20 and countries.size() <= 50, "Number of dynamic countries should be between 20 and 50 (got %d)" % countries.size())
 	
 	for c_name in countries.keys():
-		assert_true(c_name.begins_with("Country "), "Country name should start with 'Country '")
-		assert_eq(countries[c_name]["color"], "#708090", "Country color should be Slate Gray (#708090)")
+		assert_true(c_name.length() > 0, "Country name should be a valid string")
+		assert_eq(countries[c_name]["color"], "#FFD700", "Country color should be Gold (#FFD700)")
 		assert_true(countries[c_name].has("cities"), "Country should have a list of cities")
 		assert_true(countries[c_name]["cities"].size() > 0, "Country should have at least one city")
 		
@@ -87,7 +107,7 @@ func test_dynamic_country_generation():
 	file = FileAccess.open(path, FileAccess.READ)
 	json = JSON.new()
 	json.parse(file.get_as_text())
-	var c_dict = json.data
+	c_dict = json.data
 	
 	var all_cities_assigned = true
 	var failed_city = ""

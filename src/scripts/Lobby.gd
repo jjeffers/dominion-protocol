@@ -190,17 +190,18 @@ func _host_generate_scenario() -> void:
 			
 	var countries = {}
 	if unaligned.size() > 0:
-		var base_countries = int(round(randfn(19.0, 5.0)))
-		var num_countries = clampi(base_countries, 8, min(30, unaligned.size()))
+		var base_countries = int(round(randfn(35.0, 8.0)))
+		var num_countries = clampi(base_countries, 20, min(50, unaligned.size()))
 		
 		var centroids = []
 		var available = unaligned.duplicate()
+		var temp_countries = {}
 		for i in range(num_countries):
 			if available.size() == 0: break
 			var idx = randi() % available.size()
 			centroids.append(available[idx])
 			available.remove_at(idx)
-			countries["Country " + str(i + 1)] = {"cities": [], "color": "#708090"}
+			temp_countries["Country " + str(i + 1)] = {"cities": [], "color": "#FFD700"} # High-contrast Gold
 			
 		for c_name in unaligned:
 			var c_lat = deg_to_rad(c_dict[c_name].get("latitude", 0.0))
@@ -222,7 +223,24 @@ func _host_generate_scenario() -> void:
 					best = "Country " + str(i + 1)
 					
 			if best != "":
-				countries[best]["cities"].append(c_name)
+				temp_countries[best]["cities"].append(c_name)
+				
+		for temp_key in temp_countries.keys():
+			var c_list: Array[String] = []
+			for c in temp_countries[temp_key]["cities"]:
+				c_list.append(c as String)
+				
+			if c_list.is_empty():
+				continue
+				
+			var generated_name = CountryNameGenerator.generate_name(c_list)
+			var base_name = generated_name
+			var counter = 2
+			while countries.has(generated_name):
+				generated_name = base_name + " " + str(counter)
+				counter += 1
+				
+			countries[generated_name] = temp_countries[temp_key]
 			
 		print("Generated %d dynamic countries." % num_countries)
 		

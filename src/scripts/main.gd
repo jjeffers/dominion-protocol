@@ -343,7 +343,14 @@ func _on_globe_hovered_tile_changed(tile_id: int, terrain: String, c_name: Strin
 				
 	if faction_owner != "":
 		faction_owner_label.text = faction_owner
-		faction_owner_label.add_theme_color_override("font_color", faction_color)
+		if faction_color.to_html(false) == "ffd700":
+			faction_owner_label.remove_theme_color_override("font_color")
+			faction_owner_label.remove_theme_color_override("font_outline_color")
+			faction_owner_label.remove_theme_constant_override("outline_size")
+		else:
+			faction_owner_label.add_theme_color_override("font_color", faction_color)
+			faction_owner_label.add_theme_color_override("font_outline_color", Color.WHITE)
+			faction_owner_label.add_theme_constant_override("outline_size", 4)
 		faction_owner_label.show()
 	else:
 		faction_owner_label.hide()
