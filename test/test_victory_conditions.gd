@@ -108,7 +108,7 @@ func test_city_capture_ignores_air() -> void:
 	var script = GDScript.new()
 	script.source_code = """extends Node3D
 var faction_name: String
-var unit_type: String = 'Land'
+var unit_type: String = 'Infantry'
 var is_dead: bool = false
 var health: float = 100.0
 func take_damage(amount: float) -> void:
@@ -163,4 +163,61 @@ func take_damage(amount: float) -> void:
 	
 	# Assert Air unit destroyed (queued for deletion)
 	assert_true(blue_air.is_queued_for_deletion(), "Blue Air unit should be destroyed when the city falls")
+
+func test_city_capture_ignores_sea() -> void:
+	var london = null
+	for cn in globe.city_nodes:
+		if cn.name == "London":
+			london = cn
+			break
+			
+	assert_not_null(london, "London must exist")
+	
+	var script = GDScript.new()
+	script.source_code = """extends Node3D
+var faction_name: String
+var unit_type: String = 'Cruiser'
+var is_dead: bool = false
+var health: float = 100.0
+func take_damage(amount: float) -> void:
+	health -= amount
+	if health <= 0:
+		is_dead = true
+		queue_free()
+"""
+	var err = script.reload()
+	if err != OK:
+		push_error("Mock unit script failed to compile.")
+		
+	# Clear organically spawned default map units to prevent them from contesting
+	for u in globe.units_list.duplicate():
+		if is_instance_valid(u):
+			u.queue_free()
+	globe.units_list.clear() # clear the list and simulate only a sea unit interacting with the city
+	
+	# Spawn a Red sea unit next to the city
+	var red_sea = Node3D.new()
+	red_sea.set_script(script)
+	red_sea.set("faction_name", "Red")
+	red_sea.set("unit_type", "Cruiser")
+	
+	globe.units_list.append(red_sea)
+	globe.add_child(red_sea)
+	
+	red_sea.position = london.position
+	
+	# aggressively kill any AIs that spawned organically
+	for child in main.get_children():
+		if child.name.begins_with("TacticalAI"):
+			child.queue_free()
+	
+	# Wait for children to enter tree fully
+	await get_tree().process_frame
+	
+	# Attempt capture process. Red should NOT capture London, because sea units can't capture cities.
+	globe._process_city_captures()
+
+	# Assert scenario data updated (owner changed) - wait, owner shouldn't change
+	assert_false(globe.active_scenario["factions"]["Red"]["cities"].has("London"), "Red Cruiser should NOT capture London")
+	assert_true(globe.active_scenario["factions"]["Blue"]["cities"].has("London"), "Blue should retain London")
 

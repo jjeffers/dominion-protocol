@@ -1031,7 +1031,8 @@ func _process_city_captures() -> void:
 		for u in units_list:
 			if not is_instance_valid(u):
 				continue
-			if u.get("is_dead") != true and u.get("unit_type") != "Air":
+			var u_type = u.get("unit_type")
+			if u.get("is_dead") != true and (u_type == "Infantry" or u_type == "Armor"):
 				var dist = city_node.position.distance_to(u.position) / radius
 				if dist <= 0.01:
 					units_in_range.append(u)
@@ -2957,8 +2958,10 @@ func _process_nuke_impact(target_pos: Vector3) -> void:
 			if owner != "":
 				hit_city_factions[owner] = hit_city_factions.get(owner, 0) + 1
 		else:
-			map_data.set_terrain(t_id, "WASTELAND")
-			
+			var current_terrain = map_data.get_terrain(t_id)
+			if current_terrain != "OCEAN" and current_terrain != "LAKE":
+				map_data.set_terrain(t_id, "WASTELAND")
+
 	if not multiplayer.has_multiplayer_peer() or multiplayer.get_unique_id() == 1:
 		var economy_changed = false
 		for owner in hit_city_factions.keys():
