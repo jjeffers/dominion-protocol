@@ -12,6 +12,8 @@ signal connection_succeeded
 signal connection_failed(reason: String)
 signal server_disconnected
 
+signal initial_countries_received
+
 # Lobby Signals
 signal players_updated
 signal game_started
@@ -26,6 +28,8 @@ signal unit_health_synced(target_unit_name: String, amount: float)
 
 # Dictionary of players: { id: { "name": String, "faction": String } }
 var players: Dictionary = {}
+
+var initial_countries: Dictionary = {}
 
 var _sync_timer: float = 0.0
 
@@ -232,6 +236,11 @@ func claim_faction(faction_name: String):
 func start_game():
 	print("Server ordered game start!")
 	game_started.emit()
+
+@rpc("authority", "call_local", "reliable")
+func sync_initial_countries(countries_data: Dictionary):
+	initial_countries = countries_data
+	initial_countries_received.emit()
 
 @rpc("any_peer", "call_local", "reliable")
 func request_unit_move(unit_name: String, target_pos: Vector3, enemy_target_name: String):

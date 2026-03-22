@@ -97,6 +97,11 @@ func _ready() -> void:
 	# Initialize HUD State
 	terrain_panel.hide()
 	
+	# Increase font size (default is 16, doubling to 32) and add white outline
+	faction_owner_label.add_theme_font_size_override("font_size", 32)
+	faction_owner_label.add_theme_color_override("font_outline_color", Color.WHITE)
+	faction_owner_label.add_theme_constant_override("outline_size", 4)
+	
 	unit_icon.texture = load("res://src/assets/extracted_sprite.png")
 	
 	var city_texture = AtlasTexture.new()
@@ -317,14 +322,24 @@ func _on_globe_hovered_tile_changed(tile_id: int, terrain: String, c_name: Strin
 
 	var faction_owner = ""
 	var faction_color = Color.WHITE
-	if region_name != "" and scenario_data.has("factions"):
-		for f_name in scenario_data["factions"]:
-			var f_data = scenario_data["factions"][f_name]
-			if f_data.has("cities") and region_name in f_data["cities"]:
-				faction_owner = f_name
-				if f_data.has("color"):
-					faction_color = Color(f_data["color"])
-				break
+	if region_name != "":
+		if scenario_data.has("factions"):
+			for f_name in scenario_data["factions"]:
+				var f_data = scenario_data["factions"][f_name]
+				if f_data.has("cities") and region_name in f_data["cities"]:
+					faction_owner = f_name
+					if f_data.has("color"):
+						faction_color = Color(f_data["color"])
+					break
+		
+		if faction_owner == "" and scenario_data.has("countries"):
+			for country_name in scenario_data["countries"]:
+				var c_data = scenario_data["countries"][country_name]
+				if c_data.has("cities") and region_name in c_data["cities"]:
+					faction_owner = country_name
+					if c_data.has("color"):
+						faction_color = Color(c_data["color"])
+					break
 				
 	if faction_owner != "":
 		faction_owner_label.text = faction_owner

@@ -1311,6 +1311,23 @@ func _instantiate_scenario(scenario_data: Dictionary) -> void:
 			for c_name in scenario_data["neutral_cities"]:
 				active_regions.append(c_name)
 
+	if c_dict.is_empty() == false:
+		# --- Inject Pre-Generated Dynamic Countries ---
+		if not NetworkManager.initial_countries.is_empty():
+			if not scenario_data.has("countries"):
+				scenario_data["countries"] = {}
+				
+			for c_name in NetworkManager.initial_countries.keys():
+				scenario_data["countries"][c_name] = NetworkManager.initial_countries[c_name].duplicate(true)
+				
+				if scenario_data["countries"][c_name].has("cities"):
+					for city in scenario_data["countries"][c_name]["cities"]:
+						if not active_cities.has(city):
+							active_cities.append(city)
+						if not active_regions.has(city):
+							active_regions.append(city)
+		# ----------------------------------
+
 	# Identitfy active regions from oil
 	var opath = "res://src/data/oil_data.json"
 	if FileAccess.file_exists(opath):
@@ -2334,6 +2351,15 @@ func _generate_faction_borders() -> void:
 						faction_color = Color(f_data["color"])
 					break
 					
+		if owning_faction == "" and active_scenario.has("countries"):
+			for c_name in active_scenario["countries"]:
+				var c_data = active_scenario["countries"][c_name]
+				if c_data.has("cities") and owner_city in c_data["cities"]:
+					owning_faction = c_name
+					if c_data.has("color"):
+						faction_color = Color(c_data["color"])
+					break
+					
 		if owning_faction == "":
 			continue # Neutral or un-configured cities don't get borders for now
 			
@@ -2347,6 +2373,11 @@ func _generate_faction_borders() -> void:
 					for f_name in active_scenario["factions"]:
 						if active_scenario["factions"][f_name].has("cities") and n_owner in active_scenario["factions"][f_name]["cities"]:
 							n_faction = f_name
+							break
+				if n_faction == "" and active_scenario.has("countries"):
+					for c_name in active_scenario["countries"]:
+						if active_scenario["countries"][c_name].has("cities") and n_owner in active_scenario["countries"][c_name]["cities"]:
+							n_faction = c_name
 							break
 							
 			# We draw a line ONLY if the neighboring tile is owned by a different faction, 
@@ -2386,6 +2417,8 @@ func _generate_faction_borders() -> void:
 		var col_str = ""
 		if active_scenario.has("factions") and active_scenario["factions"].has(faction_name):
 			col_str = active_scenario["factions"][faction_name].get("color", "#FFFFFF")
+		elif active_scenario.has("countries") and active_scenario["countries"].has(faction_name):
+			col_str = active_scenario["countries"][faction_name].get("color", "#708090")
 		var faction_color = Color(col_str)
 		# Dim the color by 50%
 		faction_color = faction_color * 0.5

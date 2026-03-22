@@ -8,7 +8,6 @@
     - Oil list: a list of oil fields for each faction.
     - Starting money and fuel levels.
     - Neutral cities: a list of cities that are not owned by any faction.
-    - Any city not listed in the faction or neutral list is ommitted from the game, and is not visible to any faction. It's associated region is also not conquerable.
     - Any oil not listed in the faction or neutral list is ommitted from the game, and is not visible to any faction. It's associated region is also not conquerable.
     
 ## Victory
