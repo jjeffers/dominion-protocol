@@ -184,6 +184,10 @@ func _ready() -> void:
 	add_child(war_start_audio)
 	war_start_audio.play()
 	
+	# Open the console automatically when the match starts
+	ConsoleManager.is_visible = true
+	ConsoleManager.panel.show()
+	
 	var network_manager = get_node_or_null("/root/NetworkManager")
 	if network_manager and network_manager.is_host:
 		ConsoleManager.log_message("\n==================================")
