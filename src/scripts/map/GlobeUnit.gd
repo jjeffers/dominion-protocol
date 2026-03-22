@@ -1020,6 +1020,7 @@ func _process(delta: float) -> void:
 			
 			if not slide_success:
 				in_motion = false # Path completely walled off, halt here.
+				target_position = current_position # Strip the target so it doesn't try again next frame
 		else:
 			current_position = next_pos
 			_draw_path(angle)
