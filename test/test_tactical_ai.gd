@@ -61,6 +61,8 @@ func before_each():
 var is_host = true
 var last_strike_target = ''
 var last_redeploy_target = ''
+var players = {1: {"name": "TestPlayer", "faction": "Red"}}
+
 
 @rpc('any_peer')
 func sync_unit_target(a, b, c=''):
@@ -197,3 +199,15 @@ func test_air_operations():
 	
 	u1.free()
 	enemy.free()
+
+func test_ai_logs_production_to_console():
+	var cm = get_node_or_null("/root/ConsoleManager")
+	if cm and cm.output_log:
+		cm.output_log.clear()
+		
+	ai.current_state = ai.AIState.PRODUCING
+	ai.target_purchase = ""
+	mock_main.scenario_data["factions"]["Red"]["money"] = 0.0 # Force no purchase, just log evaluation
+	ai._handle_production() # Call production manually
+	
+	assert_true("AI Command: Authorizing funds for" in cm.output_log.get_parsed_text() if cm else "", "Logged message should reflect target purchase decision.")

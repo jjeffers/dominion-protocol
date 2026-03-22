@@ -38,6 +38,8 @@ func set_faction(fac: String, aggro: float = 0.5, cap: int = 1) -> void:
 		if main_scene and main_scene.get("globe_view"):
 			globe_view = main_scene.globe_view
 
+var time_since_last_priority_log: float = 0.0
+
 func _process(delta: float) -> void:
 	if not globe_view or faction_name == "":
 		return
@@ -46,6 +48,12 @@ func _process(delta: float) -> void:
 	if network_manager and not network_manager.is_host:
 		return
 		
+	time_since_last_priority_log += delta
+	if time_since_last_priority_log >= 150.0:
+		time_since_last_priority_log = 0.0
+		if target_purchase != "":
+			_log_target_purchase()
+			
 	process_timer += delta
 	if process_timer >= PROCESS_INTERVAL:
 		process_timer -= PROCESS_INTERVAL
@@ -116,16 +124,6 @@ func _handle_production() -> void:
 	if own_cities.size() == 0:
 		return
 		
-	# Find an available city (no cooldown)
-	var best_city = ""
-	for c in own_cities:
-		if not globe_view.city_cooldowns.has(c):
-			best_city = c
-			break
-			
-	if best_city == "":
-		return
-		
 	# Unit costs from MainScene
 	# Infantry: 5.0, Armor: 10.0, Air: 30.0, Cruiser: 50.0
 	
@@ -179,6 +177,10 @@ func _handle_production() -> void:
 					target_purchase = "Infantry"
 					target_purchase_cost = 5.0
 					
+			if target_purchase != "":
+				_log_target_purchase()
+				time_since_last_priority_log = 0.0
+					
 	if target_purchase != "" and money >= target_purchase_cost:
 		if target_purchase == "Nuke":
 			if network_manager and network_manager.multiplayer.has_multiplayer_peer() and network_manager.multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
@@ -186,6 +188,16 @@ func _handle_production() -> void:
 			else:
 				globe_view.sync_nuke_purchase(faction_name, 20.0)
 		else:
+			# Find an available city (no cooldown)
+			var best_city = ""
+			for c in own_cities:
+				if not globe_view.city_cooldowns.has(c):
+					best_city = c
+					break
+					
+			if best_city == "":
+				return # Wait for next loop if all cities are on cooldown
+				
 			var c_name = best_city if typeof(best_city) == TYPE_STRING else best_city.name
 			# Spawn using Host RPC directly, with offline fallback for unit tests
 			if network_manager and network_manager.multiplayer.has_multiplayer_peer() and network_manager.multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
@@ -196,6 +208,36 @@ func _handle_production() -> void:
 		# Reset our savings goal so we can pick a new target next time
 		target_purchase = ""
 		target_purchase_cost = 0.0
+
+func _log_target_purchase() -> void:
+	if target_purchase == "":
+		return
+		
+	var target_peer_id = -1
+	if network_manager and multiplayer.has_multiplayer_peer() and multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
+		if network_manager.get("players") != null:
+			for p_id in network_manager.players.keys():
+				if network_manager.players[p_id].has("faction") and network_manager.players[p_id]["faction"] == faction_name:
+					target_peer_id = p_id
+					break
+			
+	var cm = get_node_or_null("/root/ConsoleManager")
+	if cm:
+		var col = "red" if faction_name.to_lower() == "red" else "#3388ff"
+		var fac = "[color=" + col + "]" + faction_name + "[/color]"
+		var msg = fac + " AI Command: Authorizing funds for " + target_purchase + " production."
+		
+		if target_peer_id != -1:
+			if multiplayer.has_multiplayer_peer() and target_peer_id == multiplayer.get_unique_id():
+				if cm.has_method("local_log_message"):
+					cm.local_log_message(msg)
+			elif multiplayer.has_multiplayer_peer():
+				cm.rpc_id(target_peer_id, "sync_log_message", msg)
+		else:
+			# If no player owns the faction, fall back to testing if the local API is disconnected
+			if not multiplayer.has_multiplayer_peer() or multiplayer.multiplayer_peer.get_connection_status() != MultiplayerPeer.CONNECTION_CONNECTED:
+				if cm.has_method("local_log_message"):
+					cm.local_log_message(msg)
 
 func _find_high_value_target() -> Node3D:
 	var main_scene = get_node_or_null("/root/Main")

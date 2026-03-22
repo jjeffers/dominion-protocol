@@ -63,7 +63,9 @@ func local_log_message(msg: String) -> void:
 	var formatted_msg = "[color=gray][" + time_str + "][/color] " + msg
 	
 	output_log.append_text(formatted_msg + "\n")
-	print(formatted_msg.strip_edges()) # Also send to stdout for terminal
+	
+	var log_id = str(multiplayer.get_unique_id()) if multiplayer.has_multiplayer_peer() and multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED else "Offline"
+	print("[Peer: " + log_id + "] " + formatted_msg.strip_edges()) # Also send to stdout for terminal
 	
 	if panel.visible:
 		output_log.scroll_to_line(output_log.get_line_count() - 1)
@@ -85,7 +87,9 @@ func sync_log_message(msg: String) -> void:
 	var formatted_msg = "[color=gray][" + time_str + "][/color] " + msg
 	
 	output_log.append_text(formatted_msg + "\n")
-	print(formatted_msg.strip_edges()) # Also send to stdout for terminal
+	
+	var log_id = str(multiplayer.get_unique_id()) if multiplayer.has_multiplayer_peer() and multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED else "Offline"
+	print("[Peer: " + log_id + "] " + formatted_msg.strip_edges()) # Also send to stdout for terminal
 	
 	if output_log.get_line_count() > max_lines:
 		pass
