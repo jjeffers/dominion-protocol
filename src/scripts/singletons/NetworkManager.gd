@@ -66,8 +66,8 @@ func join_game(ip: String, port: int) -> Error:
 func _process(delta: float) -> void:
 	if is_host and multiplayer.has_multiplayer_peer():
 		_sync_timer += delta
-		if _sync_timer >= 1.0: # Every 1.0 seconds
-			_sync_timer -= 1.0
+		if _sync_timer >= 0.25: # Every 0.25 seconds (4Hz)
+			_sync_timer -= 0.25
 			_broadcast_positions()
 
 func _broadcast_positions() -> void:
@@ -75,7 +75,11 @@ func _broadcast_positions() -> void:
 	var units = get_tree().get_nodes_in_group("units")
 	for unit in units:
 		if unit.get("current_position") != null:
-			pos_dict[unit.name] = unit.current_position
+			var tp = unit.get("target_position")
+			pos_dict[unit.name] = {
+				"pos": unit.current_position,
+				"targ": tp if tp != null else unit.current_position
+			}
 	
 	if pos_dict.size() > 0:
 		rpc("sync_unit_positions", pos_dict)
@@ -89,9 +93,20 @@ func sync_unit_positions(pos_dict: Dictionary) -> void:
 	var units = get_tree().get_nodes_in_group("units")
 	for unit in units:
 		if pos_dict.has(unit.name):
-			# If the unit has strayed, abruptly clamp it back to the host's authoritative 3D location. 
-			# Future polish could seamlessly lerp the deviation, but a rigid snap is optimal for tactical validation.
-			unit.current_position = pos_dict[unit.name]
+			var data = pos_dict[unit.name]
+			if typeof(data) == TYPE_DICTIONARY and data.has("pos") and data.has("targ"):
+				var host_pos = data["pos"]
+				var host_targ = data["targ"]
+				
+				# Update intended destination to ensure client stops simulating if host deadlocked/reached target
+				unit.target_position = host_targ
+				
+				# Seamlessly lerp minor deviations, hard snap major divergences or new spawns
+				var dev = unit.current_position.distance_to(host_pos)
+				if dev > 0.05:
+					unit.current_position = host_pos
+				elif dev > 0.0001:
+					unit.current_position = unit.current_position.lerp(host_pos, 0.5)
 
 func _on_connected_ok():
 	print("Connected to server successfully! Self ID: ", multiplayer.get_unique_id())

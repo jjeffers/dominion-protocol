@@ -8,6 +8,7 @@ extends Control
 @onready var terrain_color: ColorRect = $TerrainSummaryPanel/TerrainColor
 @onready var terrain_name: Label = $TerrainSummaryPanel/TerrainNameLabel
 @onready var city_name: Label = $TerrainSummaryPanel/CityNameLabel
+@onready var faction_owner_label: Label = $TerrainSummaryPanel/FactionOwnerLabel
 
 @onready var unit_panel: Panel = $UnitStatusPanel
 @onready var unit_type_label: Label = $UnitStatusPanel/VBoxContainer/UnitTypeLabel
@@ -309,7 +310,23 @@ func _on_globe_hovered_tile_changed(tile_id: int, terrain: String, c_name: Strin
 		else:
 			terrain_color.color = Color.BLACK
 
-	pass
+	var faction_owner = ""
+	var faction_color = Color.WHITE
+	if region_name != "" and scenario_data.has("factions"):
+		for f_name in scenario_data["factions"]:
+			var f_data = scenario_data["factions"][f_name]
+			if f_data.has("cities") and region_name in f_data["cities"]:
+				faction_owner = f_name
+				if f_data.has("color"):
+					faction_color = Color(f_data["color"])
+				break
+				
+	if faction_owner != "":
+		faction_owner_label.text = faction_owner
+		faction_owner_label.add_theme_color_override("font_color", faction_color)
+		faction_owner_label.show()
+	else:
+		faction_owner_label.hide()
 
 var scenario_data: Dictionary = {}
 var active_cities: Array[String] = []
