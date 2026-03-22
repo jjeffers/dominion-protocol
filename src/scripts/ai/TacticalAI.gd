@@ -530,12 +530,16 @@ func _process_unit_repair(u: Node3D) -> bool:
 		var nearest_city = _get_closest_friendly_city(u)
 		if nearest_city:
 			var dist = u.global_position.distance_to(nearest_city.global_position)
-			if dist > 0.05:
+			if dist > 0.005:
 				_issue_move_order(u, nearest_city.global_position)
 			else:
 				# We are in the city, stop and heal!
 				_issue_move_order(u, u.global_position)
-		return true
+			return true
+		else:
+			# If no friendly cities exist, we cannot repair! Fight to the death.
+			u.set_meta("needs_repair", false)
+			return false
 	return false
 
 func _get_closest_friendly_city(unit: Node3D) -> Node3D:
@@ -551,6 +555,11 @@ func _get_closest_friendly_city(unit: Node3D) -> Node3D:
 	
 	for cn in globe_view.city_nodes:
 		if is_instance_valid(cn) and cn.name in own_cities:
+			var tile_id = globe_view._get_tile_from_vector3(cn.global_position)
+			if globe_view.get("map_data") != null and globe_view.map_data.has_method("get_terrain"):
+				if globe_view.map_data.get_terrain(tile_id) == "RUINS":
+					continue # Do not retreat to radioactive craters
+				
 			var dist = unit.global_position.distance_to(cn.global_position)
 			if dist < best_dist:
 				best_dist = dist
