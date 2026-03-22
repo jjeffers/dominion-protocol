@@ -740,7 +740,7 @@ func _process(delta: float) -> void:
 	if not in_motion:
 		time_motionless += delta
 		if time_motionless >= 30.0:
-			if unit_type == "infantry":
+			if unit_type == "Infantry":
 				entrenched = true
 				if sprite and sprite.material_override is ShaderMaterial:
 					sprite.material_override.set_shader_parameter("is_entrenched", true)
