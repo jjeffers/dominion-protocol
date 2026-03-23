@@ -15,6 +15,8 @@ var load_start_time: int = 0
 var main_scene_path: String = "res://src/scenes/main.tscn"
 
 func _ready():
+	blue_btn.text = "Join Coalition of Free States (Blue)"
+	red_btn.text = "Join Central Security Pact (Red)"
 	_update_ui()
 	
 	blue_btn.pressed.connect(_on_join_blue)
@@ -59,7 +61,12 @@ func _update_ui():
 		elif faction_str == "Red":
 			red_taken = true
 			
-		var display_text = "%s - %s" % [p_info.get("name", "Player " + str(id)), faction_str]
+			
+		var fac_display = faction_str
+		if faction_str == "Blue": fac_display = "Coalition of Free States"
+		elif faction_str == "Red": fac_display = "Central Security Pact"
+			
+		var display_text = "%s - %s" % [p_info.get("name", "Player " + str(id)), fac_display]
 		if id == multiplayer.get_unique_id():
 			display_text += " (You)"
 			

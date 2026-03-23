@@ -1152,7 +1152,8 @@ func _evaluate_country_alignment(country_name: String, triggering_faction: Strin
 			# Leave faction, become neutral
 			print("DIPLOMACY: ", country_name, " has left the ", current_faction, " faction and is now neutral!")
 			if ConsoleManager and ConsoleManager.has_method("local_log_message"):
-				ConsoleManager.local_log_message("SYSTEM: " + country_name + " has declared neutrality and formally withdrawn from the " + current_faction + " alliance.")
+				var fac_name = active_scenario["factions"][current_faction].get("display_name", current_faction) if (active_scenario.has("factions") and active_scenario["factions"].has(current_faction)) else current_faction
+				ConsoleManager.local_log_message("SYSTEM: " + country_name + " has declared neutrality and formally withdrawn from the " + fac_name + " alliance.")
 			if get_node_or_null("/root/NetworkManager") and NetworkManager.is_host:
 				for city in c_data["cities"]:
 					rpc("sync_city_capture", city, "neutral", current_faction)
@@ -1178,7 +1179,8 @@ func _evaluate_country_alignment(country_name: String, triggering_faction: Strin
 				print("DIPLOMACY: ", country_name, " has joined the ", loves_faction, " faction due to high opinion!")
 				if ConsoleManager and ConsoleManager.has_method("local_log_message"):
 					var col = "red" if loves_faction.to_lower() == "red" else "#3388ff"
-					var f_str = "[color=" + col + "]" + loves_faction + "[/color]"
+					var fac_name = active_scenario["factions"][loves_faction].get("display_name", loves_faction) if (active_scenario.has("factions") and active_scenario["factions"].has(loves_faction)) else loves_faction
+					var f_str = "[color=" + col + "]" + fac_name + "[/color]"
 					ConsoleManager.local_log_message("SYSTEM: " + country_name + " has joined the " + f_str + " alliance!")
 				if get_node_or_null("/root/NetworkManager") and NetworkManager.is_host:
 					for city in c_data["cities"]:
@@ -1214,7 +1216,8 @@ func _evaluate_country_alignment(country_name: String, triggering_faction: Strin
 				print("DIPLOMACY: ", country_name, " has joined the ", best_fac, " faction in response to aggression!")
 				if ConsoleManager and ConsoleManager.has_method("local_log_message"):
 					var col = "red" if best_fac.to_lower() == "red" else "#3388ff"
-					var f_str = "[color=" + col + "]" + best_fac + "[/color]"
+					var fac_name = active_scenario["factions"][best_fac].get("display_name", best_fac) if (active_scenario.has("factions") and active_scenario["factions"].has(best_fac)) else best_fac
+					var f_str = "[color=" + col + "]" + fac_name + "[/color]"
 					ConsoleManager.local_log_message("SYSTEM: " + country_name + " has joined the " + f_str + " alliance!")
 				if get_node_or_null("/root/NetworkManager") and NetworkManager.is_host:
 					for city in c_data["cities"]:
@@ -1285,6 +1288,13 @@ func _process_city_captures() -> void:
 					
 				# If ownership changed
 				if current_owner != capturing_faction:
+					if current_owner == "neutral" and active_scenario.has("countries"):
+						for c_name in active_scenario["countries"].keys():
+							if active_scenario["countries"][c_name].has("cities") and city_node.name in active_scenario["countries"][c_name]["cities"]:
+								var op = active_scenario["countries"][c_name].get("opinions", {}).get(capturing_faction, 0.0)
+								if op < 50.0:
+									rpc("sync_diplomatic_penalty", c_name, capturing_faction, 100.0, "Captured Neutral City")
+								break
 					rpc("sync_city_capture", city_node.name, capturing_faction, current_owner)
 
 @rpc("authority", "call_local", "reliable")
@@ -1324,15 +1334,6 @@ func sync_city_capture(city_name: String, new_faction: String, old_faction: Stri
 	
 	# Strip from old faction
 	if old_faction == "neutral":
-		# Dropping opinion to -100 for capturing neutral city BEFORE erasing it from the dataset
-		if network_manager and network_manager.is_host and active_scenario.has("countries"):
-			for c_name in active_scenario["countries"].keys():
-				if active_scenario["countries"][c_name].has("cities") and city_name in active_scenario["countries"][c_name]["cities"]:
-					var op = active_scenario["countries"][c_name].get("opinions", {}).get(new_faction, 0.0)
-					if op < 50.0:
-						rpc("sync_diplomatic_penalty", c_name, new_faction, 100.0, "Captured Neutral City")
-					break
-					
 		if active_scenario.has("neutral_cities"):
 			active_scenario["neutral_cities"].erase(city_name)
 	else:

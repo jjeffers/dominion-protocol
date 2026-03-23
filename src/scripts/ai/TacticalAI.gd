@@ -553,7 +553,7 @@ func _handle_air_ops() -> void:
 		
 		for enemy in globe_view.units_list:
 			if is_instance_valid(enemy) and not enemy.get("is_dead") and enemy.get("faction_name") != faction_name:
-				if not enemy.sprite.visible: continue
+				if not _is_enemy_visible_to_faction(enemy): continue
 				var dist = unit_pos.distance_to(enemy.global_position)
 				if dist <= strike_radius and dist < min_dist:
 					min_dist = dist
@@ -599,7 +599,7 @@ func _get_closest_enemy(unit: Node3D) -> Node3D:
 	var is_sea_unit = unit.get("unit_type") in ["Cruiser", "Submarine"]
 	for other in globe_view.units_list:
 		if is_instance_valid(other) and other != unit and not other.get("is_dead") and other.get("faction_name") != faction_name:
-			if not other.sprite.visible: continue
+			if not _is_enemy_visible_to_faction(other): continue
 			if other.get("unit_type") == "Submarine" and not other.get("is_detected"):
 				continue # AI cannot target hidden submarines out of fairness
 				
@@ -650,8 +650,37 @@ func _issue_move_order(unit: Node3D, target_pos: Vector3, enemy_target_name: Str
 	# Use network manager to sync movement, ensuring parity with players
 	if network_manager and network_manager.is_host:
 		network_manager.rpc("sync_unit_target", unit.name, target_pos, enemy_target_name)
-		# call local update
 		network_manager.sync_unit_target(unit.name, target_pos, enemy_target_name)
+
+func _is_enemy_visible_to_faction(enemy: Node3D) -> bool:
+	var vision_range = 0.036
+	var e_pos = enemy.global_position
+	
+	# Check friendly units
+	for u in owned_units:
+		if is_instance_valid(u) and not u.get("is_dead"):
+			var u_type = u.get("unit_type")
+			if u_type == "Air" and u.get("is_air_ready"):
+				if u.global_position.distance_to(e_pos) <= 0.165:
+					return true
+			else:
+				if u.global_position.distance_to(e_pos) <= vision_range:
+					return true
+				
+	# Check friendly cities
+	var main_scene = get_node_or_null("/root/Main")
+	if main_scene and main_scene.scenario_data.has("factions") and main_scene.scenario_data["factions"].has(faction_name):
+		var own_cities = main_scene.scenario_data["factions"][faction_name].get("cities", [])
+		for city_name in own_cities:
+			var c_node = null
+			for cn in globe_view.city_nodes:
+				if cn.name == city_name:
+					c_node = cn
+					break
+			if c_node and c_node.global_position.distance_to(e_pos) <= vision_range:
+				return true
+
+	return false
 
 func _process_unit_repair(u: Node3D) -> bool:
 	var u_health = u.get("health")
@@ -738,7 +767,7 @@ func _handle_nuke_ops() -> void:
 			potential_targets.append(cn.global_position)
 	for u in globe_view.units_list:
 		if is_instance_valid(u) and not u.get("is_dead") and u.get("faction_name") != faction_name:
-			if not u.sprite.visible: continue
+			if not _is_enemy_visible_to_faction(u): continue
 			potential_targets.append(u.global_position)
 			
 	var inner_rad = 1.35 * 0.006

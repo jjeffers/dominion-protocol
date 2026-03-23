@@ -371,7 +371,7 @@ func _on_globe_hovered_tile_changed(tile_id: int, terrain: String, c_name: Strin
 					break
 				
 	if faction_owner != "":
-		faction_owner_label.text = faction_owner
+		faction_owner_label.text = get_faction_name(faction_owner)
 		if faction_color.to_html(false) == "ffd700":
 			faction_owner_label.remove_theme_color_override("font_color")
 			faction_owner_label.remove_theme_color_override("font_outline_color")
@@ -385,6 +385,12 @@ func _on_globe_hovered_tile_changed(tile_id: int, terrain: String, c_name: Strin
 		faction_owner_label.hide()
 
 var scenario_data: Dictionary = {}
+
+func get_faction_name(f_id: String) -> String:
+	if scenario_data and scenario_data.has("factions") and scenario_data["factions"].has(f_id):
+		return scenario_data["factions"][f_id].get("display_name", f_id)
+	return f_id
+	
 var active_cities: Array[String] = []
 var active_regions: Array[String] = []
 
@@ -438,7 +444,7 @@ func _spawn_tactical_ais() -> void:
 
 func _on_city_captured(city_name: String, new_faction: String, old_faction: String) -> void:
 	print(">>> CITY DOMAINS UPDATED: ", city_name, " is now under control of ", new_faction)
-	capture_banner.text = "%s CAPTURES %s!" % [new_faction.to_upper(), city_name.replace("Unit_City_", "").to_upper()]
+	capture_banner.text = "%s CAPTURES %s!" % [get_faction_name(new_faction).to_upper(), city_name.replace("Unit_City_", "").to_upper()]
 	capture_banner.modulate.a = 1.0
 	capture_banner.show()
 	banner_timer = 10.0
@@ -453,7 +459,7 @@ func _on_victory_declared(winning_faction: String) -> void:
 		local_fac = NetworkManager.players[multiplayer.get_unique_id()].get("faction", "")
 	print("[MATCH_RESULT] MATCH=%s ROLE=%s FACTION=%s WINNER=%s" % [NetworkManager.match_id, role, local_fac, winning_faction])
 	
-	victory_banner.text = "%s WINS!" % winning_faction.to_upper()
+	victory_banner.text = "%s WINS!" % get_faction_name(winning_faction).to_upper()
 	victory_banner.show()
 
 	if "[BOT]" in NetworkManager.local_player_name:

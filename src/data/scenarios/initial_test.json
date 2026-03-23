@@ -3,6 +3,7 @@
     "cold_war_minutes": 0,
     "factions": {
         "Blue": {
+            "display_name": "Coalition of Free States",
             "color": "#0000FF",
             "cities": [
                 "London",
@@ -76,6 +77,7 @@
             ]
         },
         "Red": {
+            "display_name": "Central Security Pact",
             "color": "#FF0000",
             "cities": [
                 "Hamburg",
