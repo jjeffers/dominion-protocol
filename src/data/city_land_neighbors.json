@@ -1,0 +1,578 @@
+{
+    "Brisbane": [
+        "Sydney",
+        "Perth"
+    ],
+    "Sydney": [
+        "Brisbane",
+        "Perth",
+        "Melbourne"
+    ],
+    "Melbourne": [
+        "Sydney",
+        "Perth"
+    ],
+    "Bordeaux": [
+        "Geneva",
+        "Madrid",
+        "Paris",
+        "Marseille"
+    ],
+    "Marseille": [
+        "Geneva",
+        "Madrid",
+        "Rome",
+        "Bordeaux"
+    ],
+    "Geneva": [
+        "Zurich",
+        "Marseille",
+        "Paris",
+        "Rome",
+        "Munich",
+        "Bordeaux",
+        "Ljubljana"
+    ],
+    "Rome": [
+        "Geneva",
+        "Ljubljana",
+        "Marseille"
+    ],
+    "Ljubljana": [
+        "Belgrade",
+        "Geneva",
+        "Rome",
+        "Budapest",
+        "Vienna",
+        "Munich"
+    ],
+    "Belgrade": [
+        "Sofia",
+        "Budapest",
+        "Ljubljana",
+        "Bucharest"
+    ],
+    "Sofia": [
+        "Belgrade",
+        "Constantinople",
+        "Bucharest"
+    ],
+    "Constantinople": [
+        "Sofia",
+        "Kyiv",
+        "Baghdad",
+        "Bucharest",
+        "Tehran",
+        "Tel Aviv"
+    ],
+    "Tehran": [
+        "Kyiv",
+        "Yekaterinburg",
+        "Constantinople",
+        "Baghdad",
+        "Tel Aviv",
+        "Bandar Abbas",
+        "Tashkent"
+    ],
+    "Baghdad": [
+        "Tel Aviv",
+        "Constantinople",
+        "Tehran"
+    ],
+    "Tel Aviv": [
+        "Constantinople",
+        "Baghdad",
+        "Cairo",
+        "Tehran"
+    ],
+    "Madrid": [
+        "Bordeaux",
+        "Marseille"
+    ],
+    "Cairo": [
+        "Tel Aviv",
+        "Addis Ababa",
+        "Casablanca"
+    ],
+    "Casablanca": [
+        "Accra",
+        "Dakar",
+        "Addis Ababa",
+        "Cairo"
+    ],
+    "Addis Ababa": [
+        "Lagos",
+        "Nairobi",
+        "Accra",
+        "Casablanca",
+        "Cairo"
+    ],
+    "Accra": [
+        "Addis Ababa",
+        "Dakar",
+        "Casablanca",
+        "Lagos"
+    ],
+    "Dakar": [
+        "Accra",
+        "Casablanca"
+    ],
+    "Lagos": [
+        "Accra",
+        "Luanda",
+        "Nairobi",
+        "Addis Ababa"
+    ],
+    "Nairobi": [
+        "Luanda",
+        "Johannesburg",
+        "Addis Ababa",
+        "Lagos"
+    ],
+    "Luanda": [
+        "Johannesburg",
+        "Nairobi",
+        "Lagos"
+    ],
+    "Bras\u00edlia": [
+        "Bogot\u00e1",
+        "Curitiba",
+        "Santiago",
+        "Buenos Aires",
+        "Belo Horizonte",
+        "Lima",
+        "Quito"
+    ],
+    "Belo Horizonte": [
+        "Rio de Janeiro",
+        "S\u00e3o Paulo",
+        "Curitiba",
+        "Bras\u00edlia"
+    ],
+    "Johannesburg": [
+        "Luanda",
+        "Nairobi",
+        "Cape Town"
+    ],
+    "Rio de Janeiro": [
+        "Belo Horizonte",
+        "S\u00e3o Paulo"
+    ],
+    "Cape Town": [
+        "Johannesburg"
+    ],
+    "S\u00e3o Paulo": [
+        "Belo Horizonte",
+        "Curitiba",
+        "Rio de Janeiro"
+    ],
+    "Tashkent": [
+        "New Delhi",
+        "Yekaterinburg",
+        "Almaty",
+        "Tehran",
+        "Bandar Abbas"
+    ],
+    "Almaty": [
+        "Kolkata",
+        "Vladivostok",
+        "New Delhi",
+        "Yekaterinburg",
+        "Beijing",
+        "Tashkent"
+    ],
+    "Beijing": [
+        "Seoul",
+        "Kolkata",
+        "Vladivostok",
+        "Hong Kong",
+        "Almaty"
+    ],
+    "Kolkata": [
+        "Ahmedabad",
+        "Hong Kong",
+        "New Delhi",
+        "Hyderabad",
+        "Saigon",
+        "Almaty",
+        "Beijing"
+    ],
+    "New Delhi": [
+        "Kolkata",
+        "Ahmedabad",
+        "Almaty",
+        "Bandar Abbas",
+        "Tashkent"
+    ],
+    "Bandar Abbas": [
+        "New Delhi",
+        "Tashkent",
+        "Tehran"
+    ],
+    "Hong Kong": [
+        "Beijing",
+        "Saigon",
+        "Kolkata"
+    ],
+    "Ahmedabad": [
+        "New Delhi",
+        "Kolkata",
+        "Mumbai",
+        "Hyderabad"
+    ],
+    "Hyderabad": [
+        "Mumbai",
+        "Kolkata",
+        "Ahmedabad",
+        "Chennai"
+    ],
+    "Saigon": [
+        "Kolkata",
+        "Singapore",
+        "Hong Kong"
+    ],
+    "Mumbai": [
+        "Chennai",
+        "Ahmedabad",
+        "Hyderabad"
+    ],
+    "Chennai": [
+        "Mumbai",
+        "Hyderabad"
+    ],
+    "Singapore": [
+        "Saigon"
+    ],
+    "Perth": [
+        "Sydney",
+        "Brisbane",
+        "Melbourne"
+    ],
+    "San Francisco": [
+        "Los Angeles",
+        "Seattle",
+        "Denver"
+    ],
+    "Denver": [
+        "Chicago",
+        "Los Angeles",
+        "Dallas",
+        "Phoenix",
+        "Seattle",
+        "San Francisco",
+        "Minneapolis"
+    ],
+    "Minneapolis": [
+        "Toronto",
+        "Chicago",
+        "Denver",
+        "Seattle",
+        "Vancouver",
+        "Montreal"
+    ],
+    "Chicago": [
+        "Washington, DC",
+        "Atlanta",
+        "Toronto",
+        "Denver",
+        "Dallas",
+        "Philadelphia",
+        "Minneapolis"
+    ],
+    "Toronto": [
+        "Montreal",
+        "Minneapolis",
+        "New York",
+        "Chicago"
+    ],
+    "Montreal": [
+        "Toronto",
+        "Boston",
+        "Minneapolis"
+    ],
+    "Boston": [
+        "Montreal",
+        "New York"
+    ],
+    "New York": [
+        "Philadelphia",
+        "Toronto",
+        "Boston"
+    ],
+    "Los Angeles": [
+        "San Francisco",
+        "Phoenix",
+        "San Diego",
+        "Denver"
+    ],
+    "Philadelphia": [
+        "Chicago",
+        "Washington, DC",
+        "New York"
+    ],
+    "Washington, DC": [
+        "Philadelphia",
+        "Atlanta",
+        "Chicago"
+    ],
+    "Phoenix": [
+        "Denver",
+        "Los Angeles",
+        "Dallas",
+        "San Diego",
+        "Mexico City",
+        "Houston"
+    ],
+    "Dallas": [
+        "Atlanta",
+        "Chicago",
+        "Denver",
+        "Phoenix",
+        "Houston"
+    ],
+    "Atlanta": [
+        "Washington, DC",
+        "Chicago",
+        "Dallas",
+        "Miami",
+        "Houston"
+    ],
+    "San Diego": [
+        "Los Angeles",
+        "Phoenix"
+    ],
+    "Houston": [
+        "Dallas",
+        "Mexico City",
+        "Phoenix",
+        "Atlanta"
+    ],
+    "Miami": [
+        "Atlanta"
+    ],
+    "Mexico City": [
+        "Medell\u00edn",
+        "Phoenix",
+        "Houston"
+    ],
+    "Medell\u00edn": [
+        "Bogot\u00e1",
+        "Mexico City",
+        "Quito"
+    ],
+    "Bogot\u00e1": [
+        "Medell\u00edn",
+        "Quito",
+        "Bras\u00edlia"
+    ],
+    "Quito": [
+        "Bogot\u00e1",
+        "Medell\u00edn",
+        "Lima",
+        "Bras\u00edlia"
+    ],
+    "Lima": [
+        "Quito",
+        "Bras\u00edlia",
+        "Santiago"
+    ],
+    "Curitiba": [
+        "Bras\u00edlia",
+        "Montevideo",
+        "Buenos Aires",
+        "Belo Horizonte",
+        "S\u00e3o Paulo"
+    ],
+    "Santiago": [
+        "Buenos Aires",
+        "Lima",
+        "Bras\u00edlia"
+    ],
+    "Buenos Aires": [
+        "Montevideo",
+        "Curitiba",
+        "Santiago",
+        "Bras\u00edlia"
+    ],
+    "Montevideo": [
+        "Buenos Aires",
+        "Curitiba"
+    ],
+    "Bucharest": [
+        "Belgrade",
+        "Sofia",
+        "Kyiv",
+        "Constantinople",
+        "Budapest"
+    ],
+    "Munich": [
+        "Geneva",
+        "Zurich",
+        "Luxembourg",
+        "Vienna",
+        "Prague",
+        "Ljubljana"
+    ],
+    "Paris": [
+        "Geneva",
+        "Zurich",
+        "Brussels",
+        "Luxembourg",
+        "Bordeaux"
+    ],
+    "Zurich": [
+        "Geneva",
+        "Paris",
+        "Luxembourg",
+        "Munich"
+    ],
+    "Budapest": [
+        "Belgrade",
+        "Kyiv",
+        "Krak\u00f3w",
+        "Bucharest",
+        "Vienna",
+        "Ljubljana"
+    ],
+    "Vienna": [
+        "Krak\u00f3w",
+        "Budapest",
+        "Munich",
+        "Prague",
+        "Ljubljana"
+    ],
+    "Luxembourg": [
+        "Zurich",
+        "Paris",
+        "Brussels",
+        "Amsterdam",
+        "Munich",
+        "Prague"
+    ],
+    "Prague": [
+        "Berlin",
+        "Krak\u00f3w",
+        "Luxembourg",
+        "Amsterdam",
+        "Vienna",
+        "Munich"
+    ],
+    "Brussels": [
+        "Amsterdam",
+        "Paris",
+        "Luxembourg"
+    ],
+    "Krak\u00f3w": [
+        "Berlin",
+        "Kyiv",
+        "Warsaw",
+        "Budapest",
+        "Vienna",
+        "Prague"
+    ],
+    "Kyiv": [
+        "K\u00f6nigsberg",
+        "Krak\u00f3w",
+        "Constantinople",
+        "Warsaw",
+        "Budapest",
+        "Bucharest",
+        "Moscow",
+        "Tehran",
+        "Riga"
+    ],
+    "Amsterdam": [
+        "Berlin",
+        "Brussels",
+        "Luxembourg",
+        "Hamburg",
+        "Prague"
+    ],
+    "Berlin": [
+        "Prague",
+        "K\u00f6nigsberg",
+        "Krak\u00f3w",
+        "Hamburg",
+        "Amsterdam",
+        "Warsaw"
+    ],
+    "Hamburg": [
+        "Amsterdam",
+        "Berlin"
+    ],
+    "Warsaw": [
+        "Berlin",
+        "Kyiv",
+        "Krak\u00f3w",
+        "K\u00f6nigsberg"
+    ],
+    "K\u00f6nigsberg": [
+        "Riga",
+        "Berlin",
+        "Kyiv",
+        "Warsaw"
+    ],
+    "Yekaterinburg": [
+        "Vladivostok",
+        "St. Petersburg",
+        "Almaty",
+        "Moscow",
+        "Tehran",
+        "Tashkent"
+    ],
+    "Riga": [
+        "Moscow",
+        "Kyiv",
+        "St. Petersburg",
+        "K\u00f6nigsberg"
+    ],
+    "Moscow": [
+        "Riga",
+        "Yekaterinburg",
+        "Kyiv",
+        "St. Petersburg"
+    ],
+    "Copenhagen": [
+        "Oslo",
+        "Stockholm"
+    ],
+    "Stockholm": [
+        "Copenhagen",
+        "Oslo",
+        "Helsinki"
+    ],
+    "Oslo": [
+        "Copenhagen",
+        "Stockholm"
+    ],
+    "St. Petersburg": [
+        "Riga",
+        "Moscow",
+        "Helsinki",
+        "Yekaterinburg"
+    ],
+    "Helsinki": [
+        "St. Petersburg",
+        "Stockholm"
+    ],
+    "Vladivostok": [
+        "Almaty",
+        "Yekaterinburg",
+        "Beijing",
+        "Seoul"
+    ],
+    "Vancouver": [
+        "Seattle",
+        "Minneapolis"
+    ],
+    "Seattle": [
+        "San Francisco",
+        "Denver",
+        "Vancouver",
+        "Minneapolis"
+    ],
+    "Seoul": [
+        "Beijing",
+        "Vladivostok"
+    ]
+}

@@ -250,24 +250,63 @@ func _host_generate_scenario() -> void:
 			if best != "":
 				temp_countries[best]["cities"].append(c_name)
 				
+		# Load land neighbors for connectivity checks
+		var city_neighbors = {}
+		if FileAccess.file_exists("res://src/data/city_land_neighbors.json"):
+			var n_file = FileAccess.open("res://src/data/city_land_neighbors.json", FileAccess.READ)
+			var n_json = JSON.new()
+			if n_json.parse(n_file.get_as_text()) == OK:
+				city_neighbors = n_json.data
+
+		var final_countries_count = 0
 		for temp_key in temp_countries.keys():
-			var c_list: Array[String] = []
+			var raw_c_list: Array[String] = []
 			for c in temp_countries[temp_key]["cities"]:
-				c_list.append(c as String)
+				raw_c_list.append(c as String)
 				
-			if c_list.is_empty():
+			if raw_c_list.is_empty():
 				continue
 				
-			var generated_name = CountryNameGenerator.generate_name(c_list)
-			var base_name = generated_name
-			var counter = 2
-			while countries.has(generated_name):
-				generated_name = base_name + " " + str(counter)
-				counter += 1
-				
-			countries[generated_name] = temp_countries[temp_key]
+			# Partition raw_c_list into connected landmass components via BFS
+			var unvisited = raw_c_list.duplicate()
+			var components = []
 			
-		print("Generated %d dynamic countries." % num_countries)
+			while unvisited.size() > 0:
+				var start_node = unvisited[0]
+				unvisited.remove_at(0)
+				
+				var current_component: Array[String] = [start_node]
+				var queue = [start_node]
+				
+				while queue.size() > 0:
+					var curr = queue[0]
+					queue.remove_at(0)
+					
+					if city_neighbors.has(curr):
+						for n in city_neighbors[curr]:
+							var n_str = n as String
+							if n_str in unvisited:
+								unvisited.erase(n_str)
+								current_component.append(n_str)
+								queue.append(n_str)
+								
+				components.append(current_component)
+				
+			for comp in components:
+				var generated_name = CountryNameGenerator.generate_name(comp)
+				var base_name = generated_name
+				var counter = 2
+				while countries.has(generated_name):
+					generated_name = base_name + " " + str(counter)
+					counter += 1
+					
+				countries[generated_name] = {
+					"cities": comp, 
+					"color": temp_countries[temp_key]["color"]
+				}
+				final_countries_count += 1
+			
+		print("Generated %d contiguous dynamic countries from %d regional clusters." % [final_countries_count, num_countries])
 		
 	NetworkManager.rpc("sync_initial_countries", countries)
 	set_process(true)
