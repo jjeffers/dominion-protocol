@@ -117,7 +117,7 @@ vertical_alignment = 1
 layout_mode = 1
 offset_left = 60.0
 offset_top = 60.0
-offset_right = 360.0
+offset_right = 460.0
 offset_bottom = 200.0
 
 [node name="CreditsLabel" type="Label" parent="EconomyStatusPanel"]
@@ -161,6 +161,45 @@ theme_override_font_sizes/font_size = 24
 text = "Nukes: 0"
 horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="DiplomaticStatusPanel" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 9
+anchor_bottom = 1.0
+offset_left = 60.0
+offset_top = 220.0
+offset_right = 460.0
+offset_bottom = -440.0
+grow_vertical = 2
+
+[node name="TitleLabel" type="Label" parent="DiplomaticStatusPanel"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 10.0
+offset_bottom = 40.0
+grow_horizontal = 2
+theme_override_font_sizes/font_size = 20
+text = "Diplomatic Status"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ScrollContainer" type="ScrollContainer" parent="DiplomaticStatusPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 50.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 2
+horizontal_scroll_mode = 0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="DiplomaticStatusPanel/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
 
 [node name="PurchaseMenu" type="Panel" parent="."]
 visible = false
@@ -293,7 +332,7 @@ anchor_top = 1.0
 anchor_bottom = 1.0
 offset_left = 60.0
 offset_top = -420.0
-offset_right = 360.0
+offset_right = 460.0
 offset_bottom = -60.0
 grow_vertical = 0
 

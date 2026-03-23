@@ -17,7 +17,7 @@
             "oil": [],
             "money": 10,
             "fuel": 0,
-            "nukes": 1,
+            "nukes": 0,
             "units": [
                 {
                     "type": "infantry",
@@ -88,7 +88,7 @@
             "oil": [],
             "money": 10,
             "fuel": 0,
-            "nukes": 1,
+            "nukes": 0,
             "units": [
                 {
                     "type": "infantry",
@@ -103,49 +103,49 @@
                 {
                     "type": "infantry",
                     "entrenched": true,
-                    "latitude": 48.8,
-                    "longitude": 9.2,
-                    "notes": "Near Stuttgart / Black Forest"
+                    "latitude": 53.2,
+                    "longitude": 10.1,
+                    "notes": "Red Border North 1"
                 },
                 {
                     "type": "infantry",
                     "entrenched": true,
-                    "latitude": 49.0,
-                    "longitude": 8.4,
-                    "notes": "Near Karlsruhe"
-                },
-                {
-                    "type": "infantry",
-                    "entrenched": true,
-                    "latitude": 49.5,
-                    "longitude": 8.5,
-                    "notes": "Near Mannheim"
-                },
-                {
-                    "type": "infantry",
-                    "entrenched": true,
-                    "latitude": 50.1,
-                    "longitude": 8.7,
-                    "notes": "Near Frankfurt"
-                },
-                {
-                    "type": "infantry",
-                    "entrenched": true,
-                    "latitude": 50.9,
-                    "longitude": 7.0,
-                    "notes": "Near Cologne"
-                },
-                {
-                    "type": "armor",
-                    "latitude": 52.9,
-                    "longitude": 7.5,
-                    "notes": "Between Hamburg and Amsterdam"
-                },
-                {
-                    "type": "armor",
                     "latitude": 52.8,
-                    "longitude": 6.5,
-                    "notes": "Between Hamburg and Amsterdam"
+                    "longitude": 10.2,
+                    "notes": "Red Border North 2"
+                },
+                {
+                    "type": "infantry",
+                    "entrenched": true,
+                    "latitude": 52.4,
+                    "longitude": 10.3,
+                    "notes": "Red Border North 3"
+                },
+                {
+                    "type": "infantry",
+                    "entrenched": true,
+                    "latitude": 52.0,
+                    "longitude": 10.5,
+                    "notes": "Red Border Mid 1"
+                },
+                {
+                    "type": "infantry",
+                    "entrenched": true,
+                    "latitude": 51.5,
+                    "longitude": 10.6,
+                    "notes": "Red Border Mid 2"
+                },
+                {
+                    "type": "armor",
+                    "latitude": 51.0,
+                    "longitude": 10.8,
+                    "notes": "Red Border South 1"
+                },
+                {
+                    "type": "armor",
+                    "latitude": 50.5,
+                    "longitude": 10.9,
+                    "notes": "Red Border South 2"
                 },
                 {
                     "type": "air",

@@ -795,10 +795,20 @@ func _generate_mesh() -> void:
 			push_error("GlobeView: Failed to load biome_map.png image")
 	else:
 		push_error("GlobeView: Failed to load globe_mesh.res!")
+var _violation_log_cooldowns: Dictionary = {}
 
 func _process(delta: float) -> void:
 	if not camera:
 		return
+		
+	var cooldowns_to_erase = []
+	for key in _violation_log_cooldowns.keys():
+		if _violation_log_cooldowns[key] > 0:
+			_violation_log_cooldowns[key] -= delta
+		if _violation_log_cooldowns[key] <= 0:
+			cooldowns_to_erase.append(key)
+	for key in cooldowns_to_erase:
+		_violation_log_cooldowns.erase(key)
 		
 	# Handle Zoom Interpolation
 	if camera.transform.origin.z != target_zoom:
@@ -1052,8 +1062,11 @@ func _process_diplomacy() -> void:
 			var c_name = ""
 			
 			if region_city_name != "" and active_scenario.has("countries"):
-				if active_scenario["countries"].has(region_city_name):
-					c_name = region_city_name
+				for country in active_scenario["countries"].keys():
+					var c_data = active_scenario["countries"][country]
+					if c_data.has("cities") and c_data["cities"].has(region_city_name):
+						c_name = country
+						break
 							
 			if c_name != "":
 				var is_neutral = false
@@ -1168,9 +1181,18 @@ func sync_diplomatic_penalty(country_name: String, faction: String, penalty: flo
 	var current_opinion = c_data["opinions"].get(faction, 0.0)
 	c_data["opinions"][faction] = current_opinion - penalty
 	
+	if ConsoleManager and log_reason == "Invasion":
+		var col = "red" if faction.to_lower() == "red" else "#3388ff"
+		var f_str = "[color=" + col + "]" + faction + "[/color]"
+		var should_log = (current_opinion == 0.0) or (current_opinion > -99.0 and int(abs(current_opinion)) % 10 == 0)
+		
+		var cooldown_key = faction + "_" + country_name
+		if should_log and not _violation_log_cooldowns.has(cooldown_key):
+			ConsoleManager.log_message("SYSTEM: " + f_str + " forces violated the neutrality of " + country_name + "!")
+			_violation_log_cooldowns[cooldown_key] = 300.0
+			
 	# Suppressed localized console messages about basic alignment deteriorations per user request.
 	# Major defection announcements remain managed inside `_evaluate_country_alignment()`.
-	
 	var main_node = get_node_or_null("/root/Main")
 	if main_node and main_node.has_method("_update_diplomacy_ui"):
 		main_node._update_diplomacy_ui()
@@ -2576,34 +2598,36 @@ func _do_generate_faction_borders() -> void:
 	print("GlobeView: Generating Dynamic Faction Borders...")
 	outline_immediate_mesh.clear_surfaces()
 	
+	# Pre-cache city ownership to bypass O(N^2) 40k loop latency locks
+	var city_to_owner = {}
+	if active_scenario.has("factions"):
+		for f_name in active_scenario["factions"]:
+			var f_cities = active_scenario["factions"][f_name].get("cities", [])
+			var c = Color(active_scenario["factions"][f_name].get("color", "#333333"))
+			for city in f_cities:
+				city_to_owner[city] = {"owner": f_name, "color": c}
+				
+	if active_scenario.has("countries"):
+		for c_name in active_scenario["countries"]:
+			var c_cities = active_scenario["countries"][c_name].get("cities", [])
+			var c = Color(active_scenario["countries"][c_name].get("color", "#333333"))
+			for city in c_cities:
+				if not city_to_owner.has(city):
+					city_to_owner[city] = {"owner": c_name, "color": c}
+	
 	# Track edges we've already drawn so we don't draw overlapping lines
 	var drawn_edges = {}
 	var edges_by_faction = {}
 	
 	for tile_id in map_data._region_map.keys():
 		var owner_city = map_data._region_map[tile_id]
-		# Find which faction owns this city
 		var owning_faction = ""
 		var faction_color = Color(0.2, 0.2, 0.2, 1.0)
 		
-		# Reverse lookup faction from city name
-		if active_scenario.has("factions"):
-			for f_name in active_scenario["factions"]:
-				var f_data = active_scenario["factions"][f_name]
-				if f_data.has("cities") and owner_city in f_data["cities"]:
-					owning_faction = f_name
-					if f_data.has("color"):
-						faction_color = Color(f_data["color"])
-					break
-					
-		if owning_faction == "" and active_scenario.has("countries"):
-			for c_name in active_scenario["countries"]:
-				var c_data = active_scenario["countries"][c_name]
-				if c_data.has("cities") and owner_city in c_data["cities"]:
-					owning_faction = c_name
-					if c_data.has("color"):
-						faction_color = Color(c_data["color"])
-					break
+		var cached = city_to_owner.get(owner_city, null)
+		if cached:
+			owning_faction = cached.owner
+			faction_color = cached.color
 					
 		if owning_faction == "":
 			continue # Neutral or un-configured cities don't get borders for now
@@ -2614,16 +2638,9 @@ func _do_generate_faction_borders() -> void:
 			var n_faction = ""
 			
 			if n_owner != "":
-				if active_scenario.has("factions"):
-					for f_name in active_scenario["factions"]:
-						if active_scenario["factions"][f_name].has("cities") and n_owner in active_scenario["factions"][f_name]["cities"]:
-							n_faction = f_name
-							break
-				if n_faction == "" and active_scenario.has("countries"):
-					for c_name in active_scenario["countries"]:
-						if active_scenario["countries"][c_name].has("cities") and n_owner in active_scenario["countries"][c_name]["cities"]:
-							n_faction = c_name
-							break
+				var n_cached = city_to_owner.get(n_owner, null)
+				if n_cached:
+					n_faction = n_cached.owner
 							
 			# We draw a line ONLY if the neighboring tile is owned by a different faction, 
 			# or if it's unowned (wilderness), BUT NOT if it is water (ocean/lake).
