@@ -270,6 +270,11 @@ func _find_high_value_target() -> Node3D:
 		if t.name in enemy_capitols:
 			dist *= 0.1 
 			
+		var t_faction = globe_view._get_city_faction(t.name)
+		if t_faction == "neutral":
+			# Huge penalty for targeting neutral neutral cities to avoid the -100 opinion penalty
+			dist *= 10.0
+			
 		# Structural noise generation (10% variance) breaks deterministic array cycling permanently
 		dist *= randf_range(0.9, 1.1)
 		
@@ -415,6 +420,20 @@ func _handle_attacking() -> void:
 								if is_valid:
 									var n_pos = globe_view.map_data.get_centroid(n).normalized() * globe_view.radius
 									var dist = u.global_position.distance_to(n_pos)
+									
+									if u_type in ["Infantry", "Armor"]:
+										var c_name = globe_view.map_data.get_region(n)
+										if c_name != "" and globe_view.active_scenario.has("countries") and globe_view.active_scenario["countries"].has(c_name):
+											var is_neutral = false
+											var c_data = globe_view.active_scenario["countries"][c_name]
+											if c_data.has("cities"):
+												for city in c_data["cities"]:
+													if globe_view.active_scenario.has("neutral_cities") and globe_view.active_scenario["neutral_cities"].has(city):
+														is_neutral = true
+														break
+											if is_neutral:
+												dist *= 15.0 # High penalty for pathing into neutral borders to flank!
+									
 									if dist < min_dist:
 										min_dist = dist
 										best_neighbor = n
@@ -474,6 +493,7 @@ func _handle_air_ops() -> void:
 		
 		for enemy in globe_view.units_list:
 			if is_instance_valid(enemy) and not enemy.get("is_dead") and enemy.get("faction_name") != faction_name:
+				if not enemy.sprite.visible: continue
 				var dist = unit_pos.distance_to(enemy.global_position)
 				if dist <= strike_radius and dist < min_dist:
 					min_dist = dist
@@ -519,6 +539,7 @@ func _get_closest_enemy(unit: Node3D) -> Node3D:
 	var is_sea_unit = unit.get("unit_type") in ["Cruiser", "Submarine"]
 	for other in globe_view.units_list:
 		if is_instance_valid(other) and other != unit and not other.get("is_dead") and other.get("faction_name") != faction_name:
+			if not other.sprite.visible: continue
 			if other.get("unit_type") == "Submarine" and not other.get("is_detected"):
 				continue # AI cannot target hidden submarines out of fairness
 				
@@ -554,6 +575,18 @@ func _get_closest_enemy(unit: Node3D) -> Node3D:
 	return best
 
 func _issue_move_order(unit: Node3D, target_pos: Vector3, enemy_target_name: String = "") -> void:
+	# Debounce identical move orders to fundamentally prevent RPC spam and infinite looping lockups
+	var last_pos = unit.get_meta("last_ordered_target_pos", Vector3.INF)
+	var last_enemy = unit.get_meta("last_ordered_enemy", "NONE")
+	var last_time = unit.get_meta("last_ordered_time", 0)
+	
+	if last_pos.distance_to(target_pos) < 0.005 and last_enemy == enemy_target_name and (Time.get_ticks_msec() - last_time) < 3000:
+		return # Suppression: We already gave this exact instruction recently!
+	
+	unit.set_meta("last_ordered_target_pos", target_pos)
+	unit.set_meta("last_ordered_enemy", enemy_target_name)
+	unit.set_meta("last_ordered_time", Time.get_ticks_msec())
+
 	# Use network manager to sync movement, ensuring parity with players
 	if network_manager and network_manager.is_host:
 		network_manager.rpc("sync_unit_target", unit.name, target_pos, enemy_target_name)
@@ -645,6 +678,7 @@ func _handle_nuke_ops() -> void:
 			potential_targets.append(cn.global_position)
 	for u in globe_view.units_list:
 		if is_instance_valid(u) and not u.get("is_dead") and u.get("faction_name") != faction_name:
+			if not u.sprite.visible: continue
 			potential_targets.append(u.global_position)
 			
 	var inner_rad = 1.35 * 0.006
@@ -667,9 +701,19 @@ func _handle_nuke_ops() -> void:
 				var d = t_pos.distance_to(u.global_position)
 				if d <= inner_rad:
 					if u.get("faction_name") == faction_name:
-						score -= 50.0
+						score -= 50.0 # Don't nuke yourself
 					else:
-						score += 10.0
+						var enemy_t_id = globe_view._get_tile_from_vector3(u.global_position)
+						var enemy_country = globe_view.map_data.get_region(enemy_t_id)
+						var is_in_own_borders = false
+						if enemy_country != "" and globe_view.active_scenario.has("countries") and globe_view.active_scenario["countries"].has(enemy_country):
+							if globe_view._get_city_faction(globe_view.active_scenario["countries"][enemy_country].get("cities", [""])[0]) == faction_name:
+								is_in_own_borders = true
+						
+						if is_in_own_borders:
+							score += 10.0 # Good, clearing own borders
+						else:
+							score += 5.0 # Less ideal, just hitting enemies broadly
 				elif d <= outer_rad:
 					if u.get("faction_name") == faction_name:
 						score -= 20.0
@@ -683,11 +727,16 @@ func _handle_nuke_ops() -> void:
 				if d <= inner_rad:
 					var city_fac = globe_view._get_city_faction(cn.name)
 					if city_fac == faction_name:
-						score -= 100.0
+						score -= 100.0 # Never nuke own cities
 					elif city_fac == "neutral":
-						score -= 5.0
+						score -= 200.0 # Extreme diplomatic penalty for nuking neutrals
 					else:
-						score += 15.0
+						# If allied:
+						var my_fac = globe_view.active_scenario["factions"][faction_name]
+						if my_fac.has("allies") and my_fac["allies"].has(city_fac):
+							score -= 100.0
+						else:
+							score += 15.0 # Enemy city
 						
 		# Final Evaluation Variance
 		# Inject a +/- 40% noise into the score so it won't always perfectly target the absolute geometric epicenter
@@ -698,9 +747,10 @@ func _handle_nuke_ops() -> void:
 			best_score = score
 			best_target_pos = t_pos
 			
-	# Threshold: 14 means at least 1 city (+15) or >1 enemy units.
-	# Randomize the threshold (14 to 22) so it occasionally "holds fire" waiting for a juicier target
-	var dynamic_threshold = randf_range(14.0, 22.0)
+	# Due to the severe diplomatic penalties for launching nukes at all, the AI requires a much higher threshold to justify the launch.
+	# Threshold: 25 means at least 1 city (+15) and 1 enemy in borders (+10), or 5 enemies outside borders (+25).
+	# Randomize the threshold (25 to 35) so it occasionally "holds fire" waiting for a juicier target
+	var dynamic_threshold = randf_range(25.0, 35.0)
 	if best_score >= dynamic_threshold:
 		if network_manager and network_manager.is_host:
 			globe_view.request_nuke_launch(best_target_pos, faction_name)

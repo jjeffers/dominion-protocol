@@ -632,9 +632,12 @@ func _update_economy_ui() -> void:
 		if fac_data.has("cities"):
 			controlled_cities = fac_data["cities"].size()
 			
-	credits_label.text = "Credits: %.0f" % floor(credits)
+	credits_label.text = "Credits: %.0f (P - Buy)" % floor(credits)
 	cities_label.text = "Cities: %d/%d" % [controlled_cities, total_cities]
-	nukes_label.text = "Nukes: " + str(nukes)
+	if nukes > 0:
+		nukes_label.text = "Nukes: %d (N - Nuke)" % nukes
+	else:
+		nukes_label.text = "Nukes: 0"
 	
 	if nuke_hint_prompt:
 		if nukes > 0:
