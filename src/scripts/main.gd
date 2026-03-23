@@ -22,7 +22,7 @@ var hovered_c_name: String = ""
 
 @onready var economy_panel: Panel = $EconomyStatusPanel
 @onready var credits_label: Label = $EconomyStatusPanel/CreditsLabel
-@onready var cities_label: Label = $EconomyStatusPanel/CitiesLabel
+@onready var cities_label = $EconomyStatusPanel/CitiesLabel
 @onready var nukes_label: Label = $EconomyStatusPanel/NukesLabel
 
 @onready var diplomacy_panel: Panel = $DiplomaticStatusPanel
@@ -65,6 +65,20 @@ const TERRAIN_COLORS: Dictionary = {
 var is_async_setup: bool = false
 
 func _ready() -> void:
+	# 0. Upgrade CitiesLabel to natively support BBCode HTML fraction strings
+	var old_cities = cities_label
+	cities_label = RichTextLabel.new()
+	cities_label.name = "CitiesLabelRT"
+	cities_label.layout_mode = 1
+	cities_label.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	cities_label.offset_top = -90.0
+	cities_label.offset_bottom = -50.0
+	cities_label.bbcode_enabled = true
+	cities_label.scroll_active = false
+	cities_label.add_theme_font_size_override("normal_font_size", 24)
+	old_cities.get_parent().add_child(cities_label)
+	old_cities.queue_free()
+
 	# 1. Initialize Canonical Data
 	map_data = MapData.new()
 	
@@ -621,19 +635,37 @@ func _update_economy_ui() -> void:
 	if nm and nm.players.has(local_id):
 		local_faction = nm.players[local_id].get("faction", "")
 	var credits = 0.0
-	var controlled_cities = 0
+	var my_cities = 0
+	var my_color = "#FFFFFF"
+	var enemy_cities = 0
+	var enemy_color = "#FFFFFF"
 	var total_cities = active_cities.size()
+	if globe_view and globe_view.get("city_nodes"):
+		total_cities = globe_view.city_nodes.size()
 	var nukes = 0
 	
-	if local_faction != "" and scenario_data.has("factions") and scenario_data["factions"].has(local_faction):
-		var fac_data = scenario_data["factions"][local_faction]
-		credits = fac_data.get("money", 0.0)
-		nukes = fac_data.get("nukes", 0)
-		if fac_data.has("cities"):
-			controlled_cities = fac_data["cities"].size()
+	if local_faction != "" and scenario_data.has("factions"):
+		if scenario_data["factions"].has(local_faction):
+			var fac_data = scenario_data["factions"][local_faction]
+			credits = fac_data.get("money", 0.0)
+			nukes = fac_data.get("nukes", 0)
+			
+		for fac in scenario_data["factions"].keys():
+			var f_data = scenario_data["factions"][fac]
+			var count = 0
+			if f_data.has("cities"): count = f_data["cities"].size()
+			if fac == local_faction:
+				my_cities = count
+				my_color = f_data.get("color", "#FFFFFF")
+			elif not f_data.get("eliminated", false):
+				enemy_cities += count
+				enemy_color = f_data.get("color", "#FFFFFF")
+				
+	var neutral_cities_count = total_cities - (my_cities + enemy_cities)
+	if neutral_cities_count < 0: neutral_cities_count = 0
 			
 	credits_label.text = "Credits: %.0f (P - Buy)" % floor(credits)
-	cities_label.text = "Cities: %d/%d" % [controlled_cities, total_cities]
+	cities_label.text = "[center]Cities: [color=%s]%d[/color] / [color=%s]%d[/color] / [color=#AAAAAA]%d[/color][/center]" % [my_color, my_cities, enemy_color, enemy_cities, neutral_cities_count]
 	if nukes > 0:
 		nukes_label.text = "Nukes: %d (N - Nuke)" % nukes
 	else:

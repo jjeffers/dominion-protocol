@@ -1120,12 +1120,7 @@ func _evaluate_country_alignment(country_name: String, triggering_faction: Strin
 			if ConsoleManager:
 				ConsoleManager.log_message("SYSTEM: " + country_name + " has declared neutrality and formally withdrawn from the " + current_faction + " alliance.")
 			for city in c_data["cities"]:
-				active_scenario["factions"][current_faction]["cities"].erase(city)
-				if not active_scenario.has("neutral_cities"):
-					active_scenario["neutral_cities"] = []
-				active_scenario["neutral_cities"].append(city)
-				city_captured.emit(city, "neutral", current_faction)
-			_generate_faction_borders()
+				rpc("sync_city_capture", city, "neutral", current_faction)
 			is_neutral = true
 			current_faction = ""
 			
@@ -1162,12 +1157,7 @@ func _evaluate_country_alignment(country_name: String, triggering_faction: Strin
 					var f_str = "[color=" + col + "]" + best_fac + "[/color]"
 					ConsoleManager.log_message("SYSTEM: " + country_name + " has joined the " + f_str + " alliance!")
 				for city in c_data["cities"]:
-					active_scenario["neutral_cities"].erase(city)
-					if not active_scenario["factions"][best_fac].has("cities"):
-						active_scenario["factions"][best_fac]["cities"] = []
-					active_scenario["factions"][best_fac]["cities"].append(city)
-					city_captured.emit(city, best_fac, "neutral")
-				_generate_faction_borders()
+					rpc("sync_city_capture", city, best_fac, "neutral")
 
 @rpc("authority", "call_local", "reliable")
 func sync_diplomatic_penalty(country_name: String, faction: String, penalty: float, log_reason: String = "") -> void:
