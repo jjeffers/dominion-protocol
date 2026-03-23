@@ -87,7 +87,6 @@ Yekaterinburg
 Accra
 Ljubljana
 Kraków
-Belo Horizonte
 Dakar
 Tashkent
 Brasília
@@ -102,3 +101,9 @@ Beijing
 Vladivostok
 Manila
 Tehran
+Havanna
+Caracas
+Sao Luis
+Dublin
+Reykjavik
+

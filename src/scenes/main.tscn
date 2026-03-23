@@ -324,6 +324,20 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = " Purchase "
 
+[node name="ForeignAidRow" type="HBoxContainer" parent="PurchaseMenu/VBoxContainer"]
+layout_mode = 2
+
+[node name="UnitName" type="Label" parent="PurchaseMenu/VBoxContainer/ForeignAidRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 24
+text = "Foreign Aid (10c)"
+
+[node name="PurchaseForeignAidBtn" type="Button" parent="PurchaseMenu/VBoxContainer/ForeignAidRow"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = " Purchase "
+
 [node name="UnitStatusPanel" type="Panel" parent="."]
 visible = false
 layout_mode = 1

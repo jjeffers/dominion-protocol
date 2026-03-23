@@ -137,6 +137,60 @@ func _handle_production() -> void:
 				target_purchase_cost = 20.0
 				
 		if target_purchase == "":
+			if capability_level >= 1 and main_scene.scenario_data.has("countries"):
+				var best_fa_country = ""
+				var best_fa_score = 0.0
+				
+				for c_name in main_scene.scenario_data["countries"].keys():
+					var c_data = main_scene.scenario_data["countries"][c_name]
+					var num_cities = c_data.get("cities", []).size()
+					if num_cities == 0: continue
+					
+					var current_op = c_data.get("opinions", {}).get(faction_name, 0.0)
+					if current_op >= 50.0: continue # already allied
+					
+					var shift = 100.0 / float(num_cities)
+					var new_op = current_op + shift
+					
+					var score = shift
+					
+					if current_op < 50.0 and new_op >= 50.0:
+						score += 150.0 
+					elif current_op < 0.0 and new_op >= 0.0:
+						score += 100.0 
+						
+					# Penalize if heavily garrisoned by enemies
+					var enemy_garrison = 0
+					var friend_garrison = 0
+					
+					for c_city in c_data.get("cities", []):
+						var c_pos = Vector3.ZERO
+						for cn in globe_view.city_nodes:
+							if cn.name == "Unit_City_" + c_city:
+								c_pos = cn.global_position
+								break
+						if c_pos != Vector3.ZERO:
+							for u in globe_view.units_list:
+								if is_instance_valid(u) and not u.get("is_dead"):
+									if u.current_position.distance_to(c_pos) < 0.05:
+										if u.get("faction_name") == faction_name:
+											friend_garrison += 1
+										elif u.get("faction_name") != faction_name: # any enemy
+											enemy_garrison += 1
+					
+					if enemy_garrison > friend_garrison:
+						score -= (enemy_garrison - friend_garrison) * 20.0
+						
+					if score > best_fa_score:
+						best_fa_score = score
+						best_fa_country = c_name
+						
+				if best_fa_country != "" and best_fa_score > 30.0: 
+					if randf() < 0.6: 
+						target_purchase = "Foreign Aid:" + best_fa_country
+						target_purchase_cost = 10.0
+
+		if target_purchase == "":
 			if capability_level > 1:
 				# Intelligent composition: Look at enemy units
 				var enemy_has_air = false
@@ -187,6 +241,12 @@ func _handle_production() -> void:
 				globe_view.rpc("sync_nuke_purchase", faction_name, 20.0)
 			else:
 				globe_view.sync_nuke_purchase(faction_name, 20.0)
+		elif target_purchase.begins_with("Foreign Aid:"):
+			var target_country = target_purchase.split(":")[1]
+			if network_manager and network_manager.multiplayer.has_multiplayer_peer() and network_manager.multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
+				globe_view.rpc("request_foreign_aid", target_country, faction_name)
+			else:
+				globe_view.request_foreign_aid(target_country, faction_name)
 		else:
 			# Find an available city (no cooldown)
 			var best_city = ""

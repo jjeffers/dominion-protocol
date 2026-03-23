@@ -10,6 +10,7 @@ trigger: always_on
 3. The agent MUST parse the output. If "FAILED" is present in the results, the agent MUST immediately revert the change or fix the logic.
 4. If the agent creates a *new* test file, it must add that file to the relevant test suite configuration before running.
 5. Test files are placed in the appropriate test/ directory.
+6. Use the test_runner.md workflow.
 
 **Invariants:**
 - Never commit code that breaks the existing ship combat mechanics.

@@ -1,0 +1,13 @@
+# Foreign Aid
+- Foreign Aid is a purchasable item that can be bought for 10 credits.
+- When Foregn Aid is purchases, the player will see a bracket image that follows the mouse. All cities other than the original faction cities are eligible and will be highlighted.
+- When the left mouse button is clicked, the foreign aid is delivered to the selected city.
+- When foreign aid is delivered to a city, that country's opinion will shift an amount equal to (100/that country's total cities).
+    - Enemy allied countries will shift their diplomatic opinion of the current aligned faction down until it reaches 0.
+    - Neutral countries will shift their diplomatic opinion of the faction sending foreign aid up until it reaches 100.
+    - Friendly allied countries will shift their diplomatic opinion of the current aligned faction up until it reaches 100.
+- For example a country with 1 city given Foreign Aid by a faction will shift that city's opinion by +100.
+- For example a country city with 10 cities given Foreign Aid by a faction will shift that city's opinion by +10.
+- It is posible to shift a country from an enemy allied country to nuetral, or from a neutral country to an allied country.
+- When a Foreign Aid is delivered, a console and news message is created identifying the faction and the country receiving the foreign aid.
+- It should be noted that the best way to defend against Foreign Aid is to garrison cities with friendly armies. If a country becomes unaligned, it can be rapidly retaken.

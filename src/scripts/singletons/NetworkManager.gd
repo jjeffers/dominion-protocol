@@ -141,7 +141,7 @@ func _on_peer_disconnected(id: int):
 			
 		if "[BOT]" in p_name:
 			if get_tree().root.has_node("ConsoleManager"):
-				get_tree().root.get_node("ConsoleManager").log_message("%s has disconnected." % p_name, Color.GRAY)
+				get_tree().root.get_node("ConsoleManager").log_message("%s has disconnected." % p_name)
 				
 		players.erase(id)
 	if is_host:

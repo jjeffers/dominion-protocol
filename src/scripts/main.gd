@@ -35,6 +35,7 @@ var hovered_c_name: String = ""
 @onready var purchase_cruiser_btn: Button = $PurchaseMenu/VBoxContainer/CruiserRow/PurchaseCruiserBtn
 @onready var purchase_submarine_btn: Button = $PurchaseMenu/VBoxContainer/SubmarineRow/PurchaseSubmarineBtn
 @onready var purchase_nuke_btn: Button = $PurchaseMenu/VBoxContainer/NukeRow/PurchaseNukeBtn
+@onready var purchase_foreign_aid_btn: Button = $PurchaseMenu/VBoxContainer/ForeignAidRow/PurchaseForeignAidBtn
 
 var city_icon: TextureRect
 var map_data: MapData
@@ -114,6 +115,7 @@ func _ready() -> void:
 	purchase_cruiser_btn.pressed.connect(_on_purchase_cruiser)
 	purchase_submarine_btn.pressed.connect(_on_purchase_submarine)
 	purchase_nuke_btn.pressed.connect(_on_purchase_nuke)
+	purchase_foreign_aid_btn.pressed.connect(_on_purchase_foreign_aid)
 	
 	# Initialize HUD State
 	terrain_panel.hide()
@@ -278,6 +280,10 @@ func _on_purchase_cruiser() -> void:
 func _on_purchase_submarine() -> void:
 	purchase_menu.hide()
 	globe_view.start_deployment("Submarine", 35.0)
+
+func _on_purchase_foreign_aid() -> void:
+	purchase_menu.hide()
+	globe_view.start_foreign_aid_purchase()
 
 func _on_purchase_nuke() -> void:
 	purchase_menu.hide()
@@ -684,6 +690,7 @@ func _update_economy_ui() -> void:
 	purchase_cruiser_btn.disabled = credits < 50.0
 	purchase_submarine_btn.disabled = credits < 35.0
 	purchase_nuke_btn.disabled = credits < 20.0
+	purchase_foreign_aid_btn.disabled = credits < 10.0
 	
 	_update_diplomacy_ui()
 
@@ -715,7 +722,8 @@ func _do_update_diplomacy_ui() -> void:
 		var c_data = scenario_data["countries"][c_name]
 		if c_data.has("cities") and c_data["cities"].size() > 0:
 			var op = c_data.get("opinions", {}).get(local_faction, 0.0)
-			countries_list.append({"name": c_name, "opinion": op})
+			var num_cities = c_data["cities"].size()
+			countries_list.append({"name": c_name, "opinion": op, "cities": num_cities})
 		
 	countries_list.sort_custom(func(a, b): return a["opinion"] > b["opinion"])
 	
@@ -727,7 +735,7 @@ func _do_update_diplomacy_ui() -> void:
 		var hb = HBoxContainer.new()
 		
 		var name_lbl = Label.new()
-		name_lbl.text = c_item["name"]
+		name_lbl.text = c_item["name"] + " (" + str(c_item["cities"]) + ")"
 		name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		name_lbl.add_theme_font_size_override("font_size", 24)
 		

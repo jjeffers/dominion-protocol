@@ -43,6 +43,8 @@ var selected_unit_mesh: MeshInstance3D
 var target_bracket: Sprite3D
 var air_strike_bracket: Sprite3D
 var air_redeploy_bracket: Sprite3D
+var foreign_aid_bracket: Sprite3D
+var is_deploying_foreign_aid: bool = false
 
 # List of 3D positional nodes to trace against the camera horizon
 var cullable_nodes: Array[Node3D] = []
@@ -256,6 +258,21 @@ func _ready() -> void:
 	air_redeploy_bracket.visible = false
 	add_child(air_redeploy_bracket)
 	
+	foreign_aid_bracket = Sprite3D.new()
+	var fab_tex = load("res://src/assets/target_bracket.png") as Texture2D
+	if fab_tex:
+		foreign_aid_bracket.texture = fab_tex
+		var fab_mat = StandardMaterial3D.new()
+		fab_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		fab_mat.albedo_texture = fab_tex
+		fab_mat.albedo_color = Color(1.0, 1.0, 1.0) # White
+		fab_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		fab_mat.no_depth_test = true
+		fab_mat.render_priority = 22
+		foreign_aid_bracket.material_override = fab_mat
+	foreign_aid_bracket.visible = false
+	add_child(foreign_aid_bracket)
+	
 	# Instantiate deployment ghost
 	deployment_ghost = Sprite3D.new()
 	if t_tex:
@@ -271,6 +288,15 @@ func _ready() -> void:
 	deployment_ghost.material_override = dep_mat
 	deployment_ghost.visible = false
 	add_child(deployment_ghost)
+
+func start_foreign_aid_purchase() -> void:
+	is_deploying_foreign_aid = true
+	# Deselect any active units
+	if selected_unit:
+		selected_unit.set_selected(false)
+		selected_unit = null
+		if target_bracket: target_bracket.visible = false
+	_update_city_highlights(true, false, false, true)
 
 func start_deployment(unit_type: String, cost: float) -> void:
 	deploying_unit_type = unit_type
@@ -978,11 +1004,19 @@ func _unhandled_input(event: InputEvent) -> void:
 			deploying_unit_type = ""
 			deployment_ghost.visible = false
 			_update_city_highlights(false)
+		if is_deploying_foreign_aid:
+			is_deploying_foreign_aid = false
+			if foreign_aid_bracket: foreign_aid_bracket.visible = false
+			_update_city_highlights(false)
 			
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 		if deploying_unit_type != "":
 			deploying_unit_type = ""
 			deployment_ghost.visible = false
+			_update_city_highlights(false)
+		if is_deploying_foreign_aid:
+			is_deploying_foreign_aid = false
+			if foreign_aid_bracket: foreign_aid_bracket.visible = false
 			_update_city_highlights(false)
 			
 	if event is InputEventMouseButton:
@@ -1125,6 +1159,30 @@ func _evaluate_country_alignment(country_name: String, triggering_faction: Strin
 			current_faction = ""
 			
 	if is_neutral:
+		# Check if it likes someone enough to join their faction directly
+		var loves_faction = ""
+		for f_name in c_data["opinions"].keys():
+			if c_data["opinions"][f_name] >= 50.0 and f_name == triggering_faction:
+				loves_faction = f_name
+				break
+				
+		if loves_faction == "":
+			for f_name in c_data["opinions"].keys():
+				if c_data["opinions"][f_name] >= 50.0:
+					loves_faction = f_name
+					break
+					
+		if loves_faction != "":
+			if active_scenario.has("factions") and active_scenario["factions"].has(loves_faction) and not active_scenario["factions"][loves_faction].get("eliminated", false):
+				print("DIPLOMACY: ", country_name, " has joined the ", loves_faction, " faction due to high opinion!")
+				if ConsoleManager:
+					var col = "red" if loves_faction.to_lower() == "red" else "#3388ff"
+					var f_str = "[color=" + col + "]" + loves_faction + "[/color]"
+					ConsoleManager.log_message("SYSTEM: " + country_name + " has joined the " + f_str + " alliance!")
+				for city in c_data["cities"]:
+					rpc("sync_city_capture", city, loves_faction, "neutral")
+				return
+				
 		# Check if it hates someone enough to join their enemy
 		var hates_faction = ""
 		for f_name in c_data["opinions"].keys():
@@ -1267,7 +1325,9 @@ func sync_city_capture(city_name: String, new_faction: String, old_faction: Stri
 		if network_manager and network_manager.is_host and active_scenario.has("countries"):
 			for c_name in active_scenario["countries"].keys():
 				if active_scenario["countries"][c_name].has("cities") and city_name in active_scenario["countries"][c_name]["cities"]:
-					rpc("sync_diplomatic_penalty", c_name, new_faction, 100.0, "Captured Neutral City")
+					var op = active_scenario["countries"][c_name].get("opinions", {}).get(new_faction, 0.0)
+					if op < 50.0:
+						rpc("sync_diplomatic_penalty", c_name, new_faction, 100.0, "Captured Neutral City")
 					break
 					
 		if active_scenario.has("neutral_cities"):
@@ -1352,6 +1412,79 @@ func sync_nuke_purchase(faction: String, cost: float) -> void:
 		var main_node = get_node_or_null("/root/Main")
 		if main_node and main_node.has_method("_update_economy_ui"):
 			main_node._update_economy_ui()
+
+@rpc("any_peer", "call_local", "reliable")
+func request_foreign_aid(country_name: String, faction: String) -> void:
+	if not multiplayer.has_multiplayer_peer() or multiplayer.is_server():
+		if not active_scenario.has("countries") or not active_scenario.has("factions"): return
+		var c_data = active_scenario["countries"].get(country_name)
+		var fac_data = active_scenario["factions"].get(faction)
+		if not c_data or not fac_data: return
+		
+		var num_cities = c_data.get("cities", []).size()
+		if num_cities <= 0: return
+		
+		if fac_data.get("money", 0.0) >= 10.0:
+			fac_data["money"] -= 10.0
+			if multiplayer.has_multiplayer_peer():
+				rpc("sync_foreign_aid", country_name, faction)
+			else:
+				sync_foreign_aid(country_name, faction)
+
+@rpc("authority", "call_local", "reliable")
+func sync_foreign_aid(country_name: String, faction: String) -> void:
+	if not active_scenario.has("countries"): return
+	var c_data = active_scenario["countries"].get(country_name)
+	if not c_data: return
+	
+	var num_cities = c_data.get("cities", []).size()
+	if num_cities <= 0: return
+	
+	var shift = 100.0 / float(num_cities)
+	
+	if not c_data.has("opinions"):
+		c_data["opinions"] = {}
+		
+	# Determine current alignment
+	var current_faction = ""
+	var is_neutral = false
+	if active_scenario.has("neutral_cities") and c_data.get("cities", []).size() > 0 and active_scenario["neutral_cities"].has(c_data["cities"][0]):
+		is_neutral = true
+	else:
+		if active_scenario.has("factions"):
+			for f_name in active_scenario["factions"].keys():
+				if active_scenario["factions"][f_name].has("cities") and c_data.get("cities", []).size() > 0 and active_scenario["factions"][f_name]["cities"].has(c_data["cities"][0]):
+					current_faction = f_name
+					break
+					
+	if current_faction != "" and current_faction != faction:
+		# Enemy allied country -> shift diplomatic opinion of the current aligned faction DOWN 
+		var current_op = c_data["opinions"].get(current_faction, 0.0)
+		var new_op = max(0.0, current_op - shift)
+		c_data["opinions"][current_faction] = new_op
+	elif is_neutral:
+		# Neutral country -> shift diplomatic opinion of the faction sending foreign aid UP 
+		var current_op = c_data["opinions"].get(faction, 0.0)
+		var new_op = min(100.0, current_op + shift)
+		c_data["opinions"][faction] = new_op
+	elif current_faction == faction:
+		# Friendly allied country -> shift diplomatic opinion of the current aligned faction UP
+		var current_op = c_data["opinions"].get(faction, 0.0)
+		var new_op = min(100.0, current_op + shift)
+		c_data["opinions"][faction] = new_op
+	
+	var col = "red" if faction.to_lower() == "red" else "#3388ff"
+	var fac_str = "[color=" + col + "]" + faction + "[/color]"
+	if ConsoleManager and ConsoleManager.has_method("local_log_message"):
+		ConsoleManager.local_log_message("SYSTEM: " + fac_str + " provided Foreign Aid to " + country_name + ".")
+	
+	var main_node = get_node_or_null("/root/Main")
+	if main_node and main_node.has_method("post_news_event"):
+		main_node.post_news_event(faction + " provided Foreign Aid to " + country_name, [faction])
+	
+	_evaluate_country_alignment(country_name, faction)
+	if main_node and main_node.has_method("_update_economy_ui"):
+		main_node._update_economy_ui()
 
 @rpc("any_peer", "call_local", "reliable")
 func sync_unit_purchase(city_name: String, unit_type: String, faction: String, cost: float) -> void:
@@ -1550,8 +1683,6 @@ func _instantiate_scenario(scenario_data: Dictionary, progress_callback: Callabl
 		await get_tree().process_frame
 	map_data.cull_regions(active_regions)
 	
-	_generate_faction_borders()
-	
 	if progress_callback.is_valid():
 		progress_callback.call(0.4, "Loading Cities...")
 		await get_tree().process_frame
@@ -1578,6 +1709,8 @@ func _instantiate_scenario(scenario_data: Dictionary, progress_callback: Callabl
 		progress_callback.call(0.9, "Generating Country Labels...")
 		await get_tree().process_frame
 	_generate_country_labels(c_dict)
+	
+	_generate_faction_borders()
 
 func _generate_country_labels(city_dict: Dictionary) -> void:
 	if not active_scenario.has("countries"):
@@ -1729,8 +1862,18 @@ func _load_cities(active_cities: Array[String]) -> void:
 			# Turn off Billboard so the Sprite lays mathematically flat against the XYZ rotation of the `city_node` LookAt
 			sprite_main.billboard = BaseMaterial3D.BILLBOARD_DISABLED
 			sprite_main.no_depth_test = true # Guarantee rendering over terrain
-			sprite_main.render_priority = 5 # Renters UNDER units (priority 10)
+			sprite_main.render_priority = 7 # Renters UNDER units (priority 10)
 			city_node.add_child(sprite_main)
+			
+			var border_sprite = Sprite3D.new()
+			border_sprite.texture = load("res://src/assets/target_bracket.png")
+			border_sprite.pixel_size = node_pixel_size * 1.05
+			border_sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+			border_sprite.no_depth_test = true
+			border_sprite.render_priority = 8
+			border_sprite.name = "CityBorder"
+			border_sprite.visible = false
+			city_node.add_child(border_sprite)
 			
 
 			
@@ -1779,11 +1922,11 @@ func _load_cities(active_cities: Array[String]) -> void:
 				city_node.add_child(sub_sprite)
 				o_idx += 1
 				
-			var hl_tex = load("res://src/assets/extracted_sprite.png") as Texture2D
+			var hl_tex = load("res://src/assets/target_bracket.png") as Texture2D
 			if hl_tex:
 				var highlight_sprite = Sprite3D.new()
 				highlight_sprite.texture = hl_tex
-				highlight_sprite.pixel_size = node_pixel_size * (96.0 / 34.0)
+				highlight_sprite.pixel_size = node_pixel_size * 1.2
 				var hl_mat = StandardMaterial3D.new()
 				hl_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 				hl_mat.albedo_color = Color(1.0, 1.0, 1.0, 0.4)
@@ -1802,7 +1945,7 @@ func _load_cities(active_cities: Array[String]) -> void:
 
 			cullable_nodes.append(city_node)
 
-func _update_city_highlights(active: bool, is_redeploy: bool = false, is_strategic_bombing: bool = false) -> void:
+func _update_city_highlights(active: bool, is_redeploy: bool = false, is_strategic_bombing: bool = false, is_foreign_aid: bool = false) -> void:
 	var local_id = multiplayer.get_unique_id() if multiplayer.has_multiplayer_peer() else 0
 	var local_faction = ""
 	var nm = get_node_or_null("/root/NetworkManager")
@@ -1854,7 +1997,10 @@ func _update_city_highlights(active: bool, is_redeploy: bool = false, is_strateg
 							if c_name == origin_city:
 								has_city = false
 								
-						if has_city and has_money and not on_cooldown and not is_full:
+						if is_foreign_aid:
+							if not has_city and fac_data.get("money", 0.0) >= 10.0:
+								is_valid = true
+						elif has_city and has_money and not on_cooldown and not is_full:
 							is_valid = true
 						
 			if is_valid:
@@ -2025,6 +2171,40 @@ func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
 		# print("DEBUG CLICKED COLLIDER: ", collider.name if collider else "NULL", " of class ", collider.get_class() if collider else "None")
 		
 		if is_left_click:
+			if is_deploying_foreign_aid:
+				var tile_id = _get_tile_from_vector3(hit_point)
+				var c_name = city_tile_cache.get(tile_id, "")
+				var local_id = multiplayer.get_unique_id() if multiplayer.has_multiplayer_peer() else 0
+				var local_faction = ""
+				if NetworkManager.players.has(local_id):
+					local_faction = NetworkManager.players[local_id].get("faction", "")
+					
+				var is_valid = false
+				if c_name != "" and local_faction != "":
+					if active_scenario.has("factions") and active_scenario["factions"].has(local_faction):
+						var fac_data = active_scenario["factions"][local_faction]
+						var has_city = fac_data.has("cities") and fac_data["cities"].has(c_name)
+						if not has_city and fac_data.get("money", 0.0) >= 10.0:
+							is_valid = true
+							
+				if is_valid:
+					is_deploying_foreign_aid = false
+					if foreign_aid_bracket: foreign_aid_bracket.visible = false
+					_update_city_highlights(false)
+					
+					var country_name = ""
+					if active_scenario.has("countries"):
+						for c_key in active_scenario["countries"].keys():
+							if active_scenario["countries"][c_key].has("cities") and active_scenario["countries"][c_key]["cities"].has(c_name):
+								country_name = c_key
+								break
+					if country_name != "":
+						if NetworkManager and multiplayer.has_multiplayer_peer():
+							rpc("request_foreign_aid", country_name, local_faction)
+						else:
+							request_foreign_aid(country_name, local_faction)
+				return
+				
 			if deploying_unit_type != "":
 				var tile_id = _get_tile_from_vector3(hit_point)
 				var c_name = city_tile_cache.get(tile_id, "")
@@ -2429,6 +2609,45 @@ func _handle_hover(screen_pos: Vector2) -> void:
 		air_redeploy_bracket.visible = false
 
 
+	if is_deploying_foreign_aid:
+		if result and result.collider == map_collider:
+			var tile_id = _get_tile_from_vector3(result.position)
+			var centroid = map_data.get_centroid(tile_id)
+			var snap_pos = centroid.normalized() * (radius * 1.05)
+			var c_name = city_tile_cache.get(tile_id, "")
+			
+			if snap_pos != Vector3.ZERO:
+				var tile_width = 0.006
+				var nbrs = map_data.get_neighbors(tile_id)
+				if nbrs.size() > 0:
+					var c1 = centroid.normalized()
+					var c2 = map_data.get_centroid(nbrs[0]).normalized()
+					tile_width = c1.distance_to(c2) * (radius * 1.02)
+				
+				if foreign_aid_bracket and foreign_aid_bracket.texture:
+					var tex_width = float(foreign_aid_bracket.texture.get_width())
+					foreign_aid_bracket.pixel_size = (tile_width * 3.0) / tex_width
+					foreign_aid_bracket.position = snap_pos
+					foreign_aid_bracket.look_at(Vector3.ZERO, Vector3.UP)
+					
+					var is_valid = false
+					var local_id = multiplayer.get_unique_id() if multiplayer.has_multiplayer_peer() else 0
+					var local_faction = ""
+					if NetworkManager.players.has(local_id):
+						local_faction = NetworkManager.players[local_id].get("faction", "")
+					if c_name != "" and local_faction != "":
+						if active_scenario.has("factions") and active_scenario["factions"].has(local_faction):
+							if not active_scenario["factions"][local_faction].get("cities", []).has(c_name) and active_scenario["factions"][local_faction].get("money", 0.0) >= 10.0:
+								is_valid = true
+					
+					if is_valid:
+						foreign_aid_bracket.material_override.albedo_color = Color(1.0, 1.0, 1.0)
+					else:
+						foreign_aid_bracket.material_override.albedo_color = Color(1.0, 0.0, 0.0)
+					foreign_aid_bracket.visible = true
+		elif foreign_aid_bracket:
+			foreign_aid_bracket.visible = false
+
 	if deploying_unit_type != "":
 		# Handle the ghost positioning similarly but checking for valid city deployment
 		if result and result.collider == map_collider:
@@ -2577,8 +2796,29 @@ func _get_tile_width(tile_id: int) -> float:
 		tile_width = c1.distance_to(c2) * radius
 	return tile_width
 
+func _update_city_borders() -> void:
+	if not active_scenario.has("factions"): return
+	
+	for city_node in city_nodes:
+		var border = city_node.get_node_or_null("CityBorder")
+		if border:
+			var c_name = city_node.name
+			var owner_fac = ""
+			for fac_name in active_scenario["factions"].keys():
+				if active_scenario["factions"][fac_name].get("cities", []).has(c_name):
+					owner_fac = fac_name
+					break
+			
+			if owner_fac != "":
+				var fac_color = active_scenario["factions"][owner_fac].get("color", "#333333")
+				border.modulate = Color(fac_color)
+				border.visible = true
+			else:
+				border.visible = false
+
 var _faction_borders_dirty: bool = false
 func _generate_faction_borders() -> void:
+	_update_city_borders()
 	if not _faction_borders_dirty:
 		_faction_borders_dirty = true
 		call_deferred("_do_generate_faction_borders")

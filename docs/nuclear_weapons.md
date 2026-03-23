@@ -26,3 +26,13 @@
 - RUINS prevent units from repairing.
 - RUINS cannot be used for deployment.
 - RUINS and WASTELAND have the same movement penalties as DESERT.
+
+## Diplomatic effects
+- Using nuclear weapons will cause negative diplomatic reactions with countries, allied or neutral.
+- Using a nuclear weapon will have a diplomatic penalty based on the target. In order of severity:
+    - Striking a neutral city
+    - Striking an allied city
+    - Striking enemy units
+    - Striking enemy units within your faction borders
+
+
