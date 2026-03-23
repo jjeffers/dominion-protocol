@@ -31,7 +31,8 @@ func before_each():
 	get_tree().root.add_child(mock_main)
 	
 	var mock_globe_script = GDScript.new()
-	mock_globe_script.source_code = "extends Node3D\nvar units_list = []\nvar city_cooldowns = {}\nvar city_nodes = []\nvar radius = 1.0\n@rpc('authority', 'call_local', 'reliable')\nfunc sync_unit_purchase(c,t,f,cost):\n\tpass"
+	mock_globe_script.source_code = "extends Node3D\nvar units_list = []\nvar city_cooldowns = {}\nvar city_nodes = []\nvar radius = 1.0\nvar active_scenario = {\"countries\":{}}\nfunc _get_city_faction(city_name: String) -> String:\n\tif city_name == 'Unit_City_A' or city_name == 'Unit_City_B': return 'Red'\n\tif city_name == 'Unit_City_Enemy': return 'Blue'\n\treturn 'neutral'\n@rpc('authority', 'call_local', 'reliable')\nfunc sync_unit_purchase(c,t,f,cost):\n\tpass\n"
+
 	mock_globe_script.reload()
 	mock_globe = Node3D.new()
 	mock_globe.set_script(mock_globe_script)
@@ -107,7 +108,7 @@ func test_production_transitions_to_rallying():
 	
 	# Add a unit to mock_globe
 	var unit_scr = GDScript.new()
-	unit_scr.source_code = "extends Node3D\nvar faction_name = 'Red'\nvar is_dead = false\nvar is_engaged = false"
+	unit_scr.source_code = "extends Node3D\nvar faction_name = 'Red'\nvar is_dead = false\nvar is_engaged = false\nvar sprite = {\"visible\": true}"
 	unit_scr.reload()
 	var u1 = Node3D.new()
 	u1.set_script(unit_scr)
@@ -123,7 +124,7 @@ func test_rallying_transitions_to_attacking():
 	ai.current_state = ai.AIState.RALLYING
 	
 	var unit_scr = GDScript.new()
-	unit_scr.source_code = "extends Node3D\nvar faction_name = 'Red'\nvar is_dead = false\nvar is_engaged = false"
+	unit_scr.source_code = "extends Node3D\nvar faction_name = 'Red'\nvar is_dead = false\nvar is_engaged = false\nvar sprite = {\"visible\": true}"
 	unit_scr.reload()
 	
 	var u1 = Node3D.new()
@@ -156,7 +157,7 @@ func test_rallying_transitions_to_attacking():
 func test_air_operations():
 	# Test Air Strike
 	var air_scr = GDScript.new()
-	air_scr.source_code = "extends Node3D\nvar faction_name = 'Red'\nvar is_dead = false\nvar unit_type = 'Air'\nvar is_air_ready = true"
+	air_scr.source_code = "extends Node3D\nvar faction_name = 'Red'\nvar is_dead = false\nvar unit_type = 'Air'\nvar is_air_ready = true\nvar sprite = {\"visible\": true}"
 	air_scr.reload()
 	
 	var u1 = Node3D.new()
@@ -166,7 +167,7 @@ func test_air_operations():
 	u1.global_position = Vector3(1, 0, 0)
 	
 	var enemy_scr = GDScript.new()
-	enemy_scr.source_code = "extends Node3D\nvar faction_name = 'Blue'\nvar is_dead = false"
+	enemy_scr.source_code = "extends Node3D\nvar faction_name = 'Blue'\nvar is_dead = false\nvar sprite = {\"visible\": true}"
 	enemy_scr.reload()
 	
 	var enemy = Node3D.new()
