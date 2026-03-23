@@ -46,7 +46,7 @@ func test_invasion_decay_applied_to_neutral_country():
 	# Mock MapData
 	var mock_map = preload("res://src/scripts/map/MapData.gd").new()
 	var mock_map_script = GDScript.new()
-	mock_map_script.source_code = "extends 'res://src/scripts/map/MapData.gd'\nfunc get_region(tile_id): return 'Switzerland'"
+	mock_map_script.source_code = "extends 'res://src/scripts/map/MapData.gd'\nfunc get_region(tile_id): return 'Geneva'"
 	mock_map_script.reload()
 	mock_map.set_script(mock_map_script)
 	mock_globe.map_data = mock_map
