@@ -1151,10 +1151,11 @@ func _evaluate_country_alignment(country_name: String, triggering_faction: Strin
 		if op < 50.0:
 			# Leave faction, become neutral
 			print("DIPLOMACY: ", country_name, " has left the ", current_faction, " faction and is now neutral!")
-			if ConsoleManager:
-				ConsoleManager.log_message("SYSTEM: " + country_name + " has declared neutrality and formally withdrawn from the " + current_faction + " alliance.")
-			for city in c_data["cities"]:
-				rpc("sync_city_capture", city, "neutral", current_faction)
+			if ConsoleManager and ConsoleManager.has_method("local_log_message"):
+				ConsoleManager.local_log_message("SYSTEM: " + country_name + " has declared neutrality and formally withdrawn from the " + current_faction + " alliance.")
+			if get_node_or_null("/root/NetworkManager") and NetworkManager.is_host:
+				for city in c_data["cities"]:
+					rpc("sync_city_capture", city, "neutral", current_faction)
 			is_neutral = true
 			current_faction = ""
 			
@@ -1175,12 +1176,13 @@ func _evaluate_country_alignment(country_name: String, triggering_faction: Strin
 		if loves_faction != "":
 			if active_scenario.has("factions") and active_scenario["factions"].has(loves_faction) and not active_scenario["factions"][loves_faction].get("eliminated", false):
 				print("DIPLOMACY: ", country_name, " has joined the ", loves_faction, " faction due to high opinion!")
-				if ConsoleManager:
+				if ConsoleManager and ConsoleManager.has_method("local_log_message"):
 					var col = "red" if loves_faction.to_lower() == "red" else "#3388ff"
 					var f_str = "[color=" + col + "]" + loves_faction + "[/color]"
-					ConsoleManager.log_message("SYSTEM: " + country_name + " has joined the " + f_str + " alliance!")
-				for city in c_data["cities"]:
-					rpc("sync_city_capture", city, loves_faction, "neutral")
+					ConsoleManager.local_log_message("SYSTEM: " + country_name + " has joined the " + f_str + " alliance!")
+				if get_node_or_null("/root/NetworkManager") and NetworkManager.is_host:
+					for city in c_data["cities"]:
+						rpc("sync_city_capture", city, loves_faction, "neutral")
 				return
 				
 		# Check if it hates someone enough to join their enemy
@@ -1210,12 +1212,13 @@ func _evaluate_country_alignment(country_name: String, triggering_faction: Strin
 					
 			if best_fac != "" and active_scenario.has("factions") and active_scenario["factions"].has(best_fac):
 				print("DIPLOMACY: ", country_name, " has joined the ", best_fac, " faction in response to aggression!")
-				if ConsoleManager:
+				if ConsoleManager and ConsoleManager.has_method("local_log_message"):
 					var col = "red" if best_fac.to_lower() == "red" else "#3388ff"
 					var f_str = "[color=" + col + "]" + best_fac + "[/color]"
-					ConsoleManager.log_message("SYSTEM: " + country_name + " has joined the " + f_str + " alliance!")
-				for city in c_data["cities"]:
-					rpc("sync_city_capture", city, best_fac, "neutral")
+					ConsoleManager.local_log_message("SYSTEM: " + country_name + " has joined the " + f_str + " alliance!")
+				if get_node_or_null("/root/NetworkManager") and NetworkManager.is_host:
+					for city in c_data["cities"]:
+						rpc("sync_city_capture", city, best_fac, "neutral")
 
 @rpc("authority", "call_local", "reliable")
 func sync_diplomatic_penalty(country_name: String, faction: String, penalty: float, log_reason: String = "") -> void:
