@@ -155,7 +155,8 @@ func take_damage(amount: float) -> void:
 	await get_tree().process_frame
 	
 	# Attempt capture process. Red should capture London from Blue
-	globe._process_city_captures()
+	for i in range(10):
+		globe._process_city_captures()
 
 	# Assert scenario data updated (owner changed)
 	assert_true(globe.active_scenario["factions"]["Red"]["cities"].has("London"), "Red should capture London despite Blue Air unit presence")
@@ -215,7 +216,8 @@ func take_damage(amount: float) -> void:
 	await get_tree().process_frame
 	
 	# Attempt capture process. Red should NOT capture London, because sea units can't capture cities.
-	globe._process_city_captures()
+	for i in range(10):
+		globe._process_city_captures()
 
 	# Assert scenario data updated (owner changed) - wait, owner shouldn't change
 	assert_false(globe.active_scenario["factions"]["Red"]["cities"].has("London"), "Red Cruiser should NOT capture London")

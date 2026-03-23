@@ -822,6 +822,7 @@ func _generate_mesh() -> void:
 	else:
 		push_error("GlobeView: Failed to load globe_mesh.res!")
 var _violation_log_cooldowns: Dictionary = {}
+var active_captures: Dictionary = {} # Tracks 10-second city capture holds { "CityName": { "faction": string, "time": float } }
 
 func _process(delta: float) -> void:
 	if not camera:
@@ -1220,11 +1221,15 @@ func _evaluate_country_alignment(country_name: String, triggering_faction: Strin
 					var f_str = "[color=" + col + "]" + fac_name + "[/color]"
 					ConsoleManager.local_log_message("SYSTEM: " + country_name + " has joined the " + f_str + " alliance!")
 				if get_node_or_null("/root/NetworkManager") and NetworkManager.is_host:
+					if best_op < 50.0:
+						# User requested: when country joins due to invasion, its opinion of the joining faction should be at least +50
+						# We suppress alignment evaluation explicitly to avoid infinite recursion over the new 50.0 triggering a second event wave natively.
+						rpc("sync_diplomatic_penalty", country_name, best_fac, best_op - 50.0, "", false)
 					for city in c_data["cities"]:
 						rpc("sync_city_capture", city, best_fac, "neutral")
 
 @rpc("authority", "call_local", "reliable")
-func sync_diplomatic_penalty(country_name: String, faction: String, penalty: float, log_reason: String = "") -> void:
+func sync_diplomatic_penalty(country_name: String, faction: String, penalty: float, log_reason: String = "", evaluate_alignment: bool = true) -> void:
 	if not active_scenario.has("countries") or not active_scenario["countries"].has(country_name):
 		return
 		
@@ -1251,43 +1256,58 @@ func sync_diplomatic_penalty(country_name: String, faction: String, penalty: flo
 	if main_node and main_node.has_method("_update_diplomacy_ui"):
 		main_node._update_diplomacy_ui()
 	
-	if multiplayer.has_multiplayer_peer() and multiplayer.is_server():
+	if evaluate_alignment and multiplayer.has_multiplayer_peer() and multiplayer.is_server():
 		_evaluate_country_alignment(country_name, faction)
 			
 func _process_city_captures() -> void:
 	for city_node in city_nodes:
-		var units_in_range: Array[Node3D] = []
+		var land_factions = []
+		var sea_factions = []
+		
+		# First find the 'current_owner'
+		var current_owner = ""
+		if active_scenario.has("factions"):
+			for f_name in active_scenario["factions"].keys():
+				if active_scenario["factions"][f_name].has("cities") and city_node.name in active_scenario["factions"][f_name]["cities"]:
+					current_owner = f_name
+					break
+		if current_owner == "":
+			current_owner = "neutral"
+			
 		for u in units_list:
 			if not is_instance_valid(u):
 				continue
-			var u_type = u.get("unit_type")
-			if u.get("is_dead") != true and (u_type == "Infantry" or u_type == "Armor"):
+			if u.get("is_dead") != true:
 				var dist = city_node.position.distance_to(u.position) / radius
 				if dist <= 0.01:
-					units_in_range.append(u)
-					
-		if units_in_range.size() > 0:
-			var capturing_faction = units_in_range[0].get("faction_name")
-			var contested = false
+					var fac = u.get("faction_name")
+					if u.get("unit_type") in ["Infantry", "Armor"]:
+						if not land_factions.has(fac): land_factions.append(fac)
+					elif u.get("unit_type") in ["Cruiser", "Submarine", "Transport"]:
+						if not sea_factions.has(fac): sea_factions.append(fac)
+						
+		# A city can only be physically captured by a single faction's Land units
+		if land_factions.size() == 1:
+			var capturing_faction = land_factions[0]
+			var is_contested = false
 			
-			for u in units_in_range:
-				if u.get("faction_name") != capturing_faction:
-					contested = true
+			# Contested if any other faction has sea units actively present in the perimeter
+			for fac in sea_factions:
+				if fac != capturing_faction:
+					is_contested = true
 					break
 					
-			if not contested and capturing_faction != "":
-				# Find current owner
-				var current_owner = ""
-				if active_scenario.has("factions"):
-					for f_name in active_scenario["factions"].keys():
-						if active_scenario["factions"][f_name].has("cities") and city_node.name in active_scenario["factions"][f_name]["cities"]:
-							current_owner = f_name
-							break
-				if current_owner == "":
-					current_owner = "neutral"
+			if not is_contested and capturing_faction != "" and capturing_faction != current_owner:
+				# Increment timer 
+				if not active_captures.has(city_node.name) or active_captures[city_node.name]["faction"] != capturing_faction:
+					active_captures[city_node.name] = { "faction": capturing_faction, "time": 1.0 }
+				else:
+					active_captures[city_node.name]["time"] += 1.0
 					
-				# If ownership changed
-				if current_owner != capturing_faction:
+				# Capture execution condition
+				if active_captures[city_node.name]["time"] >= 10.0:
+					active_captures.erase(city_node.name)
+					
 					if current_owner == "neutral" and active_scenario.has("countries"):
 						for c_name in active_scenario["countries"].keys():
 							if active_scenario["countries"][c_name].has("cities") and city_node.name in active_scenario["countries"][c_name]["cities"]:
@@ -1296,6 +1316,12 @@ func _process_city_captures() -> void:
 									rpc("sync_diplomatic_penalty", c_name, capturing_faction, 100.0, "Captured Neutral City")
 								break
 					rpc("sync_city_capture", city_node.name, capturing_faction, current_owner)
+			else:
+				# Reset progress if contested or already owned
+				active_captures.erase(city_node.name)
+		else:
+			# Reset progress if 0 or >1 land factions are inside
+			active_captures.erase(city_node.name)
 
 @rpc("authority", "call_local", "reliable")
 func sync_city_capture(city_name: String, new_faction: String, old_faction: String) -> void:
