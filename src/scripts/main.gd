@@ -25,6 +25,9 @@ var hovered_c_name: String = ""
 @onready var cities_label: Label = $EconomyStatusPanel/CitiesLabel
 @onready var nukes_label: Label = $EconomyStatusPanel/NukesLabel
 
+@onready var diplomacy_panel: Panel = $DiplomaticStatusPanel
+@onready var diplomacy_vbox: VBoxContainer = $DiplomaticStatusPanel/ScrollContainer/VBoxContainer
+
 @onready var purchase_menu: Panel = $PurchaseMenu
 @onready var purchase_infantry_btn: Button = $PurchaseMenu/VBoxContainer/InfantryRow/PurchaseInfantryBtn
 @onready var purchase_armor_btn: Button = $PurchaseMenu/VBoxContainer/ArmorRow/PurchaseArmorBtn
@@ -59,6 +62,8 @@ const TERRAIN_COLORS: Dictionary = {
 	"RUINS": Color("#1a1a1a")
 }
 
+var is_async_setup: bool = false
+
 func _ready() -> void:
 	# 1. Initialize Canonical Data
 	map_data = MapData.new()
@@ -78,14 +83,16 @@ func _ready() -> void:
 	globe_view.victory_declared.connect(_on_victory_declared)
 	
 	# Trigger initial generation and sync
-	globe_view._generate_mesh()
-	globe_view._update_camera()
-	
-	# Ensure GlobeView explicitly relies on the scenario definitions to draw features
-	globe_view._instantiate_scenario(scenario_data)
-	
-	if not multiplayer.has_multiplayer_peer() or multiplayer.is_server():
-		_spawn_tactical_ais()
+	if not is_async_setup:
+		globe_view._generate_mesh()
+		globe_view._update_camera()
+		
+		# Ensure GlobeView explicitly relies on the scenario definitions to draw features
+		globe_view._instantiate_scenario(scenario_data)
+		
+		if not multiplayer.has_multiplayer_peer() or multiplayer.is_server():
+			_spawn_tactical_ais()
+
 	
 	purchase_infantry_btn.pressed.connect(_on_purchase_infantry)
 	purchase_armor_btn.pressed.connect(_on_purchase_armor)
@@ -187,18 +194,20 @@ func _ready() -> void:
 	war_start_audio = AudioStreamPlayer.new()
 	war_start_audio.stream = load("res://src/assets/audio/war-start.ogg")
 	add_child(war_start_audio)
-	war_start_audio.play()
 	
-	# Open the console automatically when the match starts
-	ConsoleManager.is_visible = true
-	ConsoleManager.panel.show()
-	
-	var network_manager = get_node_or_null("/root/NetworkManager")
-	if network_manager and network_manager.is_host:
-		ConsoleManager.log_message("==================================")
-		ConsoleManager.log_message("    GLOBAL CONFLICT AUTHORIZED    ")
-		ConsoleManager.log_message("==================================\n")
-		post_news_event("GLOBAL CONFLICT AUTHORIZED", [])
+	if not is_async_setup:
+		war_start_audio.play()
+		
+		# Open the console automatically when the match starts
+		ConsoleManager.is_visible = true
+		ConsoleManager.panel.show()
+		
+		var network_manager = get_node_or_null("/root/NetworkManager")
+		if network_manager and network_manager.is_host:
+			ConsoleManager.log_message("==================================")
+			ConsoleManager.log_message("    GLOBAL CONFLICT AUTHORIZED    ")
+			ConsoleManager.log_message("==================================\n")
+			post_news_event("GLOBAL CONFLICT AUTHORIZED", [])
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:
@@ -640,3 +649,108 @@ func _update_economy_ui() -> void:
 	purchase_cruiser_btn.disabled = credits < 50.0
 	purchase_submarine_btn.disabled = credits < 35.0
 	purchase_nuke_btn.disabled = credits < 20.0
+	
+	_update_diplomacy_ui()
+
+var _diplomacy_dirty: bool = false
+func _update_diplomacy_ui() -> void:
+	if not _diplomacy_dirty:
+		_diplomacy_dirty = true
+		call_deferred("_do_update_diplomacy_ui")
+
+func _do_update_diplomacy_ui() -> void:
+	_diplomacy_dirty = false
+	if not scenario_data.has("countries"):
+		return
+		
+	var local_id = multiplayer.get_unique_id() if multiplayer.has_multiplayer_peer() else 0
+	var local_faction = ""
+	var nm = get_node_or_null("/root/NetworkManager")
+	if nm and nm.players.has(local_id):
+		local_faction = nm.players[local_id].get("faction", "")
+		
+	if local_faction == "":
+		diplomacy_panel.hide()
+		return
+	else:
+		diplomacy_panel.show()
+		
+	var countries_list = []
+	for c_name in scenario_data["countries"].keys():
+		var c_data = scenario_data["countries"][c_name]
+		if c_data.has("cities") and c_data["cities"].size() > 0:
+			var op = c_data.get("opinions", {}).get(local_faction, 0.0)
+			countries_list.append({"name": c_name, "opinion": op})
+		
+	countries_list.sort_custom(func(a, b): return a["opinion"] > b["opinion"])
+	
+	for child in diplomacy_vbox.get_children():
+		diplomacy_vbox.remove_child(child)
+		child.queue_free()
+		
+	for c_item in countries_list:
+		var hb = HBoxContainer.new()
+		
+		var name_lbl = Label.new()
+		name_lbl.text = c_item["name"]
+		name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		name_lbl.add_theme_font_size_override("font_size", 24)
+		
+		var op_val = clamp(floor(c_item["opinion"]), -100, 100)
+		var op_lbl = Label.new()
+		if op_val > 0:
+			op_lbl.text = "+" + str(op_val)
+		else:
+			op_lbl.text = str(op_val)
+		op_lbl.add_theme_font_size_override("font_size", 24)
+			
+		if op_val >= 50:
+			name_lbl.add_theme_color_override("font_color", Color.GREEN)
+			op_lbl.add_theme_color_override("font_color", Color.GREEN)
+		elif op_val < 0:
+			name_lbl.add_theme_color_override("font_color", Color.RED)
+			op_lbl.add_theme_color_override("font_color", Color.RED)
+		else:
+			name_lbl.add_theme_color_override("font_color", Color.YELLOW)
+			op_lbl.add_theme_color_override("font_color", Color.YELLOW)
+			
+		hb.add_child(name_lbl)
+		hb.add_child(op_lbl)
+		diplomacy_vbox.add_child(hb)
+
+func execute_async_setup(lobby_node: Node) -> void:
+	lobby_node.update_progress(10.0, "Generating Globe Mesh...")
+	await get_tree().process_frame
+	globe_view._generate_mesh()
+	globe_view._update_camera()
+	
+	lobby_node.update_progress(30.0, "Instantiating Scenario Entities...")
+	await get_tree().process_frame
+	
+	var update_cb = func(pct: float, text: String):
+		lobby_node.update_progress(30.0 + (pct * 60.0), text)
+	
+	await globe_view._instantiate_scenario(scenario_data, update_cb)
+	
+	lobby_node.update_progress(95.0, "Spawning AI Commanders...")
+	await get_tree().process_frame
+	if not multiplayer.has_multiplayer_peer() or multiplayer.is_server():
+		_spawn_tactical_ais()
+		
+	lobby_node.update_progress(100.0, "Transitioning to Game...")
+	await get_tree().process_frame
+	
+	get_tree().current_scene = self
+	self.visible = true
+	lobby_node.queue_free()
+	
+	war_start_audio.play()
+	ConsoleManager.is_visible = true
+	ConsoleManager.panel.show()
+	
+	var network_manager = get_node_or_null("/root/NetworkManager")
+	if network_manager and network_manager.is_host:
+		ConsoleManager.log_message("==================================")
+		ConsoleManager.log_message("    GLOBAL CONFLICT AUTHORIZED    ")
+		ConsoleManager.log_message("==================================\n")
+		post_news_event("GLOBAL CONFLICT AUTHORIZED", [])

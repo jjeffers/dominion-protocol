@@ -153,8 +153,26 @@ func _process(_delta: float) -> void:
 
 func _on_fade_finished() -> void:
 	is_loading_game = false
-	# Allow a small frame delay to ensure 100% renders before freezing for scene transition
-	get_tree().call_deferred("change_scene_to_packed", ResourceLoader.load_threaded_get(main_scene_path))
+	status_label.text = "Initializing Framework..."
+	loading_bar.value = 0.0
+	
+	var main_scene = ResourceLoader.load_threaded_get(main_scene_path)
+	var main_instance = main_scene.instantiate()
+	main_instance.visible = false
+	main_instance.set("is_async_setup", true)
+	
+	get_tree().root.add_child(main_instance)
+	
+	if main_instance.has_method("execute_async_setup"):
+		main_instance.execute_async_setup(self)
+	else:
+		get_tree().current_scene = main_instance
+		main_instance.visible = true
+		queue_free()
+
+func update_progress(pct: float, text: String) -> void:
+	loading_bar.value = pct
+	status_label.text = text
 
 func _on_initial_countries_received() -> void:
 	if not NetworkManager.is_host:

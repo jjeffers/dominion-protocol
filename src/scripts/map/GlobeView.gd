@@ -914,6 +914,11 @@ func _process(delta: float) -> void:
 		if capture_timer >= CAPTURE_INTERVAL:
 			capture_timer -= CAPTURE_INTERVAL
 			_process_city_captures()
+			
+		diplomacy_timer += delta
+		if diplomacy_timer >= DIPLOMACY_INTERVAL:
+			diplomacy_timer -= DIPLOMACY_INTERVAL
+			_process_diplomacy()
 		_update_camera()
 
 	# Process deployment cooldowns
@@ -1024,6 +1029,154 @@ signal victory_declared(winning_faction: String)
 
 var capture_timer: float = 0.0
 const CAPTURE_INTERVAL: float = 1.0
+
+var diplomacy_timer: float = 0.0
+const DIPLOMACY_INTERVAL: float = 1.0
+
+func _process_diplomacy() -> void:
+	if not active_scenario.has("countries"):
+		return
+		
+	var faction_infringements = {}
+	
+	for u in units_list:
+		if is_instance_valid(u) and not u.get("is_dead") and u.get("unit_type") in ["Infantry", "Armor"]:
+			var pos = u.get("current_position")
+			if pos == null:
+				pos = u.get("target_position")
+				if pos == null:
+					pos = u.global_position
+					
+			var tile_id = _get_tile_from_vector3(pos)
+			var region_city_name = map_data.get_region(tile_id)
+			var c_name = ""
+			
+			if region_city_name != "" and active_scenario.has("countries"):
+				if active_scenario["countries"].has(region_city_name):
+					c_name = region_city_name
+							
+			if c_name != "":
+				var is_neutral = false
+				var c_data = active_scenario["countries"][c_name]
+				if c_data.has("cities"):
+					for city in c_data["cities"]:
+						if active_scenario.has("neutral_cities") and active_scenario["neutral_cities"].has(city):
+							is_neutral = true
+							break
+							
+				if is_neutral:
+					var fac = u.get("faction_name")
+					if fac != "":
+						if not faction_infringements.has(c_name):
+							faction_infringements[c_name] = []
+						if not faction_infringements[c_name].has(fac):
+							faction_infringements[c_name].append(fac)
+							
+	for c_name in faction_infringements.keys():
+		for fac in faction_infringements[c_name]:
+			# Issue 1 point decay because they are standing in neutral territory (ticks every 1s)
+			rpc("sync_diplomatic_penalty", c_name, fac, 1.0, "Invasion")
+			print("DIPLOMATIC INCIDENT: ", fac, " invaded neutral ", c_name)
+			
+func _evaluate_country_alignment(country_name: String, triggering_faction: String = "") -> void:
+	if not active_scenario.has("countries") or not active_scenario["countries"].has(country_name):
+		return
+		
+	var c_data = active_scenario["countries"][country_name]
+	if not c_data.has("opinions") or not c_data.has("cities"):
+		return
+		
+	# Find current owner faction of the country (assuming all cities are owned by same faction for simplicity)
+	var current_faction = ""
+	var is_neutral = false
+	if active_scenario.has("neutral_cities") and c_data["cities"].size() > 0 and active_scenario["neutral_cities"].has(c_data["cities"][0]):
+		is_neutral = true
+	else:
+		if active_scenario.has("factions"):
+			for f_name in active_scenario["factions"].keys():
+				if active_scenario["factions"][f_name].has("cities") and c_data["cities"].size() > 0 and active_scenario["factions"][f_name]["cities"].has(c_data["cities"][0]):
+					current_faction = f_name
+					break
+					
+	if current_faction != "":
+		# If allied, check if it wants to leave
+		var op = c_data["opinions"].get(current_faction, 0.0)
+		if op < 50.0:
+			# Leave faction, become neutral
+			print("DIPLOMACY: ", country_name, " has left the ", current_faction, " faction and is now neutral!")
+			if ConsoleManager:
+				ConsoleManager.log_message("SYSTEM: " + country_name + " has declared neutrality and formally withdrawn from the " + current_faction + " alliance.")
+			for city in c_data["cities"]:
+				active_scenario["factions"][current_faction]["cities"].erase(city)
+				if not active_scenario.has("neutral_cities"):
+					active_scenario["neutral_cities"] = []
+				active_scenario["neutral_cities"].append(city)
+				city_captured.emit(city, "neutral", current_faction)
+			_generate_faction_borders()
+			is_neutral = true
+			current_faction = ""
+			
+	if is_neutral:
+		# Check if it hates someone enough to join their enemy
+		var hates_faction = ""
+		for f_name in c_data["opinions"].keys():
+			if c_data["opinions"][f_name] < -50.0 and f_name == triggering_faction:
+				hates_faction = f_name
+				break
+				
+		if hates_faction == "" :
+			for f_name in c_data["opinions"].keys():
+				if c_data["opinions"][f_name] < -50.0:
+					hates_faction = f_name
+					break
+					
+		if hates_faction != "":
+			# Pick highest opinion faction that is not the hated faction
+			var best_fac = ""
+			var best_op = -INF
+			if active_scenario.has("factions"):
+				for f_name in active_scenario["factions"].keys():
+					if f_name != hates_faction and not active_scenario["factions"][f_name].get("eliminated", false):
+						var op = c_data["opinions"].get(f_name, 0.0)
+						if op > best_op:
+							best_op = op
+							best_fac = f_name
+					
+			if best_fac != "" and active_scenario.has("factions") and active_scenario["factions"].has(best_fac):
+				print("DIPLOMACY: ", country_name, " has joined the ", best_fac, " faction in response to aggression!")
+				if ConsoleManager:
+					var col = "red" if best_fac.to_lower() == "red" else "#3388ff"
+					var f_str = "[color=" + col + "]" + best_fac + "[/color]"
+					ConsoleManager.log_message("SYSTEM: " + country_name + " has joined the " + f_str + " alliance!")
+				for city in c_data["cities"]:
+					active_scenario["neutral_cities"].erase(city)
+					if not active_scenario["factions"][best_fac].has("cities"):
+						active_scenario["factions"][best_fac]["cities"] = []
+					active_scenario["factions"][best_fac]["cities"].append(city)
+					city_captured.emit(city, best_fac, "neutral")
+				_generate_faction_borders()
+
+@rpc("authority", "call_local", "reliable")
+func sync_diplomatic_penalty(country_name: String, faction: String, penalty: float, log_reason: String = "") -> void:
+	if not active_scenario.has("countries") or not active_scenario["countries"].has(country_name):
+		return
+		
+	var c_data = active_scenario["countries"][country_name]
+	if not c_data.has("opinions"):
+		c_data["opinions"] = {}
+		
+	var current_opinion = c_data["opinions"].get(faction, 0.0)
+	c_data["opinions"][faction] = current_opinion - penalty
+	
+	# Suppressed localized console messages about basic alignment deteriorations per user request.
+	# Major defection announcements remain managed inside `_evaluate_country_alignment()`.
+	
+	var main_node = get_node_or_null("/root/Main")
+	if main_node and main_node.has_method("_update_diplomacy_ui"):
+		main_node._update_diplomacy_ui()
+	
+	if multiplayer.has_multiplayer_peer() and multiplayer.is_server():
+		_evaluate_country_alignment(country_name, faction)
 			
 func _process_city_captures() -> void:
 	for city_node in city_nodes:
@@ -1098,6 +1251,13 @@ func sync_city_capture(city_name: String, new_faction: String, old_faction: Stri
 	
 	# Strip from old faction
 	if old_faction == "neutral":
+		# Dropping opinion to -100 for capturing neutral city BEFORE erasing it from the dataset
+		if network_manager and network_manager.is_host and active_scenario.has("countries"):
+			for c_name in active_scenario["countries"].keys():
+				if active_scenario["countries"][c_name].has("cities") and city_name in active_scenario["countries"][c_name]["cities"]:
+					rpc("sync_diplomatic_penalty", c_name, new_faction, 100.0, "Captured Neutral City")
+					break
+					
 		if active_scenario.has("neutral_cities"):
 			active_scenario["neutral_cities"].erase(city_name)
 	else:
@@ -1263,7 +1423,7 @@ func sync_unit_purchase(city_name: String, unit_type: String, faction: String, c
 	
 	_spawn_unit(unit_def, faction, c_dict, {})
 
-func _instantiate_scenario(scenario_data: Dictionary) -> void:
+func _instantiate_scenario(scenario_data: Dictionary, progress_callback: Callable = Callable()) -> void:
 	if scenario_data.is_empty():
 		return
 	active_scenario = scenario_data
@@ -1326,7 +1486,20 @@ func _instantiate_scenario(scenario_data: Dictionary) -> void:
 							active_cities.append(city)
 						if not active_regions.has(city):
 							active_regions.append(city)
+						if not scenario_data.has("neutral_cities"):
+							scenario_data["neutral_cities"] = []
+						if not scenario_data["neutral_cities"].has(city):
+							scenario_data["neutral_cities"].append(city)
 		# ----------------------------------
+
+	if scenario_data.has("countries"):
+		for c_name in scenario_data["countries"].keys():
+			if not scenario_data["countries"][c_name].has("opinions"):
+				var ops = {}
+				if scenario_data.has("factions"):
+					for f_name in scenario_data["factions"].keys():
+						ops[f_name] = 0.0
+				scenario_data["countries"][c_name]["opinions"] = ops
 
 	# Identitfy active regions from oil
 	var opath = "res://src/data/oil_data.json"
@@ -1360,14 +1533,27 @@ func _instantiate_scenario(scenario_data: Dictionary) -> void:
 							if reg != "" and not active_regions.has(reg):
 								active_regions.append(reg)
 
+	if progress_callback.is_valid():
+		progress_callback.call(0.2, "Baking Regions...")
+		await get_tree().process_frame
 	map_data.cull_regions(active_regions)
 	
 	_generate_faction_borders()
 	
+	if progress_callback.is_valid():
+		progress_callback.call(0.4, "Loading Cities...")
+		await get_tree().process_frame
 	_load_cities(active_cities)
+	
+	if progress_callback.is_valid():
+		progress_callback.call(0.6, "Loading Resource Nodes...")
+		await get_tree().process_frame
 	_load_oil(active_oil)
 	
 	# Spawn defined Units
+	if progress_callback.is_valid():
+		progress_callback.call(0.8, "Deploying Entities...")
+		await get_tree().process_frame
 	if c_dict.is_empty() == false:
 		if scenario_data.has("factions"):
 			for faction_name in scenario_data["factions"].keys():
@@ -1376,6 +1562,9 @@ func _instantiate_scenario(scenario_data: Dictionary) -> void:
 					for unit_def in faction["units"]:
 						_spawn_unit(unit_def, faction_name, c_dict, faction_regions)
 						
+	if progress_callback.is_valid():
+		progress_callback.call(0.9, "Generating Country Labels...")
+		await get_tree().process_frame
 	_generate_country_labels(c_dict)
 
 func _generate_country_labels(city_dict: Dictionary) -> void:
@@ -2376,7 +2565,14 @@ func _get_tile_width(tile_id: int) -> float:
 		tile_width = c1.distance_to(c2) * radius
 	return tile_width
 
+var _faction_borders_dirty: bool = false
 func _generate_faction_borders() -> void:
+	if not _faction_borders_dirty:
+		_faction_borders_dirty = true
+		call_deferred("_do_generate_faction_borders")
+
+func _do_generate_faction_borders() -> void:
+	_faction_borders_dirty = false
 	print("GlobeView: Generating Dynamic Faction Borders...")
 	outline_immediate_mesh.clear_surfaces()
 	
@@ -2922,6 +3118,13 @@ func request_nuke_launch(target_pos: Vector3, launching_faction: String) -> void
 			var main_node = get_node_or_null("/root/Main")
 			if main_node and main_node.has_method("rpc"):
 				main_node.rpc("sync_economy", active_scenario)
+				
+			# Apply global diplomatic penalty for nuke launch 
+			# Varies randomly per country between 5 and 15
+			if active_scenario.has("countries"):
+				for c_name in active_scenario["countries"].keys():
+					var penalty = randf_range(5.0, 15.0)
+					rpc("sync_diplomatic_penalty", c_name, launching_faction, penalty, "Nuke Detonation")
 		else:
 			print("DEBUG Server: NAUGHTY CLIENT! Nuke launch rejected. Inventory is 0.")
 
