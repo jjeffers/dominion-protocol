@@ -106,6 +106,7 @@ func _ready() -> void:
 	outline_mat.render_priority = 2 # Draw over region borders
 	outline_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	outline_mat.vertex_color_use_as_albedo = true
+	outline_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	outline_mesh_instance.material_override = outline_mat
 	
 	add_child(outline_mesh_instance)
@@ -2878,6 +2879,8 @@ func _do_generate_faction_borders() -> void:
 	# Track edges we've already drawn so we don't draw overlapping lines
 	var drawn_edges = {}
 	var edges_by_faction = {}
+	var shading_edges_by_faction = {}
+
 	
 	for tile_id in map_data._region_map.keys():
 		var owner_city = map_data._region_map[tile_id]
@@ -2934,6 +2937,11 @@ func _do_generate_faction_borders() -> void:
 							edges_by_faction[owning_faction] = []
 						edges_by_faction[owning_faction].append([v0, v1])
 						
+					if not shading_edges_by_faction.has(owning_faction):
+						shading_edges_by_faction[owning_faction] = []
+					var tile_center = map_data.get_centroid(tile_id)
+					shading_edges_by_faction[owning_faction].append([v0, v1, tile_center, tile_id])
+						
 	for faction_name in edges_by_faction.keys():
 		var edge_list = edges_by_faction[faction_name]
 		var col_str = ""
@@ -2976,6 +2984,61 @@ func _do_generate_faction_borders() -> void:
 				outline_immediate_mesh.surface_add_vertex(v3)
 				outline_immediate_mesh.surface_set_color(faction_color)
 				outline_immediate_mesh.surface_add_vertex(v4)
+		outline_immediate_mesh.surface_end()
+						
+	for faction_name in shading_edges_by_faction.keys():
+		var edge_list = shading_edges_by_faction[faction_name]
+		var col_str = ""
+		if active_scenario.has("factions") and active_scenario["factions"].has(faction_name):
+			col_str = active_scenario["factions"][faction_name].get("color", "#FFFFFF")
+		elif active_scenario.has("countries") and active_scenario["countries"].has(faction_name):
+			col_str = active_scenario["countries"][faction_name].get("color", "#708090")
+		var faction_color = Color(col_str)
+		
+		var outer_color = faction_color
+		outer_color.a = 0.6
+		var inner_color = faction_color
+		inner_color.a = 0.0
+		
+		outline_immediate_mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+		for edge in edge_list:
+			var p1 = edge[0] * 1.002
+			var p2 = edge[1] * 1.002
+			var tile_center = edge[2] * 1.002
+			var t_id = edge[3]
+			
+			var center = (p1 + p2) * 0.5
+			var up = center.normalized()
+			var fwd = (p2 - p1).normalized()
+			if fwd.length() > 0.0001:
+				var inward = (tile_center - center)
+				var right = fwd.cross(up).normalized()
+				if inward.dot(right) < 0:
+					right = -right
+					
+				var tile_width = _get_tile_width(t_id)
+				var unit_width = tile_width * 3.35
+				var shade_width = unit_width * 0.5
+				
+				var v_inner1 = p1 + right * shade_width
+				var v_inner2 = p2 + right * shade_width
+				
+				# First Triangle
+				outline_immediate_mesh.surface_set_color(outer_color)
+				outline_immediate_mesh.surface_add_vertex(p1)
+				outline_immediate_mesh.surface_set_color(outer_color)
+				outline_immediate_mesh.surface_add_vertex(p2)
+				outline_immediate_mesh.surface_set_color(inner_color)
+				outline_immediate_mesh.surface_add_vertex(v_inner2)
+				
+				# Second Triangle
+				outline_immediate_mesh.surface_set_color(outer_color)
+				outline_immediate_mesh.surface_add_vertex(p1)
+				outline_immediate_mesh.surface_set_color(inner_color)
+				outline_immediate_mesh.surface_add_vertex(v_inner2)
+				outline_immediate_mesh.surface_set_color(inner_color)
+				outline_immediate_mesh.surface_add_vertex(v_inner1)
+				
 		outline_immediate_mesh.surface_end()
 						
 	var total_factions = edges_by_faction.keys().size()
