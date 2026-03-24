@@ -62,6 +62,7 @@ func before_each():
 var is_host = true
 var last_strike_target = ''
 var last_redeploy_target = ''
+var last_bombing_target = ''
 var players = {1: {"name": "TestPlayer", "faction": "Red"}}
 
 
@@ -72,6 +73,10 @@ func sync_unit_target(a, b, c=''):
 @rpc('any_peer', 'call_local')
 func request_air_strike(unit, enemy):
 	last_strike_target = enemy
+
+@rpc('any_peer', 'call_local')
+func request_strategic_bombing(unit, city):
+	last_bombing_target = city
 
 @rpc('any_peer', 'call_local')
 func request_air_redeploy(unit, city):
@@ -257,3 +262,68 @@ func test_ai_cannot_target_invisible_infantry():
 		
 	red_inf.free()
 	blue_inf.free()
+
+func test_airstrike_ignores_air_targets():
+	# Ensure Air Strike specifically avoids Air targets
+	var air_scr = GDScript.new()
+	air_scr.source_code = "extends Node3D\nvar faction_name = 'Red'\nvar is_dead = false\nvar unit_type = 'Air'\nvar is_air_ready = true\nvar sprite = {\"visible\": true}"
+	air_scr.reload()
+	
+	var u1 = Node3D.new()
+	u1.set_script(air_scr)
+	u1.name = "Unit_Air_1"
+	mock_globe.add_child(u1)
+	u1.global_position = Vector3(1, 0, 0)
+	
+	var enemy_scr = GDScript.new()
+	enemy_scr.source_code = "extends Node3D\nvar faction_name = 'Blue'\nvar is_dead = false\nvar unit_type = 'Air'\nvar sprite = {\"visible\": true}"
+	enemy_scr.reload()
+	
+	var enemy = Node3D.new()
+	enemy.set_script(enemy_scr)
+	enemy.name = "Unit_Air_Enemy"
+	mock_globe.add_child(enemy)
+	
+	# Place enemy extremely close (within strike radius)
+	enemy.global_position = Vector3(1, 0.1, 0) 
+	
+	mock_globe.units_list.append(u1)
+	mock_globe.units_list.append(enemy)
+	
+	mock_nm.last_strike_target = "" # Clear previous artifacts if any
+	
+	ai.current_state = ai.AIState.ATTACKING
+	ai._evaluate_state()
+	
+	assert_eq(mock_nm.last_strike_target, "", "AI must NOT request an airstrike against an enemy Air unit.")
+	
+	u1.free()
+	enemy.free()
+
+func test_strategic_bombing_targets_enemy_cities():
+	var air_scr = GDScript.new()
+	air_scr.source_code = "extends Node3D\nvar faction_name = 'Red'\nvar is_dead = false\nvar unit_type = 'Air'\nvar is_air_ready = true\nvar sprite = {\"visible\": true}"
+	air_scr.reload()
+	
+	var u1 = Node3D.new()
+	u1.set_script(air_scr)
+	u1.name = "Unit_Air_1"
+	mock_globe.add_child(u1)
+	u1.global_position = Vector3(1, 0, 0)
+	
+	# Make sure `Unit_City_Enemy` is within strike_radius (0.165) of Unit_Air_1
+	var original_city_pos = mock_globe.city_nodes[2].global_position
+	mock_globe.city_nodes[2].global_position = Vector3(1, 0.1, 0) # City is 'Blue'
+	
+	mock_globe.units_list.append(u1)
+	
+	mock_nm.last_bombing_target = ""
+	
+	ai.current_state = ai.AIState.ATTACKING
+	ai._evaluate_state()
+	
+	assert_eq(mock_nm.last_bombing_target, "Unit_City_Enemy", "AI must request a strategic bombing against an enemy city within radius when no units are present.")
+	
+	# Reset state
+	mock_globe.city_nodes[2].global_position = original_city_pos
+	u1.free()

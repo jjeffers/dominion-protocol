@@ -560,6 +560,7 @@ func _handle_air_ops() -> void:
 		
 		for enemy in globe_view.units_list:
 			if is_instance_valid(enemy) and not enemy.get("is_dead") and enemy.get("faction_name") != faction_name:
+				if enemy.get("unit_type") == "Air": continue
 				if not _is_enemy_visible_to_faction(enemy): continue
 				var dist = unit_pos.distance_to(enemy.global_position)
 				if dist <= strike_radius and dist < min_dist:
@@ -571,7 +572,26 @@ func _handle_air_ops() -> void:
 				network_manager.rpc_id(1, "request_air_strike", u.name, best_target.name)
 			continue
 			
-		# 2. Look for redeployment opportunities if far from front lines
+		# 2. Look for strategic bombing opportunities
+		var best_bomb_target = null
+		min_dist = INF
+		
+		for cn in globe_view.city_nodes:
+			if is_instance_valid(cn):
+				var c_faction = globe_view._get_city_faction(cn.name)
+				if c_faction != faction_name and c_faction != "neutral":
+					# Only bomb ENEMY cities (avoiding neutrality penalties)
+					var dist = unit_pos.distance_to(cn.global_position)
+					if dist <= strike_radius and dist < min_dist:
+						min_dist = dist
+						best_bomb_target = cn
+						
+		if best_bomb_target:
+			if network_manager and network_manager.is_host:
+				network_manager.rpc_id(1, "request_strategic_bombing", u.name, best_bomb_target.name)
+			continue
+			
+		# 3. Look for redeployment opportunities if far from front lines
 		if is_instance_valid(target_city):
 			var dist_to_front = unit_pos.distance_to(target_city.global_position)
 			if dist_to_front > 0.15: # Far from front line target
