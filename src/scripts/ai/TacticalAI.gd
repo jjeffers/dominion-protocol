@@ -724,9 +724,56 @@ func _process_unit_repair(u: Node3D) -> bool:
 	if u.has_meta("needs_repair") and u.get_meta("needs_repair"):
 		var nearest_city = _get_closest_friendly_city(u)
 		if nearest_city:
-			var dist = u.global_position.distance_to(nearest_city.global_position)
+			var target_pos = nearest_city.global_position
+			
+			if globe_view.get("city_tile_cache") != null and globe_view.get("map_data") != null:
+				var available_tiles = []
+				for t_id in globe_view.city_tile_cache:
+					if globe_view.city_tile_cache[t_id] == nearest_city.name:
+						available_tiles.append(t_id)
+						
+				if available_tiles.is_empty():
+					var city_tile = globe_view._get_tile_from_vector3(nearest_city.global_position)
+					available_tiles.append(city_tile)
+					
+				var u_type = u.get("unit_type")
+				var is_sea_unit = u_type in ["Cruiser", "Submarine"]
+				
+				var valid_tiles = []
+				for t in available_tiles:
+					var t_terrain = globe_view.map_data.get_terrain(t)
+					if is_sea_unit and t_terrain != "OCEAN" and t_terrain != "LAKE":
+						continue
+						
+					var is_occupied = false
+					var c_pos = globe_view.map_data.get_centroid(t).normalized() * globe_view.radius
+					
+					for other in globe_view.units_list:
+						if is_instance_valid(other) and other != u and not other.get("is_dead"):
+							var o_pos = other.get("target_position")
+							if o_pos == null:
+								o_pos = other.get("current_position")
+							if o_pos != null and o_pos.distance_to(c_pos) < 0.005:
+								is_occupied = true
+								break
+								
+					if not is_occupied:
+						valid_tiles.append(t)
+						
+				if valid_tiles.size() > 0:
+					var best_t = valid_tiles[0]
+					var best_d = INF
+					for t in valid_tiles:
+						var pt = globe_view.map_data.get_centroid(t).normalized() * globe_view.radius
+						var d = u.global_position.distance_to(pt)
+						if d < best_d:
+							best_d = d
+							best_t = t
+					target_pos = globe_view.map_data.get_centroid(best_t).normalized() * globe_view.radius
+
+			var dist = u.global_position.distance_to(target_pos)
 			if dist > 0.005:
-				_issue_move_order(u, nearest_city.global_position)
+				_issue_move_order(u, target_pos)
 			else:
 				# We are in the city, stop and heal!
 				_issue_move_order(u, u.global_position)
