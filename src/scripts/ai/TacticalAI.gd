@@ -352,6 +352,10 @@ func _handle_rallying() -> void:
 		if is_instance_valid(u) and u.get("unit_type") != "Air" and not u.get("is_engaged"):
 			if _process_unit_repair(u):
 				continue
+				
+			if u.get("unit_type") in ["Cruiser", "Submarine"]:
+				continue # Prevent sea units from arbitrarily marching inland to the global rally point
+				
 			var dist = u.global_position.distance_to(rally_point)
 			if dist > 0.05:
 				_issue_move_order(u, rally_point)
@@ -720,12 +724,18 @@ func _get_closest_friendly_city(unit: Node3D) -> Node3D:
 	var best_city = null
 	var best_dist = INF
 	
+	var is_sea_unit = unit.get("unit_type") in ["Cruiser", "Submarine"]
+	
 	for cn in globe_view.city_nodes:
 		if is_instance_valid(cn) and cn.name in own_cities:
 			var tile_id = globe_view._get_tile_from_vector3(cn.global_position)
 			if globe_view.get("map_data") != null and globe_view.map_data.has_method("get_terrain"):
-				if globe_view.map_data.get_terrain(tile_id) == "RUINS":
+				var t_type = globe_view.map_data.get_terrain(tile_id)
+				if t_type == "RUINS":
 					continue # Do not retreat to radioactive craters
+					
+				if is_sea_unit and t_type != "OCEAN" and t_type != "LAKE":
+					continue # Sea units can only repair at coastal DOCKS
 				
 			var dist = unit.global_position.distance_to(cn.global_position)
 			if dist < best_dist:
