@@ -286,8 +286,12 @@ func _log_target_purchase() -> void:
 			
 	var cm = get_node_or_null("/root/ConsoleManager")
 	if cm:
-		var col = "red" if faction_name.to_lower() == "red" else "#3388ff"
-		var fac = "[color=" + col + "]" + faction_name + "[/color]"
+		var col = "#cccccc"
+		var main_scene = get_node_or_null("/root/Main")
+		if main_scene and main_scene.scenario_data.has("factions") and main_scene.scenario_data["factions"].has(faction_name):
+			col = main_scene.scenario_data["factions"][faction_name].get("color", "#cccccc")
+
+		var fac = "[outline_size=2][outline_color=#dddddd][color=" + col + "]" + faction_name + "[/color][/outline_color][/outline_size]"
 		var msg = fac + " AI Command: Authorizing funds for " + target_purchase + " production."
 		
 		if target_peer_id != -1:

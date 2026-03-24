@@ -677,7 +677,7 @@ func _update_economy_ui() -> void:
 	if neutral_cities_count < 0: neutral_cities_count = 0
 			
 	credits_label.text = "Credits: %.0f (P - Buy)" % floor(credits)
-	cities_label.text = "[center]Cities: [color=%s]%d[/color] / [color=%s]%d[/color] / [color=#AAAAAA]%d[/color][/center]" % [my_color, my_cities, enemy_color, enemy_cities, neutral_cities_count]
+	cities_label.text = "[center]Cities: [outline_size=2][outline_color=#dddddd][color=%s]%d[/color][/outline_color][/outline_size] / [outline_size=2][outline_color=#dddddd][color=%s]%d[/color][/outline_color][/outline_size] / [color=#AAAAAA]%d[/color][/center]" % [my_color, my_cities, enemy_color, enemy_cities, neutral_cities_count]
 	if nukes > 0:
 		nukes_label.text = "Nukes: %d (N - Nuke)" % nukes
 	else:

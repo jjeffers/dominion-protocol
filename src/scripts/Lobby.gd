@@ -1,8 +1,7 @@
 extends Control
 
 @onready var player_list = $CenterContainer/VBoxContainer/PlayerList
-@onready var blue_btn = $CenterContainer/VBoxContainer/HBoxContainer/BlueFactionBtn
-@onready var red_btn = $CenterContainer/VBoxContainer/HBoxContainer/RedFactionBtn
+@onready var faction_button_container = $CenterContainer/VBoxContainer/HBoxContainer
 @onready var start_btn = $CenterContainer/VBoxContainer/StartGameBtn
 @onready var status_label = $CenterContainer/VBoxContainer/StatusLabel
 @onready var loading_bar = $CenterContainer/VBoxContainer/LoadingBar
@@ -14,13 +13,38 @@ var is_host_generated_countries: bool = false
 var load_start_time: int = 0
 var main_scene_path: String = "res://src/scenes/main.tscn"
 
+var scenario_data: Dictionary = {}
+var faction_buttons: Dictionary = {}
+
 func _ready():
-	blue_btn.text = "Join Coalition of Free States (Blue)"
-	red_btn.text = "Join Central Security Pact (Red)"
+	var spath = "res://src/data/scenarios/initial_test.json"
+	if FileAccess.file_exists(spath):
+		var s_json = JSON.new()
+		if s_json.parse(FileAccess.open(spath, FileAccess.READ).get_as_text()) == OK:
+			scenario_data = s_json.data
+			
+	for child in faction_button_container.get_children():
+		child.queue_free()
+		
+	if scenario_data.has("factions"):
+		for fac_key in scenario_data["factions"].keys():
+			var fac = scenario_data["factions"][fac_key]
+			var btn = Button.new()
+			var d_name = fac.get("display_name", fac_key)
+			btn.text = "Join " + d_name + " (" + fac_key + ")"
+			
+			var c_val = fac.get("color", "#FFFFFF")
+			if typeof(c_val) == TYPE_STRING:
+				btn.modulate = Color(c_val)
+			elif typeof(c_val) == TYPE_ARRAY and c_val.size() >= 3:
+				btn.modulate = Color(c_val[0], c_val[1], c_val[2])
+				
+			btn.pressed.connect(func(): _on_join_faction(fac_key))
+			faction_buttons[fac_key] = btn
+			faction_button_container.add_child(btn)
+			
 	_update_ui()
 	
-	blue_btn.pressed.connect(_on_join_blue)
-	red_btn.pressed.connect(_on_join_red)
 	start_btn.pressed.connect(_on_start_game)
 	
 	NetworkManager.players_updated.connect(_update_ui)
@@ -33,10 +57,7 @@ func _ready():
 			var parts = arg.split("=")
 			if parts.size() > 1:
 				var fac = parts[1]
-				if fac == "Blue":
-					_on_join_blue()
-				elif fac == "Red":
-					_on_join_red()
+				_on_join_faction(fac)
 		if arg == "--auto-start":
 			auto_start = true
 
@@ -46,8 +67,7 @@ func _update_ui():
 	
 	player_list.clear()
 	var all_ready = true
-	var blue_taken = false
-	var red_taken = false
+	var taken_factions = {}
 	
 	# Populate list
 	for id in NetworkManager.players.keys():
@@ -56,15 +76,12 @@ func _update_ui():
 		if faction_str == "":
 			faction_str = "Unassigned"
 			all_ready = false
-		elif faction_str == "Blue":
-			blue_taken = true
-		elif faction_str == "Red":
-			red_taken = true
-			
+		else:
+			taken_factions[faction_str] = true
 			
 		var fac_display = faction_str
-		if faction_str == "Blue": fac_display = "Coalition of Free States"
-		elif faction_str == "Red": fac_display = "Central Security Pact"
+		if scenario_data.has("factions") and scenario_data["factions"].has(faction_str):
+			fac_display = scenario_data["factions"][faction_str].get("display_name", faction_str)
 			
 		var display_text = "%s - %s" % [p_info.get("name", "Player " + str(id)), fac_display]
 		if id == multiplayer.get_unique_id():
@@ -73,8 +90,8 @@ func _update_ui():
 		player_list.add_item(display_text)
 	
 	# Update button states based on who has what faction
-	blue_btn.disabled = blue_taken
-	red_btn.disabled = red_taken
+	for fac_key in faction_buttons.keys():
+		faction_buttons[fac_key].disabled = taken_factions.has(fac_key)
 	
 	# Host can start anytime, empty slots will be played by AI bots
 	if NetworkManager.is_host:
@@ -85,11 +102,8 @@ func _update_ui():
 			_on_start_game()
 
 
-func _on_join_blue():
-	NetworkManager.rpc_id(1, "claim_faction", "Blue")
-
-func _on_join_red():
-	NetworkManager.rpc_id(1, "claim_faction", "Red")
+func _on_join_faction(fac: String):
+	NetworkManager.rpc_id(1, "claim_faction", fac)
 
 func _on_start_game():
 	if NetworkManager.is_host:
@@ -100,8 +114,8 @@ func _on_game_started():
 	
 	# Disable interaction
 	start_btn.disabled = true
-	blue_btn.disabled = true
-	red_btn.disabled = true
+	for btn in faction_buttons.values():
+		btn.disabled = true
 	
 	# Show loading bar
 	loading_bar.show()
@@ -193,9 +207,8 @@ func _host_generate_scenario() -> void:
 		if c_json.parse(FileAccess.open(path, FileAccess.READ).get_as_text()) == OK:
 			c_dict = c_json.data
 			
-	var scenario_data = {}
 	var spath = "res://src/data/scenarios/initial_test.json"
-	if FileAccess.file_exists(spath):
+	if scenario_data.is_empty() and FileAccess.file_exists(spath):
 		var s_json = JSON.new()
 		if s_json.parse(FileAccess.open(spath, FileAccess.READ).get_as_text()) == OK:
 			scenario_data = s_json.data

@@ -2,7 +2,7 @@
     "name": "Initial test",
     "cold_war_minutes": 0,
     "factions": {
-        "Blue": {
+        "CFS": {
             "display_name": "Coalition of Free States",
             "color": "#0000FF",
             "cities": [
@@ -76,7 +76,7 @@
                 }
             ]
         },
-        "Red": {
+        "CSP": {
             "display_name": "Central Security Pact",
             "color": "#FF0000",
             "cities": [

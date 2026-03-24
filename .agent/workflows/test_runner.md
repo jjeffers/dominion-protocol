@@ -4,6 +4,8 @@ description:
 
 // turbo-all
 
+Don't create a new bash script to run tests, just run the commands as listed below:
+
 ### Linux / WSL (Bash)
 1. Run the test command:
    `/usr/local/bin/godot --headless --path . -s "addons/gut/gut_cmdln.gd" -gdir=test/`

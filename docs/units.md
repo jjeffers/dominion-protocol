@@ -36,7 +36,8 @@
 
 ### Recovery
 - A land unit recovers health at a rate of 10 points per 30 seconds if it is within the 3x3 area of a friendly city.
-- Recovery only occurs if the unit is not engaged in combat and the unit is stationary.
+- Recovery only starts for a unit in a friendly city (or docks) after it has been stationary for 30 seconds.
+- Recovery only continues if the unit is not engaged in combat and the unit is stationary.
 
 ### Movement
 - The base rate of movement on land will be 1 unit width per 10 seconds.

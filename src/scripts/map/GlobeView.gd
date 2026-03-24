@@ -72,6 +72,11 @@ var deployment_ghost: Sprite3D
 
 var unit_name_counters: Dictionary = {}
 
+func _get_fac_color_hex(fac_key: String) -> String:
+	if active_scenario and active_scenario.has("factions") and active_scenario["factions"].has(fac_key):
+		return active_scenario["factions"][fac_key].get("color", "#CCCCCC")
+	return "#CCCCCC"
+
 func _get_standard_unit_name(faction: String, type: String) -> String:
 	var f = faction.capitalize()
 	if f == "":
@@ -384,7 +389,7 @@ func _on_air_strike_requested(sender_id: int, unit_name: String, target_unit_nam
 	if NetworkManager.players.has(sender_id):
 		attacker_player_name = NetworkManager.players[sender_id].get("name", "Unknown")
 		
-	ConsoleManager.log_message("\n[color=cyan]AIR STRIKE REQUESTED:[/color] [color=yellow]" + attacker_player_name + " (" + attacker_faction + ")[/color] targeting [color=red]" + target_unit_name + "[/color]")
+	ConsoleManager.log_message("\n[outline_size=2][outline_color=#dddddd][color=cyan]AIR STRIKE REQUESTED:[/color][/outline_color][/outline_size] [color=yellow]" + attacker_player_name + " (" + attacker_faction + ")[/color] targeting [outline_size=2][outline_color=#dddddd][color=red]" + target_unit_name + "[/color][/outline_color][/outline_size]")
 		
 	var valid_counters = []
 	var total_interception_chance = 0.0
@@ -537,7 +542,7 @@ func _on_strategic_bombing_requested(sender_id: int, unit_name: String, target_c
 	if target_tile == -1: return
 	var target_pos = map_data.get_centroid(target_tile).normalized() * radius
 		
-	ConsoleManager.log_message("\n[color=cyan]STRATEGIC BOMBING REQUESTED:[/color] [color=yellow]" + attacker_player_name + " (" + attacker_faction + ")[/color] targeting [color=red]" + target_city + "[/color]")
+	ConsoleManager.log_message("\n[outline_size=2][outline_color=#dddddd][color=cyan]STRATEGIC BOMBING REQUESTED:[/color][/outline_color][/outline_size] [color=yellow]" + attacker_player_name + " (" + attacker_faction + ")[/color] targeting [outline_size=2][outline_color=#dddddd][color=red]" + target_city + "[/color][/outline_color][/outline_size]")
 		
 	var valid_counters = []
 	var total_interception_chance = 0.0
@@ -687,7 +692,7 @@ func _on_strategic_bombing_synced(unit_name: String, target_city: String, counte
 		if target_fac != "":
 			active_scenario["factions"][target_fac]["money"] -= 10.0
 			var msg = "%s AIR FORCES SUCCESSFULLY STRATEGICALLY BOMBED %s!" % [attacker_fac.to_upper(), target_city.to_upper()]
-			ConsoleManager.log_message("[color=green]" + msg + "[/color]")
+			ConsoleManager.log_message("[outline_size=2][outline_color=#dddddd][color=green]" + msg + "[/color][/outline_color][/outline_size]")
 			if main_node and main_node.has_method("post_news_event"):
 				main_node.post_news_event(msg, [attacker_fac, target_fac])
 			
@@ -695,7 +700,7 @@ func _on_strategic_bombing_synced(unit_name: String, target_city: String, counte
 	else:
 		if attacker_status == "DESTROYED":
 			var msg = "%s STRATEGIC BOMBER OVER %s SHOT DOWN BY %s COUNTERMEASURES!" % [attacker_fac.to_upper(), target_city.to_upper(), target_fac.to_upper()]
-			ConsoleManager.log_message("[color=red]" + msg + "[/color]")
+			ConsoleManager.log_message("[outline_size=2][outline_color=#dddddd][color=red]" + msg + "[/color][/outline_color][/outline_size]")
 			if main_node and main_node.has_method("post_news_event"):
 				main_node.post_news_event(msg, [attacker_fac, target_fac])
 		elif attacker_status == "UNREADY":
@@ -1237,7 +1242,7 @@ func _evaluate_country_alignment(country_name: String, triggering_faction: Strin
 			if active_scenario.has("factions") and active_scenario["factions"].has(loves_faction) and not active_scenario["factions"][loves_faction].get("eliminated", false):
 				print("DIPLOMACY: ", country_name, " has joined the ", loves_faction, " faction due to high opinion!")
 				if ConsoleManager and ConsoleManager.has_method("local_log_message"):
-					var col = "red" if loves_faction.to_lower() == "red" else "#3388ff"
+					var col = _get_fac_color_hex(loves_faction)
 					var fac_name = active_scenario["factions"][loves_faction].get("display_name", loves_faction) if (active_scenario.has("factions") and active_scenario["factions"].has(loves_faction)) else loves_faction
 					var f_str = "[color=" + col + "]" + fac_name + "[/color]"
 					ConsoleManager.local_log_message("SYSTEM: " + country_name + " has joined the " + f_str + " alliance!")
@@ -1274,7 +1279,7 @@ func _evaluate_country_alignment(country_name: String, triggering_faction: Strin
 			if best_fac != "" and active_scenario.has("factions") and active_scenario["factions"].has(best_fac):
 				print("DIPLOMACY: ", country_name, " has joined the ", best_fac, " faction in response to aggression!")
 				if ConsoleManager and ConsoleManager.has_method("local_log_message"):
-					var col = "red" if best_fac.to_lower() == "red" else "#3388ff"
+					var col = _get_fac_color_hex(best_fac)
 					var fac_name = active_scenario["factions"][best_fac].get("display_name", best_fac) if (active_scenario.has("factions") and active_scenario["factions"].has(best_fac)) else best_fac
 					var f_str = "[color=" + col + "]" + fac_name + "[/color]"
 					ConsoleManager.local_log_message("SYSTEM: " + country_name + " has joined the " + f_str + " alliance!")
@@ -1299,8 +1304,8 @@ func sync_diplomatic_penalty(country_name: String, faction: String, penalty: flo
 	c_data["opinions"][faction] = current_opinion - penalty
 	
 	if ConsoleManager and log_reason == "Invasion":
-		var col = "red" if faction.to_lower() == "red" else "#3388ff"
-		var f_str = "[color=" + col + "]" + faction + "[/color]"
+		var col = _get_fac_color_hex(faction)
+		var f_str = "[outline_size=2][outline_color=#dddddd][color=" + col + "]" + faction + "[/color][/outline_color][/outline_size]"
 		var should_log = (current_opinion == 0.0) or (current_opinion > -99.0 and int(abs(current_opinion)) % 10 == 0)
 		
 		var cooldown_key = faction + "_" + country_name
@@ -1496,8 +1501,8 @@ func sync_nuke_purchase(faction: String, cost: float) -> void:
 		fac_data["money"] = money - cost
 		fac_data["nukes"] = fac_data.get("nukes", 0) + 1
 		if ConsoleManager:
-			var col = "red" if faction.to_lower() == "red" else "#3388ff"
-			var fac = "[color=" + col + "]" + faction + "[/color]"
+			var col = _get_fac_color_hex(faction)
+			var fac = "[outline_size=2][outline_color=#dddddd][color=" + col + "]" + faction + "[/color][/outline_color][/outline_size]"
 			# Print to all consoles universally since everyone dreads a nuke
 			ConsoleManager.log_message("SYSTEM: " + fac + " has acquired a Nuclear Weapon.")
 		# Ping local economy UI to refresh
@@ -1565,8 +1570,8 @@ func sync_foreign_aid(country_name: String, faction: String) -> void:
 		var new_op = min(100.0, current_op + shift)
 		c_data["opinions"][faction] = new_op
 	
-	var col = "red" if faction.to_lower() == "red" else "#3388ff"
-	var fac_str = "[color=" + col + "]" + faction + "[/color]"
+	var col = _get_fac_color_hex(faction)
+	var fac_str = "[outline_size=2][outline_color=#dddddd][color=" + col + "]" + faction + "[/color][/outline_color][/outline_size]"
 	if ConsoleManager and ConsoleManager.has_method("local_log_message"):
 		ConsoleManager.local_log_message("SYSTEM: " + fac_str + " provided Foreign Aid to " + country_name + ".")
 	
@@ -1583,7 +1588,7 @@ func sync_unit_purchase(city_name: String, unit_type: String, faction: String, c
 	print("Unit Purchase: ", faction, " bought ", unit_type, " at ", city_name, " for ", cost)
 	
 	if ConsoleManager:
-		var col = "red" if faction.to_lower() == "red" else "#3388ff"
+		var col = _get_fac_color_hex(faction)
 		var fac = "[color=" + col + "]" + faction + "[/color]"
 
 		var local_fac = _get_local_faction()
@@ -1802,6 +1807,11 @@ func _instantiate_scenario(scenario_data: Dictionary, progress_callback: Callabl
 		await get_tree().process_frame
 	_generate_country_labels(c_dict)
 	
+	if progress_callback.is_valid():
+		progress_callback.call(0.95, "Generating Faction Labels...")
+		await get_tree().process_frame
+	_generate_faction_labels(c_dict)
+	
 	_generate_faction_borders()
 
 func _generate_country_labels(city_dict: Dictionary) -> void:
@@ -1850,6 +1860,58 @@ func _generate_country_labels(city_dict: Dictionary) -> void:
 				up_vec = Vector3.RIGHT
 			label.look_at(Vector3.ZERO, up_vec)
 			print("Added 3D Label for ", country_name, " at ", centroid, " scale: ", label.font_size)
+
+func _generate_faction_labels(city_dict: Dictionary) -> void:
+	if not active_scenario.has("factions"):
+		return
+		
+	var faction_labels_parent = Node3D.new()
+	faction_labels_parent.name = "FactionLabels"
+	add_child(faction_labels_parent)
+	
+	for faction_name in active_scenario["factions"]:
+		var data = active_scenario["factions"][faction_name]
+		var cap = data.get("capital", data.get("capitol", ""))
+		if cap == "" or not city_dict.has(cap):
+			continue
+			
+		var c_lat = deg_to_rad(city_dict[cap].get("latitude", 0.0))
+		var c_lon = deg_to_rad(city_dict[cap].get("longitude", 0.0))
+		var centroid = _lat_lon_to_vector3(c_lat, c_lon, radius)
+		
+		# Offset slightly higher than country labels to ensure visibility and prevent clipping
+		centroid = centroid.normalized() * (radius * 1.004)
+		
+		var d_name = data.get("display_name", faction_name)
+		var label = Label3D.new()
+		label.text = d_name.to_upper()
+		
+		# Determine faction color
+		var fac_color = Color.WHITE
+		var c_val = data.get("color", "#ffffff")
+		if typeof(c_val) == TYPE_STRING:
+			fac_color = Color(c_val)
+		elif typeof(c_val) == TYPE_ARRAY and c_val.size() >= 3:
+			fac_color = Color(c_val[0], c_val[1], c_val[2])
+			
+		label.modulate = fac_color
+		label.outline_render_priority = 0
+		label.outline_modulate = Color.BLACK
+		label.outline_size = 3
+		# Adjust offset to push the text "near" the city but not covering the exact center
+		label.offset = Vector2(0, 45)
+		label.font_size = 32
+		label.pixel_size = 0.00025
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD
+		label.width = 500.0
+		label.position = centroid
+		faction_labels_parent.add_child(label)
+		
+		var up_vec = Vector3.UP
+		if abs(centroid.normalized().y) > 0.99:
+			up_vec = Vector3.RIGHT
+		label.look_at(Vector3.ZERO, up_vec)
+		print("Added 3D Faction Label for ", faction_name, " near ", cap)
 
 func _load_cities(active_cities: Array[String]) -> void:
 	var path = "res://src/data/city_data.json"
@@ -3559,7 +3621,7 @@ func sync_nuke_launch(target_pos: Vector3, launching_faction: String) -> void:
 	
 	var hint = _get_location_hint_string(target_pos)
 	var alert_msg = "NUCLEAR LAUNCH DETECTED" + hint.to_upper()
-	ConsoleManager.local_log_message("[color=red]" + alert_msg + "[/color]")
+	ConsoleManager.local_log_message("[outline_size=2][outline_color=#dddddd][color=red]" + alert_msg + "[/color][/outline_color][/outline_size]")
 	
 	var main_node = get_node_or_null("/root/Main")
 	if main_node and main_node.has_method("post_news_event"):
@@ -3575,7 +3637,7 @@ func sync_nuke_launch(target_pos: Vector3, launching_faction: String) -> void:
 func _process_nuke_impact(target_pos: Vector3) -> void:
 	var hint = _get_location_hint_string(target_pos)
 	var alert_msg = "NUCLEAR IMPACT CATASTROPHE" + hint.to_upper()
-	ConsoleManager.local_log_message("[color=red]" + alert_msg + "[/color]")
+	ConsoleManager.local_log_message("[outline_size=2][outline_color=#dddddd][color=red]" + alert_msg + "[/color][/outline_color][/outline_size]")
 	
 	if nuke_impact_sfx and nuke_impact_sfx.stream:
 		nuke_impact_sfx.play()

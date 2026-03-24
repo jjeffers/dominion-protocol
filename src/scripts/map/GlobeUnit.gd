@@ -605,8 +605,8 @@ func take_damage(amount: float, attacker_name: String = "Unknown") -> void:
 		clear_combat_target()
 		
 		if ConsoleManager != null and (NetworkManager == null or NetworkManager.is_host):
-			var col = "red" if faction_name.to_lower() == "red" else "#3388ff"
-			var fac = "[color=" + col + "]" + faction_name + "[/color]"
+			var col = "#" + base_faction_color.to_html(false)
+			var fac = "[outline_size=2][outline_color=#dddddd][color=" + col + "]" + faction_name + "[/color][/outline_color][/outline_size]"
 			ConsoleManager.log_message(fac + " " + unit_type + " destroyed")
 		
 		if path_immediate_mesh:
