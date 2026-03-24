@@ -101,6 +101,9 @@ func _refresh_owned_units() -> void:
 	if main_scene and main_scene.scenario_data.has("factions") and main_scene.scenario_data["factions"].has(faction_name):
 		own_cities = main_scene.scenario_data["factions"][faction_name].get("cities", [])
 		
+	if is_instance_valid(target_city) and target_city.name in own_cities:
+		target_city = null
+		
 	# Automatically calculate rally point near our average city position or unit position
 	if rally_point == Vector3.ZERO:
 		var sum_pos = Vector3.ZERO
@@ -440,7 +443,7 @@ func _handle_attacking() -> void:
 							if current_target_pos != null:
 								current_target_tile = globe_view._get_tile_from_vector3(current_target_pos)
 								
-							if current_target_tile != my_assignment or not u.get("in_motion"):
+							if current_target_tile != my_assignment or not u.get("is_moving"):
 								_issue_move_order(u, n_pos, "") # Strip name to snap to tile center
 					else:
 						var count = target_assignments[t_name].size()

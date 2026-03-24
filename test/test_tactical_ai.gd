@@ -212,3 +212,48 @@ func test_ai_logs_production_to_console():
 	ai._handle_production() # Call production manually
 	
 	assert_true("AI Command: Authorizing funds for" in cm.output_log.get_parsed_text() if cm else "", "Logged message should reflect target purchase decision.")
+
+func test_ai_cannot_target_invisible_infantry():
+	# Red is the AI faction, Blue is the enemy
+	var unit_scr = GDScript.new()
+	unit_scr.source_code = "extends Node3D\nvar faction_name = 'Red'\nvar unit_type = 'Infantry'\nvar is_dead = false\nvar is_engaged = false"
+	unit_scr.reload()
+	
+	var red_inf = Node3D.new()
+	red_inf.set_script(unit_scr)
+	red_inf.name = "RedInf"
+	mock_globe.add_child(red_inf)
+	mock_globe.units_list.append(red_inf)
+	
+	var enemy_scr = GDScript.new()
+	enemy_scr.source_code = "extends Node3D\nvar faction_name = 'Blue'\nvar unit_type = 'Infantry'\nvar is_dead = false\nvar is_engaged = false"
+	enemy_scr.reload()
+	
+	var blue_inf = Node3D.new()
+	blue_inf.set_script(enemy_scr)
+	blue_inf.name = "BlueInf"
+	mock_globe.add_child(blue_inf)
+	mock_globe.units_list.append(blue_inf)
+	
+	# Place Red infantry and Red cities far away from Blue infantry
+	red_inf.global_position = Vector3(0, 1, 0) # Near City B (0, 1, 0)
+	blue_inf.global_position = Vector3(0, -1, 0) # Bottom of globe
+	
+	# Also ensure all Red cities are far away (City A is at 1,0,0, City B is at 0,1,0)
+	ai._refresh_owned_units()
+	
+	var target = ai._get_closest_enemy(red_inf)
+	assert_null(target, "AI MUST NOT target an enemy Infantry if it is outside vision range.")
+	
+	# Move Blue infantry within vision range (0.036) of Red infantry
+	blue_inf.global_position = Vector3(0, 0.98, 0)
+	
+	ai._refresh_owned_units()
+	
+	target = ai._get_closest_enemy(red_inf)
+	assert_true(target != null, "AI MUST target the enemy Infantry when it moves inside vision range.")
+	if target:
+		assert_eq(target.name, "BlueInf", "Target should be the Blue Infantry.")
+		
+	red_inf.free()
+	blue_inf.free()

@@ -661,6 +661,8 @@ func take_damage(amount: float, attacker_name: String = "Unknown") -> void:
 		queue_free()
 
 func _process(delta: float) -> void:
+	var starting_position = current_position
+	
 	if is_friendly and base_render_priority == 30:
 		if (Time.get_ticks_msec() / 1000.0) - last_damage_time >= 3.0:
 			_recalc_base_priority()
@@ -736,24 +738,6 @@ func _process(delta: float) -> void:
 		if health <= 0.0:
 			take_damage(9999.0) # reuse death flow
 		is_recovering = false
-			
-	if not in_motion:
-		time_motionless += delta
-		if time_motionless >= 30.0:
-			if unit_type == "Infantry":
-				entrenched = true
-				if sprite and sprite.material_override is ShaderMaterial:
-					sprite.material_override.set_shader_parameter("is_entrenched", true)
-	else:
-		time_motionless = 0.0
-		time_in_city = 0.0
-		is_recovering = false
-		if entrenched:
-			entrenched = false
-			if sprite and sprite.material_override is ShaderMaterial:
-				sprite.material_override.set_shader_parameter("is_entrenched", false)
-		
-
 		
 	# Determine dynamic engagement radius based on unit size
 	var my_range = 0.0165 if unit_type.capitalize() == "Cruiser" else 0.012
@@ -1115,6 +1099,26 @@ func _process(delta: float) -> void:
 		global_position = current_position
 		if current_position.length_squared() > 0.0001:
 			look_at(Vector3.ZERO, Vector3.UP)
+
+	var actually_moved = false
+	if starting_position != null and current_position != null and starting_position != current_position:
+		actually_moved = true
+		
+	if not actually_moved:
+		time_motionless += delta
+		if time_motionless >= 30.0:
+			if unit_type == "Infantry":
+				entrenched = true
+				if sprite and sprite.material_override is ShaderMaterial:
+					sprite.material_override.set_shader_parameter("is_entrenched", true)
+	else:
+		time_motionless = 0.0
+		time_in_city = 0.0
+		is_recovering = false
+		if entrenched:
+			entrenched = false
+			if sprite and sprite.material_override is ShaderMaterial:
+				sprite.material_override.set_shader_parameter("is_entrenched", false)
 
 						
 func _draw_engagement_line() -> void:

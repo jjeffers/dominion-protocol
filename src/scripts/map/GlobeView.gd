@@ -1251,6 +1251,10 @@ func sync_diplomatic_penalty(country_name: String, faction: String, penalty: flo
 			ConsoleManager.log_message("SYSTEM: " + f_str + " forces violated the neutrality of " + country_name + "!")
 			_violation_log_cooldowns[cooldown_key] = 300.0
 			
+			var main_node = get_node_or_null("/root/Main")
+			if main_node and main_node.has_method("post_news_event"):
+				main_node.post_news_event(faction + " violated the neutrality of " + country_name + "!", [faction])
+			
 	# Suppressed localized console messages about basic alignment deteriorations per user request.
 	# Major defection announcements remain managed inside `_evaluate_country_alignment()`.
 	var main_node = get_node_or_null("/root/Main")
@@ -2347,7 +2351,7 @@ func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
 						else:
 							var all_units = get_tree().get_nodes_in_group("units")
 							for u in all_units:
-								if u != selected_unit and is_instance_valid(u) and not u.is_dead:
+								if u != selected_unit and is_instance_valid(u) and not u.is_dead and u.visible:
 									if u.get("faction_name") != local_fac:
 										if _get_tile_from_vector3(u.current_position) == tile_id:
 											intended_enemy = u
@@ -2574,7 +2578,7 @@ func _handle_hover(screen_pos: Vector2) -> void:
 			if current_air_operation_mode == "AIRSTRIKE":
 				var hovered_enemy = null
 				for u in units_list:
-					if is_instance_valid(u) and u.get("faction_name") != selected_unit.get("faction_name"):
+					if is_instance_valid(u) and u.get("faction_name") != selected_unit.get("faction_name") and u.visible:
 						var dist_to_cursor = u.current_position.distance_to(result.position)
 						if dist_to_cursor < (tile_width * 3.0):
 							hovered_enemy = u
@@ -3087,6 +3091,12 @@ func set_focus(longitude: float, latitude: float) -> void:
 	current_longitude = longitude
 	current_latitude = latitude
 	_update_camera()
+
+func focus_on_city(city_name: String) -> void:
+	if cached_city_data.has(city_name):
+		var c_data = cached_city_data[city_name]
+		if c_data.has("latitude") and c_data.has("longitude"):
+			set_focus(deg_to_rad(c_data["longitude"]), deg_to_rad(c_data["latitude"]))
 
 func _spawn_unit(unit_def: Dictionary, faction_name: String, c_dict: Dictionary, faction_regions: Dictionary) -> void:
 	if unit_def.has("latitude") and unit_def.has("longitude"):

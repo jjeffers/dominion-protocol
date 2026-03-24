@@ -740,10 +740,12 @@ func _do_update_diplomacy_ui() -> void:
 	for c_item in countries_list:
 		var hb = HBoxContainer.new()
 		
-		var name_lbl = Label.new()
-		name_lbl.text = c_item["name"] + " (" + str(c_item["cities"]) + ")"
-		name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		name_lbl.add_theme_font_size_override("font_size", 24)
+		var name_btn = Button.new()
+		name_btn.text = c_item["name"] + " (" + str(c_item["cities"]) + ")"
+		name_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		name_btn.add_theme_font_size_override("font_size", 24)
+		name_btn.flat = true
+		name_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		
 		var op_val = clamp(floor(c_item["opinion"]), -100, 100)
 		var op_lbl = Label.new()
@@ -754,18 +756,29 @@ func _do_update_diplomacy_ui() -> void:
 		op_lbl.add_theme_font_size_override("font_size", 24)
 			
 		if op_val >= 50:
-			name_lbl.add_theme_color_override("font_color", Color.GREEN)
+			name_btn.add_theme_color_override("font_color", Color.GREEN)
 			op_lbl.add_theme_color_override("font_color", Color.GREEN)
 		elif op_val < 0:
-			name_lbl.add_theme_color_override("font_color", Color.RED)
+			name_btn.add_theme_color_override("font_color", Color.RED)
 			op_lbl.add_theme_color_override("font_color", Color.RED)
 		else:
-			name_lbl.add_theme_color_override("font_color", Color.YELLOW)
+			name_btn.add_theme_color_override("font_color", Color.YELLOW)
 			op_lbl.add_theme_color_override("font_color", Color.YELLOW)
 			
-		hb.add_child(name_lbl)
+		name_btn.pressed.connect(_on_diplomacy_country_clicked.bind(c_item["name"]))
+		
+		hb.add_child(name_btn)
 		hb.add_child(op_lbl)
 		diplomacy_vbox.add_child(hb)
+
+func _on_diplomacy_country_clicked(country_name: String) -> void:
+	if globe_view == null: return
+	if not scenario_data.has("countries"): return
+	var c_data = scenario_data["countries"].get(country_name, {})
+	if c_data.has("cities") and c_data["cities"].size() > 0:
+		var target_city = c_data["cities"][0]
+		if globe_view.has_method("focus_on_city"):
+			globe_view.focus_on_city(target_city)
 
 func execute_async_setup(lobby_node: Node) -> void:
 	lobby_node.update_progress(10.0, "Generating Globe Mesh...")
