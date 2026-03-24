@@ -54,15 +54,16 @@ func test_health_recovery():
 	for i in range(290):
 		u1._process(0.1)
 		
-	assert_almost_eq(u1.health, 50.0, 0.001, "Health should not recover before 30 seconds.")
+	assert_almost_eq(u1.health, 50.0, 0.001, "Health should not recover before 30 seconds stationary.")
 	
-	# Simulate 1.1 more seconds to cross the 30-second threshold
-	for i in range(11):
+	# Simulate 1 more second to cross the 30-second stationary threshold,
+	# plus 30 seconds for the first recovery tick to fire
+	for i in range(10 + 300):
 		u1._process(0.1)
 		
-	assert_almost_eq(u1.health, 60.0, 0.001, "Health should recover by 10 points after 30 seconds.")
+	assert_almost_eq(u1.health, 60.0, 0.001, "Health should recover by 10 points after 60 seconds total.")
 	
-	# Simulate another 30 seconds
+	# Simulate another 30 seconds for the next tick
 	for i in range(300):
 		u1._process(0.1)
 		
@@ -149,15 +150,16 @@ func test_sea_unit_recovery_in_docks():
 	for i in range(290):
 		u2._process(0.1)
 		
-	assert_almost_eq(u2.health, 50.0, 0.001, "Sea unit health should not recover before 30 seconds.")
+	assert_almost_eq(u2.health, 50.0, 0.001, "Sea unit health should not recover before 30 seconds stationary.")
 	
-	# Simulate 1.1 more seconds to cross the 30-second threshold
-	for i in range(11):
+	# Simulate 1 more second to cross the 30-second stationary threshold,
+	# plus 30 seconds for the first recovery tick to fire
+	for i in range(10 + 300):
 		u2._process(0.1)
 		
-	assert_almost_eq(u2.health, 60.0, 0.001, "Sea unit health should recover by 10 points after 30 seconds in a dock (friendly city tile).")
+	assert_almost_eq(u2.health, 60.0, 0.001, "Sea unit health should recover by 10 points after 60 seconds total in dock.")
 	
-	# Simulate another 30 seconds
+	# Simulate another 30 seconds for the next tick
 	for i in range(300):
 		u2._process(0.1)
 		

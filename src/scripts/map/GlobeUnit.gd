@@ -111,6 +111,7 @@ var entrenched: bool = false
 var is_recovering: bool = false
 var time_motionless: float = 0.0
 var time_in_city: float = 0.0
+var recovery_timer: float = 0.0
 var is_detected: bool = false
 var is_moving: bool = false
 
@@ -1037,18 +1038,26 @@ func _process(delta: float) -> void:
 				if c_faction == self.faction_name:
 					# Friendly City: Health Recovery Protocol
 					if not is_dead and health < 100.0 and not is_engaged:
-						is_recovering = true
 						if time_in_city >= 30.0:
-							time_in_city -= 30.0
-							var is_offline = (NetworkManager == null or not NetworkManager.multiplayer.has_multiplayer_peer())
-							if is_offline or NetworkManager.is_host:
-								var hp_gain = min(10.0, 100.0 - health)
-								if hp_gain > 0:
-									if not is_offline:
-										NetworkManager.rpc("sync_unit_health", name, health + hp_gain)
-									else:
-										health = health + hp_gain
-										_update_health_bar()
+							is_recovering = true
+							recovery_timer += delta
+							if recovery_timer >= 30.0:
+								recovery_timer -= 30.0
+								var is_offline = (NetworkManager == null or not NetworkManager.multiplayer.has_multiplayer_peer())
+								if is_offline or NetworkManager.is_host:
+									var hp_gain = min(10.0, 100.0 - health)
+									if hp_gain > 0:
+										if not is_offline:
+											NetworkManager.rpc("sync_unit_health", name, health + hp_gain)
+										else:
+											health = health + hp_gain
+											_update_health_bar()
+						else:
+							is_recovering = false
+							recovery_timer = 0.0
+					else:
+						is_recovering = false
+						recovery_timer = 0.0
 				else:
 					# Hostile City: Capture Protocol
 					if can_capture:
@@ -1114,6 +1123,7 @@ func _process(delta: float) -> void:
 	else:
 		time_motionless = 0.0
 		time_in_city = 0.0
+		recovery_timer = 0.0
 		is_recovering = false
 		if entrenched:
 			entrenched = false
