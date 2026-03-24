@@ -614,15 +614,46 @@ func _on_strategic_bombing_synced(unit_name: String, target_city: String, counte
 	var attacker: Node3D = null
 	var counter: Node3D = null
 	
+	var target_pos = Vector3.ZERO
 	for u in units_list:
 		if not is_instance_valid(u): continue
 		if u.name == unit_name: attacker = u
 		if counter_unit_name != "" and u.name == counter_unit_name: counter = u
 		
+	if cached_city_data.has(target_city):
+		var city_data = cached_city_data[target_city]
+		var lat = city_data.get("latitude")
+		var lon = city_data.get("longitude")
+		if lat != null and lon != null:
+			target_pos = _lat_lon_to_vector3(deg_to_rad(lat), deg_to_rad(lon), radius)
+			
+	if attacker and target_pos != Vector3.ZERO:
+		var attacker_fac = attacker.get("faction_name")
+		var fac_color = Color.WHITE
+		if attacker_fac != "" and active_scenario.has("factions") and active_scenario["factions"].has(attacker_fac):
+			var c_val = active_scenario["factions"][attacker_fac].get("color", "#ffffffff")
+			if typeof(c_val) == TYPE_STRING:
+				fac_color = Color(c_val)
+			elif typeof(c_val) == TYPE_ARRAY and c_val.size() >= 3:
+				fac_color = Color(c_val[0], c_val[1], c_val[2])
+		_play_air_mission_animation(attacker.current_position, target_pos, true, success, attacker_status == "DESTROYED", fac_color)
+
 	if air_strike_sfx and attacker:
 		air_strike_sfx.play()
 
 	if counter and defender_status != "":
+		var defender_fac = counter.get("faction_name")
+		var def_color = Color.WHITE
+		if defender_fac != "" and active_scenario.has("factions") and active_scenario["factions"].has(defender_fac):
+			var c_val = active_scenario["factions"][defender_fac].get("color", "#ffffffff")
+			if typeof(c_val) == TYPE_STRING:
+				def_color = Color(c_val)
+			elif typeof(c_val) == TYPE_ARRAY and c_val.size() >= 3:
+				def_color = Color(c_val[0], c_val[1], c_val[2])
+		var intercept_point = attacker.current_position.slerp(target_pos, 0.6)
+		# Converging flight path for the interceptor
+		_play_air_mission_animation(counter.current_position, intercept_point, false, true, false, def_color, 0.6 * 1.5)
+
 		if defender_status == "DESTROYED":
 			if "health" in counter:
 				counter.take_damage(9999.0)
@@ -685,10 +716,32 @@ func _on_air_strike_synced(unit_name: String, target_unit_name: String, counter_
 		if u.name == target_unit_name: target = u
 		if counter_unit_name != "" and u.name == counter_unit_name: counter = u
 		
+	if attacker and target:
+		var attacker_fac = attacker.get("faction_name")
+		var fac_color = Color.WHITE
+		if attacker_fac != "" and active_scenario.has("factions") and active_scenario["factions"].has(attacker_fac):
+			var c_val = active_scenario["factions"][attacker_fac].get("color", "#ffffff")
+			if typeof(c_val) == TYPE_STRING:
+				fac_color = Color(c_val)
+			elif typeof(c_val) == TYPE_ARRAY and c_val.size() >= 3:
+				fac_color = Color(c_val[0], c_val[1], c_val[2])
+		_play_air_mission_animation(attacker.current_position, target.current_position, false, target_hit, attacker_status == "DESTROYED", fac_color)
+
 	if air_strike_sfx and attacker and target:
 		air_strike_sfx.play()
 
 	if counter and defender_status != "":
+		var defender_fac = counter.get("faction_name")
+		var def_color = Color.WHITE
+		if defender_fac != "" and active_scenario.has("factions") and active_scenario["factions"].has(defender_fac):
+			var c_val = active_scenario["factions"][defender_fac].get("color", "#ffffff")
+			if typeof(c_val) == TYPE_STRING:
+				def_color = Color(c_val)
+			elif typeof(c_val) == TYPE_ARRAY and c_val.size() >= 3:
+				def_color = Color(c_val[0], c_val[1], c_val[2])
+		var intercept_point = attacker.current_position.slerp(target.current_position, 0.6)
+		_play_air_mission_animation(counter.current_position, intercept_point, false, true, false, def_color, 0.6 * 1.0)
+		
 		# Play interception dogfight sound
 		if air_battle_sfx:
 			air_battle_sfx.play()
@@ -704,7 +757,7 @@ func _on_air_strike_synced(unit_name: String, target_unit_name: String, counter_
 			
 		if not target_hit and attacker_status != "":
 			var attacker_fac = attacker.get("faction_name") if attacker else "UNKNOWN"
-			var defender_fac = counter.get("faction_name")
+			defender_fac = counter.get("faction_name")
 			var target_tile = _get_tile_from_vector3(target.current_position) if target else 0
 			var region = map_data.get_region(target_tile) if target else ""
 			if region == "": region = "WILDERNESS"
@@ -755,6 +808,10 @@ func _on_air_strike_synced(unit_name: String, target_unit_name: String, counter_
 				val = target_health * 0.50
 		target.take_damage(val)
 		
+		var log_attacker = attacker.get("faction_name") if attacker else "UNKNOWN"
+		var log_target = target.get("faction_name") if target else "UNKNOWN"
+		ConsoleManager.local_log_message("SYSTEM: " + log_attacker + " Air Strike hit " + log_target + " for " + str(int(val)) + " damage.")
+		
 		if not counter:
 			var attacker_fac = attacker.get("faction_name") if attacker else "UNKNOWN"
 			var target_fac = target.get("faction_name") if target else "UNKNOWN"
@@ -762,7 +819,7 @@ func _on_air_strike_synced(unit_name: String, target_unit_name: String, counter_
 			var region = map_data.get_region(target_tile) if target else ""
 			if region == "": region = "WILDERNESS"
 			
-			var msg = "%s AIRSTRIKE SUCCESSFULLY BOMBED %s FACILITIES IN %s!" % [attacker_fac.to_upper(), target_fac.to_upper(), region.to_upper()]
+			var msg = "%s AIRSTRIKE DEALT %d DAMAGE TO %s IN %s!" % [attacker_fac.to_upper(), int(val), target_fac.to_upper(), region.to_upper()]
 			var main_node = get_node_or_null("/root/Main")
 			if main_node and main_node.has_method("post_news_event"):
 				main_node.post_news_event(msg, [attacker_fac, target_fac])
@@ -2572,21 +2629,25 @@ func _handle_hover(screen_pos: Vector2) -> void:
 			
 		var show_air_strike = false
 		var show_air_redeploy = false
+		var valid_target_found = false
+		
 		if selected_unit and is_instance_valid(selected_unit) and selected_unit.get("unit_type") == "Air" and selected_unit.get("is_air_ready"):
 			var ops_radius = 30.0 * tile_width
 			
 			if current_air_operation_mode == "AIRSTRIKE":
+				show_air_strike = true
 				var hovered_enemy = null
 				for u in units_list:
 					if is_instance_valid(u) and u.get("faction_name") != selected_unit.get("faction_name") and u.visible:
 						var dist_to_cursor = u.current_position.distance_to(result.position)
-						if dist_to_cursor < (tile_width * 3.0):
+						if dist_to_cursor < (tile_width * 5.0): # Made slightly more forgiving
 							hovered_enemy = u
 							break
 				if hovered_enemy:
 					if selected_unit.current_position.distance_to(hovered_enemy.current_position) <= ops_radius:
-						show_air_strike = true
+						valid_target_found = true
 			elif current_air_operation_mode == "STRATEGIC_BOMBING":
+				show_air_strike = true
 				var c_name = city_tile_cache.get(tile_id, "")
 				if c_name != "":
 					var city_owner = ""
@@ -2597,9 +2658,10 @@ func _handle_hover(screen_pos: Vector2) -> void:
 								break
 					if city_owner != "" and city_owner != selected_unit.get("faction_name"):
 						if selected_unit.current_position.distance_to(result.position) <= ops_radius:
-							show_air_strike = true
+							valid_target_found = true
 			
 			elif current_air_operation_mode == "REDEPLOY":
+				show_air_redeploy = true
 				var c_name = city_tile_cache.get(tile_id, "")
 				if c_name != "":
 					var city_owner = ""
@@ -2612,12 +2674,24 @@ func _handle_hover(screen_pos: Vector2) -> void:
 						var origin_city = city_tile_cache.get(origin_tile, "")
 						if c_name != origin_city:
 							if selected_unit.current_position.distance_to(result.position) <= ops_radius * 10.0:
-								show_air_redeploy = true
+								valid_target_found = true
 		
 		# Set pixel scale so texture fits directly over 3x3 tile block 
 		target_bracket.pixel_size = (tile_width * 3.0) / tex_width
-		if air_strike_bracket.material_override:
-			air_strike_bracket.material_override.albedo_color = Color(1.0, 0.0, 0.0)
+		
+		if show_air_strike:
+			if air_strike_bracket.material_override:
+				if valid_target_found:
+					air_strike_bracket.material_override.albedo_color = Color(1.0, 0.0, 0.0) # Red
+				else:
+					air_strike_bracket.material_override.albedo_color = Color(0.5, 0.5, 0.5) # Gray
+		elif show_air_redeploy:
+			if air_redeploy_bracket.material_override:
+				if valid_target_found:
+					air_redeploy_bracket.material_override.albedo_color = Color(0.0, 1.0, 0.0) # Green
+				else:
+					air_redeploy_bracket.material_override.albedo_color = Color(0.5, 0.5, 0.5) # Gray
+					
 		air_strike_bracket.pixel_size = (tile_width * 3.0) / 128.0
 		air_redeploy_bracket.pixel_size = (tile_width * 3.0) / 128.0
 		
@@ -3685,3 +3759,12 @@ func _get_city_faction(city_name: String) -> String:
 			if active_scenario["factions"][f_name].has("cities") and city_name in active_scenario["factions"][f_name]["cities"]:
 				return f_name
 	return ""
+
+func _play_air_mission_animation(start_pos: Vector3, end_pos: Vector3, is_strategic: bool, target_hit: bool, shot_down: bool, faction_color: Color = Color.WHITE, duration_override: float = -1.0) -> void:
+	var anim_script = load("res://src/scripts/map/AirMissionAnimation.gd")
+	if anim_script:
+		var anim_node = anim_script.new()
+		add_child(anim_node)
+		var r = 1.0
+		if "radius" in self: r = self.get("radius")
+		anim_node.init_animation(start_pos, end_pos, is_strategic, target_hit, shot_down, faction_color, r, duration_override)
