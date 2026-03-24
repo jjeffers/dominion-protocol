@@ -30,7 +30,7 @@ func init_animation(p_start: Vector3, p_end: Vector3, p_is_strategic: bool, p_ta
 	
 	sprite_inst = Sprite3D.new()
 	var exact_tile_width = (PI * radius) / 512.0
-	sprite_inst.pixel_size = (exact_tile_width * 3.0) / 34.0
+	sprite_inst.pixel_size = (exact_tile_width * 1.5) / 34.0
 	sprite_inst.transparent = true
 	sprite_inst.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
 	sprite_inst.modulate = p_color
@@ -59,11 +59,10 @@ func _process(delta: float) -> void:
 		
 	var _t = clampf(t, 0.0, 1.0)
 	var pos = start_pos.slerp(end_pos, _t)
-	var alt = sin(_t * PI) * (0.05 if is_strategic else 0.03)
-	position = pos.normalized() * (radius + 0.02 + alt)
+	position = pos.normalized() * (radius + 0.02)
 	
 	var look_t = clampf(_t + 0.05, 0.0, 1.0)
-	var look_pos = start_pos.slerp(end_pos, look_t).normalized() * (radius + 0.02 + sin(look_t * PI) * (0.05 if is_strategic else 0.03))
+	var look_pos = start_pos.slerp(end_pos, look_t).normalized() * (radius + 0.02)
 	
 	if position.distance_to(look_pos) > 0.001:
 		var forward = (look_pos - position).normalized()
