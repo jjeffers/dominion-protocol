@@ -76,7 +76,7 @@ func _ready() -> void:
 	cities_label.offset_bottom = -50.0
 	cities_label.bbcode_enabled = true
 	cities_label.scroll_active = false
-	cities_label.add_theme_font_size_override("normal_font_size", 24)
+	cities_label.add_theme_font_size_override("normal_font_size", 36)
 	old_cities.get_parent().add_child(cities_label)
 	old_cities.queue_free()
 

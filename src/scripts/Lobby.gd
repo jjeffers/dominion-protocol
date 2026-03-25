@@ -32,6 +32,8 @@ func _ready():
 			var btn = Button.new()
 			var d_name = fac.get("display_name", fac_key)
 			btn.text = "Join " + d_name + " (" + fac_key + ")"
+			btn.add_theme_font_size_override("font_size", 54)
+			btn.custom_minimum_size = Vector2(300, 80)
 			
 			var c_val = fac.get("color", "#FFFFFF")
 			if typeof(c_val) == TYPE_STRING:

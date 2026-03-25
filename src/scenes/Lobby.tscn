@@ -35,7 +35,7 @@ theme_override_constants/separation = 20
 
 [node name="Title" type="Label" parent="CenterContainer/VBoxContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 48
+theme_override_font_sizes/font_size = 72
 text = "Game Lobby"
 horizontal_alignment = 1
 
@@ -44,7 +44,7 @@ layout_mode = 2
 
 [node name="PlayersLabel" type="Label" parent="CenterContainer/VBoxContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 24
+theme_override_font_sizes/font_size = 36
 text = "Players Connected:"
 
 [node name="PlayerList" type="ItemList" parent="CenterContainer/VBoxContainer"]
@@ -53,7 +53,7 @@ layout_mode = 2
 
 [node name="FactionsLabel" type="Label" parent="CenterContainer/VBoxContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 24
+theme_override_font_sizes/font_size = 36
 text = "Available Factions:"
 
 [node name="HBoxContainer" type="HBoxContainer" parent="CenterContainer/VBoxContainer"]
@@ -62,17 +62,17 @@ alignment = 1
 theme_override_constants/separation = 40
 
 [node name="BlueFactionBtn" type="Button" parent="CenterContainer/VBoxContainer/HBoxContainer"]
-custom_minimum_size = Vector2(200, 60)
+custom_minimum_size = Vector2(300, 80)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.3, 0.5, 1, 1)
-theme_override_font_sizes/font_size = 24
+theme_override_font_sizes/font_size = 54
 text = "Join Blue Faction"
 
 [node name="RedFactionBtn" type="Button" parent="CenterContainer/VBoxContainer/HBoxContainer"]
-custom_minimum_size = Vector2(200, 60)
+custom_minimum_size = Vector2(300, 80)
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.3, 0.3, 1)
-theme_override_font_sizes/font_size = 24
+theme_override_font_sizes/font_size = 54
 text = "Join Red Faction"
 
 [node name="HSeparator2" type="HSeparator" parent="CenterContainer/VBoxContainer"]
@@ -81,7 +81,7 @@ layout_mode = 2
 [node name="StartGameBtn" type="Button" parent="CenterContainer/VBoxContainer"]
 custom_minimum_size = Vector2(0, 60)
 layout_mode = 2
-theme_override_font_sizes/font_size = 28
+theme_override_font_sizes/font_size = 42
 text = "Start Game"
 
 [node name="StatusLabel" type="Label" parent="CenterContainer/VBoxContainer"]
