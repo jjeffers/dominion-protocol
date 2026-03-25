@@ -71,10 +71,21 @@ func local_log_message(msg: String) -> void:
 		output_log.scroll_to_line(output_log.get_line_count() - 1)
 
 var match_time: float = 0.0
+var _time_sync_timer: float = 0.0
 
 func _process(delta: float) -> void:
 	match_time += delta
 	
+	if multiplayer.has_multiplayer_peer() and multiplayer.is_server():
+		_time_sync_timer += delta
+		if _time_sync_timer >= 1.0:
+			_time_sync_timer -= 1.0
+			rpc("receive_sync_match_time", match_time)
+
+@rpc("authority", "unreliable")
+func receive_sync_match_time(server_time: float) -> void:
+	match_time = server_time
+
 func get_elapsed_time_string() -> String:
 	var hours = int(match_time) / 3600
 	var minutes = (int(match_time) % 3600) / 60

@@ -330,7 +330,18 @@ func _find_high_value_target() -> Node3D:
 			if f != faction_name and main_scene.scenario_data["factions"][f].has("capitol"):
 				enemy_capitols.append(main_scene.scenario_data["factions"][f]["capitol"])
 	
+	var start_id = -1
+	if globe_view.get("map_data") != null and globe_view.map_data.get("land_astar") != null:
+		start_id = globe_view.map_data.land_astar.get_closest_point(rally_point)
+		
 	for t in targets:
+		if start_id != -1:
+			var end_id = globe_view.map_data.land_astar.get_closest_point(t.global_position)
+			if end_id != -1:
+				var path = globe_view.map_data.land_astar.get_id_path(start_id, end_id)
+				if path.size() == 0 and start_id != end_id:
+					continue # No connecting landmass exists!
+					
 		var dist = t.global_position.distance_to(rally_point)
 		
 		# Heavily weight capitols by mathematically shrinking their perceived distance natively
@@ -361,7 +372,7 @@ func _handle_rallying() -> void:
 				continue # Prevent sea units from arbitrarily marching inland to the global rally point
 				
 			var dist = u.global_position.distance_to(rally_point)
-			if dist > 0.05:
+			if dist > 0.01:
 				_issue_move_order(u, rally_point)
 
 func _handle_attacking() -> void:
@@ -543,7 +554,7 @@ func _handle_attacking() -> void:
 			if u.get("unit_type") in ["Cruiser", "Submarine"]:
 				continue # Sea units shouldn't march blindly across landmasses
 			var dist = u.global_position.distance_to(target_city.global_position)
-			if dist > 0.05:
+			if dist > 0.002:
 				_issue_move_order(u, target_city.global_position)
 
 func _handle_air_ops() -> void:
@@ -770,6 +781,30 @@ func _process_unit_repair(u: Node3D) -> bool:
 							best_d = d
 							best_t = t
 					target_pos = globe_view.map_data.get_centroid(best_t).normalized() * globe_view.radius
+				else:
+					# All proper tiles are occupied. Find the closest one just to maneuver towards it.
+					var fallback_tiles = []
+					for t in available_tiles:
+						var t_terrain = globe_view.map_data.get_terrain(t)
+						if is_sea_unit and t_terrain != "OCEAN" and t_terrain != "LAKE":
+							continue
+						fallback_tiles.append(t)
+						
+					if fallback_tiles.size() > 0:
+						var best_t = fallback_tiles[0]
+						var best_d = INF
+						for t in fallback_tiles:
+							var pt = globe_view.map_data.get_centroid(t).normalized() * globe_view.radius
+							var d = u.global_position.distance_to(pt)
+							if d < best_d:
+								best_d = d
+								best_t = t
+						target_pos = globe_view.map_data.get_centroid(best_t).normalized() * globe_view.radius
+						
+					if u.global_position.distance_to(target_pos) < 0.02:
+						# We have arrived near the full port. Halt and wait our turn.
+						_issue_move_order(u, u.global_position)
+						return true
 
 			var dist = u.global_position.distance_to(target_pos)
 			if dist > 0.005:
@@ -797,16 +832,41 @@ func _get_closest_friendly_city(unit: Node3D) -> Node3D:
 	
 	var is_sea_unit = unit.get("unit_type") in ["Cruiser", "Submarine"]
 	
+	var start_id = -1
+	if globe_view.get("map_data") != null:
+		var astar = globe_view.map_data.naval_astar if is_sea_unit else globe_view.map_data.land_astar
+		start_id = astar.get_closest_point(unit.global_position)
+	
 	for cn in globe_view.city_nodes:
 		if is_instance_valid(cn) and cn.name in own_cities:
-			var tile_id = globe_view._get_tile_from_vector3(cn.global_position)
-			if globe_view.get("map_data") != null and globe_view.map_data.has_method("get_terrain"):
-				var t_type = globe_view.map_data.get_terrain(tile_id)
-				if t_type == "RUINS":
-					continue # Do not retreat to radioactive craters
-					
-				if is_sea_unit and t_type != "OCEAN" and t_type != "LAKE":
-					continue # Sea units can only repair at coastal DOCKS
+			if globe_view.get("map_data") != null:
+				var is_reachable = false
+				
+				var has_valid_docks = false
+				if is_sea_unit:
+					if globe_view.get("city_tile_cache") != null:
+						for c_tid in globe_view.city_tile_cache:
+							if globe_view.city_tile_cache[c_tid] == cn.name:
+								var c_terrain = globe_view.map_data.get_terrain(c_tid)
+								if c_terrain == "OCEAN" or c_terrain == "LAKE":
+									has_valid_docks = true
+									var end_id = globe_view.map_data.naval_astar.get_closest_point(globe_view.map_data.get_centroid(c_tid))
+									if start_id != -1 and end_id != -1:
+										var path = globe_view.map_data.naval_astar.get_id_path(start_id, end_id)
+										if path.size() > 0 or start_id == end_id:
+											is_reachable = true
+											break
+					if not has_valid_docks or not is_reachable:
+						continue
+				else:
+					var end_id = globe_view.map_data.land_astar.get_closest_point(cn.global_position)
+					if start_id != -1 and end_id != -1:
+						var path = globe_view.map_data.land_astar.get_id_path(start_id, end_id)
+						if path.size() > 0 or start_id == end_id:
+							is_reachable = true
+							
+					if not is_reachable:
+						continue
 				
 			var dist = unit.global_position.distance_to(cn.global_position)
 			if dist < best_dist:

@@ -78,6 +78,9 @@ var radius: float = 1.0
 var current_position: Vector3
 var target_position: Vector3
 
+var current_path: Array[Vector3] = []
+var path_update_timer: float = 0.0
+
 # 1 tile roughly equals 0.006 units. Move 1 width per 10 seconds.
 var speed_units_per_sec: float = 0.0006
 var current_terrain_modifier: float = 1.0
@@ -518,10 +521,20 @@ func spawn(pos: Vector3) -> void:
 
 func set_target(pos: Vector3) -> void:
 	movement_target_unit = null
-	target_position = pos.normalized() * radius
+	var p = get_parent()
+	if unit_type.capitalize() != "Air" and p and p.get("map_data") != null and p.map_data.has_method("find_path"):
+		current_path = p.map_data.find_path(current_position, pos, unit_type)
+		if current_path.size() > 0:
+			target_position = current_path.pop_front()
+		else:
+			target_position = pos.normalized() * radius
+	else:
+		target_position = pos.normalized() * radius
+		current_path.clear()
 
 func set_movement_target_unit(target: GlobeUnit) -> void:
 	movement_target_unit = target
+	path_update_timer = 2.0 # Force an immediate path update on next frame
 
 func set_combat_target(target: GlobeUnit) -> void:
 	if unit_type.capitalize() == "Air" or target.unit_type.capitalize() == "Air":
@@ -689,11 +702,21 @@ func _process(delta: float) -> void:
 	if movement_target_unit != null:
 		if is_instance_valid(movement_target_unit) and not movement_target_unit.is_dead:
 			if movement_target_unit.current_position != null:
-				target_position = movement_target_unit.current_position.normalized() * radius
+				path_update_timer += delta
+				if path_update_timer >= 2.0:
+					path_update_timer = 0.0
+					var p = get_parent()
+					if unit_type.capitalize() != "Air" and p and p.get("map_data") != null and p.map_data.has_method("find_path"):
+						current_path = p.map_data.find_path(current_position, movement_target_unit.current_position.normalized() * radius, unit_type)
+						if current_path.size() > 0:
+							target_position = current_path.pop_front()
+					else:
+						target_position = movement_target_unit.current_position.normalized() * radius
 		else:
 			movement_target_unit = null
 			if current_position != null:
 				target_position = current_position
+			current_path.clear()
 			
 	var in_motion = false
 	if current_position != null and target_position != null and current_position.distance_to(target_position) > 0.0001:
@@ -706,9 +729,12 @@ func _process(delta: float) -> void:
 				is_local_owned = faction_name == NetworkManager.players[id]["faction"]
 			
 		if destination_bracket and is_local_owned and sprite.visible:
-			destination_bracket.position = target_position
+			var final_target = target_position
+			if current_path.size() > 0:
+				final_target = current_path.back()
+			destination_bracket.position = final_target
 			var up_vec = Vector3.UP
-			var norm_target = target_position.normalized()
+			var norm_target = final_target.normalized()
 			if abs(norm_target.y) > 0.99:
 				up_vec = Vector3.FORWARD
 			destination_bracket.look_at(Vector3.ZERO, up_vec)
@@ -1006,8 +1032,11 @@ func _process(delta: float) -> void:
 			if not slide_success:
 				in_motion = false # Path completely walled off, halt here.
 				target_position = current_position # Strip the target so it doesn't try again next frame
+				current_path.clear()
 		else:
 			current_position = next_pos
+			if current_path.size() > 0 and current_position.distance_to(target_position) <= 0.005:
+				target_position = current_path.pop_front()
 			_draw_path(angle)
 		_draw_path(angle)
 	else:
@@ -1101,7 +1130,10 @@ func _process(delta: float) -> void:
 			
 		# Explicitly snap to target position if we arrived organically without combat overrides
 		if not is_engaged and current_position != null and target_position != null and current_position.distance_to(target_position) <= 0.0001:
-			target_position = current_position
+			if current_path.size() > 0:
+				target_position = current_path.pop_front()
+			else:
+				target_position = current_position
 			
 	# 4. Final Transform Output (Always attach visuals to math coordinates unconditionally)
 	if current_position != null:

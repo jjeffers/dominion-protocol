@@ -15,6 +15,9 @@ var _quad_data: PackedByteArray
 var _region_map: Dictionary = {}
 var _terrain_overrides: Dictionary = {}
 
+var land_astar: AStar3D
+var naval_astar: AStar3D
+
 static var use_mock_data: bool = false
 
 func _init() -> void:
@@ -33,6 +36,8 @@ func _load_data() -> void:
 	file.close()
 	
 	print("MapData: Successfully loaded ", _quad_data.size() / TILE_STRUCT_SIZE, " quad tiles from Binary buffer.")
+
+	_build_pathfinding_graphs()
 
 	# Load Regional Territory Ownership Metadata
 	if FileAccess.file_exists(REGIONS_PATH):
@@ -145,3 +150,75 @@ func get_region(tile_id: int) -> String:
 func has_port(tile_id: int) -> bool:
 	# Flags will be implemented later, assuming false for now
 	return false
+
+func _build_pathfinding_graphs() -> void:
+	land_astar = AStar3D.new()
+	naval_astar = AStar3D.new()
+	
+	var total_tiles = _quad_data.size() / TILE_STRUCT_SIZE
+	
+	# Pass 1: Add Points
+	for i in range(total_tiles):
+		var pos = get_centroid(i)
+		var terrain = get_terrain(i)
+		
+		# Naval AStar includes OCEAN
+		if terrain == "OCEAN" or terrain == "LAKE":
+			naval_astar.add_point(i, pos)
+		else:
+			land_astar.add_point(i, pos)
+			var weight = 1.0
+			match terrain:
+				"FOREST", "JUNGLE": weight = 2.0
+				"MOUNTAINS", "RUINS": weight = 3.0
+				"WASTELAND": weight = 4.0
+			land_astar.set_point_weight_scale(i, weight)
+
+	# Pass 2: Connect Edges
+	for i in range(total_tiles):
+		var terrain = get_terrain(i)
+		var is_ocean = (terrain == "OCEAN" or terrain == "LAKE")
+		var neighbors = get_neighbors(i)
+		
+		for n in neighbors:
+			if n <= i: continue # Avoid double connecting
+			
+			var n_terrain = get_terrain(n)
+			var n_is_ocean = (n_terrain == "OCEAN" or n_terrain == "LAKE")
+			
+			if is_ocean and n_is_ocean:
+				naval_astar.connect_points(i, n, true)
+			elif not is_ocean and not n_is_ocean:
+				land_astar.connect_points(i, n, true)
+	
+	print("MapData: Built AStar3D pathfinding graphs for ", total_tiles, " tiles.")
+
+func find_path(start_pos: Vector3, end_pos: Vector3, unit_type: String) -> Array[Vector3]:
+	var u_type = unit_type.capitalize()
+	if u_type == "Air":
+		return [] # Air uses direct pathing naturally handled by caller
+		
+	var astar: AStar3D
+	if u_type in ["Cruiser", "Submarine"]:
+		astar = naval_astar
+	else:
+		astar = land_astar
+		
+	var start_id = astar.get_closest_point(start_pos)
+	var end_id = astar.get_closest_point(end_pos)
+	
+	if start_id == -1 or end_id == -1:
+		return []
+		
+	var path_ids = astar.get_id_path(start_id, end_id)
+	var path: Array[Vector3] = []
+	for id in path_ids:
+		path.append(astar.get_point_position(id))
+		
+	if path.size() > 1:
+		path.pop_front()
+		
+	if path.size() > 0:
+		path[path.size() - 1] = end_pos # Enforce literal final click position
+	
+	return path
