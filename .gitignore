@@ -24,3 +24,4 @@ src/data/map_data.bin
 src/data/quad_data.json
 host.log
 client.log
+*.log

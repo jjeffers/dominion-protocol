@@ -524,6 +524,7 @@ func set_target(pos: Vector3) -> void:
 	var p = get_parent()
 	if unit_type.capitalize() != "Air" and p and p.get("map_data") != null and p.map_data.has_method("find_path"):
 		current_path = p.map_data.find_path(current_position, pos, unit_type)
+		print("DEBUG: Unit ", name, " computed find_path to ", pos, " and got path size: ", current_path.size())
 		if current_path.size() > 0:
 			target_position = current_path.pop_front()
 		else:
@@ -531,6 +532,7 @@ func set_target(pos: Vector3) -> void:
 	else:
 		target_position = pos.normalized() * radius
 		current_path.clear()
+		print("DEBUG: Unit ", name, " skipping find_path because Air or missing map_data.")
 
 func set_movement_target_unit(target: GlobeUnit) -> void:
 	movement_target_unit = target
@@ -964,9 +966,24 @@ func _process(delta: float) -> void:
 					next_effective_terrain = "CITY"
 					
 			if TEC_MODIFIERS[u_type].has(next_effective_terrain):
-				lookahead_terrain_modifier = TEC_MODIFIERS[u_type][next_effective_terrain]["movement"]
+				var mod = TEC_MODIFIERS[u_type][next_effective_terrain]["movement"]
+				if mod <= 0.0:
+					# Verify if the actual destination tile is valid to prevent corner-clipping false positives
+					var target_tile = p._get_tile_from_vector3(target_position)
+					var target_terr = p.map_data.get_terrain(target_tile)
+					if p.get("city_tile_cache") != null and p.city_tile_cache.has(target_tile):
+						target_terr = "DOCKS" if (target_terr == "OCEAN" or target_terr == "LAKE") else "CITY"
+					if TEC_MODIFIERS[u_type].has(target_terr) and TEC_MODIFIERS[u_type][target_terr]["movement"] > 0.0:
+						lookahead_terrain_modifier = 1.0 # Trust the valid destination map data over microscopic slerp collisions
+					else:
+						lookahead_terrain_modifier = mod
+				else:
+					lookahead_terrain_modifier = mod
 					
-		if lookahead_terrain_modifier > 0.0:
+		var terrain_blocked = (lookahead_terrain_modifier <= 0.0)
+		var unit_blocked = false
+		
+		if not terrain_blocked:
 			var all_units = get_tree().get_nodes_in_group("units")
 			for other in all_units:
 				if other != self and is_instance_valid(other) and not other.get("is_dead"):
@@ -976,6 +993,8 @@ func _process(delta: float) -> void:
 					
 					var target_range = 0.0165 if target_type.capitalize() == "Cruiser" else 0.012
 					var collision_threshold = (my_range + target_range) / 3.0
+					if other.get("faction_name") == self.get("faction_name"):
+						collision_threshold *= 0.25 # Friendlies can squeeze past each other closely
 					
 					if other.get("current_position") != null:
 						var dist_next = next_pos.distance_to(other.get("current_position"))
@@ -984,6 +1003,7 @@ func _process(delta: float) -> void:
 							# Only block if we are pushing CLOSER into their space
 							if dist_next < dist_now:
 								lookahead_terrain_modifier = 0.0
+								unit_blocked = true
 								break
 					
 		if lookahead_terrain_modifier <= 0.0:
@@ -1017,6 +1037,8 @@ func _process(delta: float) -> void:
 							if not t_type or t_type.capitalize() == "Air" or self.unit_type.capitalize() == "Air": continue
 							var tr = 0.0165 if t_type.capitalize() == "Cruiser" else 0.012
 							var c_thresh = (my_range + tr) / 3.0
+							if other.get("faction_name") == self.get("faction_name"):
+								c_thresh *= 0.25
 							if other.get("current_position") != null:
 								var d_next = try_pos.distance_to(other.get("current_position"))
 								if d_next < c_thresh:
@@ -1030,9 +1052,11 @@ func _process(delta: float) -> void:
 						break
 			
 			if not slide_success:
-				in_motion = false # Path completely walled off, halt here.
-				target_position = current_position # Strip the target so it doesn't try again next frame
-				current_path.clear()
+				in_motion = false # Halt here
+				if terrain_blocked:
+					# Fully blocked by impassable physical terrain (not just traffic), wipe orders completely
+					target_position = current_position 
+					current_path.clear()
 		else:
 			current_position = next_pos
 			if current_path.size() > 0 and current_position.distance_to(target_position) <= 0.005:
@@ -1180,46 +1204,35 @@ func _draw_engagement_line() -> void:
 func _draw_path(angle: float) -> void:
 	if current_position == null or target_position == null or path_immediate_mesh == null: return
 	path_immediate_mesh.clear_surfaces()
+	
+	var path_nodes: Array[Vector3] = [current_position]
+	if current_position.distance_to(target_position) > 0.0001:
+		path_nodes.append(target_position)
+	if current_path.size() > 0:
+		path_nodes.append_array(current_path)
+		
+	if path_nodes.size() < 2: return
+	
 	path_immediate_mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
 	
-	# Calculate number of segments based on angular distance, min 4, max 32
-	var segments = clampi(int(angle * 30.0), 4, 32)
-	
-	# ~1 tile width = 0.006 world units
 	var path_width = 0.006
-	# Natively flush with the surface since we have no_depth_test enabled
 	var path_elevation = 1.0
 	
-	# Calculate arrowhead proportion (fixed world unit length, converted to percentage of path)
-	var arrow_length_units = 0.01
-	var total_distance = current_position.distance_to(target_position)
-	var arrow_fraction = min(arrow_length_units / total_distance, 0.5) if total_distance > 0 else 0.5
-	
-	var arrow_start_segment = int(segments * (1.0 - arrow_fraction))
-	
-	# Store the vertices so we can stitch them into triangles
 	var left_verts = []
 	var right_verts = []
 	
-	# Draw the main line body
-	for i in range(arrow_start_segment + 1):
-		var w = i / float(segments)
-		var p = current_position.slerp(target_position, w).normalized()
-		
-		# Figure out the forward direction at this exact point on the curve
+	for i in range(path_nodes.size()):
+		var p = path_nodes[i].normalized()
 		var forward = Vector3.ZERO
-		if i < arrow_start_segment:
-			var w_next = (i + 1) / float(segments)
-			forward = (current_position.slerp(target_position, w_next).normalized() - p).normalized()
-		else:
-			# Last segment of line body, use previous as reference
-			var w_prev = (i - 1) / float(segments)
-			forward = (p - current_position.slerp(target_position, w_prev).normalized()).normalized()
-			
-		# The UP vector is just the normal extending from the core
-		var up = p
 		
-		# The RIGHT vector is perpendicular to Forward and Up
+		if i < path_nodes.size() - 1:
+			var p_next = path_nodes[i+1].normalized()
+			forward = (p_next - p).normalized()
+		else:
+			var p_prev = path_nodes[i-1].normalized()
+			forward = (p - p_prev).normalized()
+			
+		var up = p
 		var right = forward.cross(up).normalized()
 		
 		var left_point = (p * radius * path_elevation) - (right * path_width * 0.5)
@@ -1235,33 +1248,30 @@ func _draw_path(angle: float) -> void:
 		var bl = left_verts[i+1]
 		var br = right_verts[i+1]
 		
-		# Triangle 1: TopLeft, BottomLeft, TopRight
 		path_immediate_mesh.surface_add_vertex(tl)
 		path_immediate_mesh.surface_add_vertex(bl)
 		path_immediate_mesh.surface_add_vertex(tr)
 		
-		# Triangle 2: TopRight, BottomLeft, BottomRight
 		path_immediate_mesh.surface_add_vertex(tr)
 		path_immediate_mesh.surface_add_vertex(bl)
 		path_immediate_mesh.surface_add_vertex(br)
 
-	# Draw the Arrowhead (spanning from arrow_start_segment to the target_position)
-	# The base of the arrow should match the uniform path width
+	# Draw arrowhead at the VERY END
 	var arrow_width = path_width
+	var tip_p = path_nodes.back().normalized()
+	var base_p = path_nodes[path_nodes.size() - 2].normalized()
 	
-	var arrow_base_w = arrow_start_segment / float(segments)
-	var arrow_base_p = current_position.slerp(target_position, arrow_base_w).normalized()
+	# Pull base_p slightly back from tip_p for visual scale
+	base_p = base_p.slerp(tip_p, 0.6).normalized()
 	
-	var arrow_tip_p = target_position.normalized()
-	var arrow_forward = (arrow_tip_p - arrow_base_p).normalized()
-	var arrow_up = arrow_base_p
+	var arrow_forward = (tip_p - base_p).normalized()
+	var arrow_up = base_p
 	var arrow_right = arrow_forward.cross(arrow_up).normalized()
 	
-	var arrow_base_left = (arrow_base_p * radius * path_elevation) - (arrow_right * arrow_width * 0.5)
-	var arrow_base_right = (arrow_base_p * radius * path_elevation) + (arrow_right * arrow_width * 0.5)
-	var arrow_tip = arrow_tip_p * radius * path_elevation
+	var arrow_base_left = (base_p * radius * path_elevation) - (arrow_right * arrow_width * 0.5)
+	var arrow_base_right = (base_p * radius * path_elevation) + (arrow_right * arrow_width * 0.5)
+	var arrow_tip = tip_p * radius * path_elevation
 	
-	# Arrow Triangle: BaseLeft, Tip, BaseRight
 	path_immediate_mesh.surface_add_vertex(arrow_base_left)
 	path_immediate_mesh.surface_add_vertex(arrow_tip)
 	path_immediate_mesh.surface_add_vertex(arrow_base_right)

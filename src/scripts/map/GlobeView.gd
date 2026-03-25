@@ -2601,8 +2601,15 @@ func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
 			map_query.collide_with_bodies = true
 			var map_result = space_state.intersect_ray(map_query)
 			
+			var map_hit_point = Vector3.ZERO
 			if map_result and map_result.collider == map_collider:
-				var map_hit_point = map_result.position
+				map_hit_point = map_result.position
+			elif result:
+				# Fallback: if the strict raycast misses the shrunken globe collider,
+				# use the original raycast hit point (which might have hit an Area3D near the visual horizon).
+				map_hit_point = result.position
+				
+			if map_hit_point != Vector3.ZERO:
 				var tile_id = _get_tile_from_vector3(map_hit_point)
 				var exact_target_pos = map_hit_point.normalized() * radius
 				
@@ -2643,6 +2650,8 @@ func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
 				selected_unit = null
 				if target_bracket:
 					target_bracket.visible = false
+			else:
+				print("FAILED RIGHT CLICK! map_result: ", map_result, " map_collider: ", map_collider)
 
 func _handle_hover(screen_pos: Vector2) -> void:
 	var space_state = get_world_3d().direct_space_state
