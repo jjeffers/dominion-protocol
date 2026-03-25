@@ -15,6 +15,7 @@ var main_scene_path: String = "res://src/scenes/main.tscn"
 
 var scenario_data: Dictionary = {}
 var faction_buttons: Dictionary = {}
+var money_spinboxes: Dictionary = {}
 
 func _ready():
 	var spath = "res://src/data/scenarios/initial_test.json"
@@ -29,6 +30,10 @@ func _ready():
 	if scenario_data.has("factions"):
 		for fac_key in scenario_data["factions"].keys():
 			var fac = scenario_data["factions"][fac_key]
+			
+			var vbox = VBoxContainer.new()
+			vbox.add_theme_constant_override("separation", 10)
+			
 			var btn = Button.new()
 			var d_name = fac.get("display_name", fac_key)
 			btn.text = "Join " + d_name + " (" + fac_key + ")"
@@ -43,7 +48,29 @@ func _ready():
 				
 			btn.pressed.connect(func(): _on_join_faction(fac_key))
 			faction_buttons[fac_key] = btn
-			faction_button_container.add_child(btn)
+			vbox.add_child(btn)
+			
+			var money_hbox = HBoxContainer.new()
+			money_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+			
+			var money_label = Label.new()
+			money_label.text = "Starting Money:"
+			money_label.add_theme_font_size_override("font_size", 36)
+			money_hbox.add_child(money_label)
+			
+			var money_spin = SpinBox.new()
+			money_spin.min_value = 0
+			money_spin.max_value = 99999
+			money_spin.step = 10
+			money_spin.value = fac.get("money", 0.0)
+			money_spin.add_theme_font_size_override("font_size", 36)
+			# We'll update the editable state in _update_ui()
+			money_spin.value_changed.connect(func(val): _on_money_changed(fac_key, val))
+			money_spinboxes[fac_key] = money_spin
+			money_hbox.add_child(money_spin)
+			vbox.add_child(money_hbox)
+			
+			faction_button_container.add_child(vbox)
 			
 	_update_ui()
 	
@@ -94,6 +121,9 @@ func _update_ui():
 	# Update button states based on who has what faction
 	for fac_key in faction_buttons.keys():
 		faction_buttons[fac_key].disabled = taken_factions.has(fac_key)
+		
+	for fac_key in money_spinboxes.keys():
+		money_spinboxes[fac_key].editable = NetworkManager.is_host
 	
 	# Host can start anytime, empty slots will be played by AI bots
 	if NetworkManager.is_host:
@@ -106,6 +136,18 @@ func _update_ui():
 
 func _on_join_faction(fac: String):
 	NetworkManager.rpc_id(1, "claim_faction", fac)
+
+func _on_money_changed(fac_key: String, val: float) -> void:
+	if NetworkManager.is_host:
+		scenario_data["factions"][fac_key]["money"] = val
+		rpc("sync_faction_money", fac_key, val)
+
+@rpc("authority", "call_local", "reliable")
+func sync_faction_money(fac_key: String, money: float) -> void:
+	if scenario_data.has("factions") and scenario_data["factions"].has(fac_key):
+		scenario_data["factions"][fac_key]["money"] = money
+		if money_spinboxes.has(fac_key):
+			money_spinboxes[fac_key].set_value_no_signal(money)
 
 func _on_start_game():
 	if NetworkManager.is_host:
@@ -183,6 +225,7 @@ func _on_fade_finished() -> void:
 	var main_instance = main_scene.instantiate()
 	main_instance.visible = false
 	main_instance.set("is_async_setup", true)
+	main_instance.set("scenario_data", scenario_data.duplicate(true))
 	
 	get_tree().root.add_child(main_instance)
 	
