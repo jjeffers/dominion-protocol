@@ -1325,6 +1325,34 @@ func sync_diplomatic_penalty(country_name: String, faction: String, penalty: flo
 	
 	if evaluate_alignment and multiplayer.has_multiplayer_peer() and multiplayer.is_server():
 		_evaluate_country_alignment(country_name, faction)
+
+@rpc("authority", "call_local", "reliable")
+func sync_global_diplomatic_penalty(faction: String, penalties: Dictionary, log_reason: String = "", evaluate_alignment: bool = true) -> void:
+	if not active_scenario.has("countries"):
+		return
+		
+	for country_name in penalties:
+		var penalty = penalties[country_name]
+		if not active_scenario["countries"].has(country_name):
+			continue
+			
+		var c_data = active_scenario["countries"][country_name]
+		if not c_data.has("opinions"):
+			c_data["opinions"] = {}
+			
+		var current_opinion = c_data["opinions"].get(faction, 0.0)
+		c_data["opinions"][faction] = current_opinion - penalty
+		
+	if log_reason != "":
+		print("Global Diplomatic Penalty applied to ", faction, " across ", penalties.size(), " countries for: ", log_reason)
+		
+	var main_node = get_node_or_null("/root/Main")
+	if main_node and main_node.has_method("_update_diplomacy_ui"):
+		main_node._update_diplomacy_ui()
+
+	if evaluate_alignment and multiplayer.has_multiplayer_peer() and multiplayer.is_server():
+		for country_name in penalties:
+			_evaluate_country_alignment(country_name, faction)
 			
 func _process_city_captures() -> void:
 	for city_node in city_nodes:
@@ -3606,11 +3634,12 @@ func request_nuke_launch(target_pos: Vector3, launching_faction: String) -> void
 				main_node.rpc("sync_economy", active_scenario)
 				
 			# Apply global diplomatic penalty for nuke launch 
-			# Varies randomly per country between 5 and 15
+			# Varies randomly per country between 20 and 60
 			if active_scenario.has("countries"):
+				var penalties = {}
 				for c_name in active_scenario["countries"].keys():
-					var penalty = randf_range(5.0, 15.0)
-					rpc("sync_diplomatic_penalty", c_name, launching_faction, penalty, "Nuke Detonation")
+					penalties[c_name] = randf_range(20.0, 60.0)
+				rpc("sync_global_diplomatic_penalty", launching_faction, penalties, "Nuke Detonation")
 		else:
 			print("DEBUG Server: NAUGHTY CLIENT! Nuke launch rejected. Inventory is 0.")
 

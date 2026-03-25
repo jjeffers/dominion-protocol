@@ -81,16 +81,16 @@ func _ready() -> void:
 	old_cities.queue_free()
 
 	# 1. Initialize Canonical Data
-	map_data = MapData.new()
+	map_data = globe_view.map_data
+	if not map_data:
+		map_data = MapData.new()
+		globe_view.map_data = map_data
 	
 	# Parse Scenario
 	_load_scenario()
 	
 	# Update Economy UI
 	_update_economy_ui()
-	
-	# 2. Inject Data into Views
-	globe_view.map_data = map_data
 	
 	# 3. Connect focus synchronization signals
 	globe_view.hovered_tile_changed.connect(_on_globe_hovered_tile_changed)
@@ -395,18 +395,19 @@ var active_cities: Array[String] = []
 var active_regions: Array[String] = []
 
 func _load_scenario() -> void:
-	var path = "res://src/data/scenarios/initial_test.json"
-	if not FileAccess.file_exists(path):
-		push_error("MainScene: Could not find scenario file at ", path)
-		return
-		
-	var file = FileAccess.open(path, FileAccess.READ)
-	var json = JSON.new()
-	if json.parse(file.get_as_text()) == OK:
-		scenario_data = json.data
-	else:
-		push_error("MainScene: Failed to parse scenario JSON")
-		return
+	if scenario_data.is_empty():
+		var path = "res://src/data/scenarios/initial_test.json"
+		if not FileAccess.file_exists(path):
+			push_error("MainScene: Could not find scenario file at ", path)
+			return
+			
+		var file = FileAccess.open(path, FileAccess.READ)
+		var json = JSON.new()
+		if json.parse(file.get_as_text()) == OK:
+			scenario_data = json.data
+		else:
+			push_error("MainScene: Failed to parse scenario JSON")
+			return
 		
 	# Build active city list
 	if scenario_data.has("factions"):
