@@ -50,6 +50,7 @@ text = "Players Connected:"
 [node name="PlayerList" type="ItemList" parent="CenterContainer/VBoxContainer"]
 custom_minimum_size = Vector2(0, 150)
 layout_mode = 2
+theme_override_font_sizes/font_size = 36
 
 [node name="FactionsLabel" type="Label" parent="CenterContainer/VBoxContainer"]
 layout_mode = 2

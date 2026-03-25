@@ -55,7 +55,7 @@ func _ready():
 			
 			var money_label = Label.new()
 			money_label.text = "Starting Money:"
-			money_label.add_theme_font_size_override("font_size", 36)
+			money_label.add_theme_font_size_override("font_size", 48)
 			money_hbox.add_child(money_label)
 			
 			var money_spin = SpinBox.new()
@@ -63,7 +63,8 @@ func _ready():
 			money_spin.max_value = 99999
 			money_spin.step = 10
 			money_spin.value = fac.get("money", 0.0)
-			money_spin.add_theme_font_size_override("font_size", 36)
+			money_spin.add_theme_font_size_override("font_size", 48)
+			money_spin.get_line_edit().add_theme_font_size_override("font_size", 48)
 			# We'll update the editable state in _update_ui()
 			money_spin.value_changed.connect(func(val): _on_money_changed(fac_key, val))
 			money_spinboxes[fac_key] = money_spin
