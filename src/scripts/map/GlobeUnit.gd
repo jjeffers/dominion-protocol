@@ -227,7 +227,8 @@ func _init() -> void:
 	var path_mat = StandardMaterial3D.new()
 	# Glowing Yellow/White
 	path_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	path_mat.albedo_color = Color(1.0, 1.0, 0.5, 0.5) # 50% opacity
+	path_mat.vertex_color_use_as_albedo = true
+	path_mat.albedo_color = Color(1.0, 1.0, 1.0, 1.0)
 	path_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	path_mat.use_point_size = false
 	path_mat.no_depth_test = true
@@ -1215,7 +1216,7 @@ func _draw_path(angle: float) -> void:
 	
 	path_immediate_mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
 	
-	var path_width = 0.006
+	var path_width = 0.002
 	var path_elevation = 1.0
 	
 	var left_verts = []
@@ -1242,27 +1243,43 @@ func _draw_path(angle: float) -> void:
 		right_verts.append(right_point)
 		
 	# Build Triangles for the main line body
+	var total_segments = max(1, left_verts.size() - 1)
 	for i in range(left_verts.size() - 1):
 		var tl = left_verts[i]
 		var tr = right_verts[i]
 		var bl = left_verts[i+1]
 		var br = right_verts[i+1]
 		
+		# Fade from 0.1 to 0.6 opacity based on segment index
+		var color_start = base_faction_color
+		color_start.a = lerp(0.1, 0.6, float(i) / float(total_segments))
+		var color_end = base_faction_color
+		color_end.a = lerp(0.1, 0.6, float(i+1) / float(total_segments))
+		
+		path_immediate_mesh.surface_set_color(color_start)
 		path_immediate_mesh.surface_add_vertex(tl)
+		path_immediate_mesh.surface_set_color(color_end)
 		path_immediate_mesh.surface_add_vertex(bl)
+		path_immediate_mesh.surface_set_color(color_start)
 		path_immediate_mesh.surface_add_vertex(tr)
 		
+		path_immediate_mesh.surface_set_color(color_start)
 		path_immediate_mesh.surface_add_vertex(tr)
+		path_immediate_mesh.surface_set_color(color_end)
 		path_immediate_mesh.surface_add_vertex(bl)
+		path_immediate_mesh.surface_set_color(color_end)
 		path_immediate_mesh.surface_add_vertex(br)
 
 	# Draw arrowhead at the VERY END
-	var arrow_width = path_width
+	var arrow_width = 0.005 # Narrower wings
 	var tip_p = path_nodes.back().normalized()
 	var base_p = path_nodes[path_nodes.size() - 2].normalized()
 	
 	# Pull base_p slightly back from tip_p for visual scale
-	base_p = base_p.slerp(tip_p, 0.6).normalized()
+	var arrow_length = 0.012 # Fixed absolute length based on sphere radians
+	var dist = tip_p.distance_to(base_p)
+	var t = clamp(1.0 - (arrow_length / max(dist, 0.0001)), 0.1, 0.9)
+	base_p = base_p.slerp(tip_p, t).normalized()
 	
 	var arrow_forward = (tip_p - base_p).normalized()
 	var arrow_up = base_p
@@ -1272,8 +1289,13 @@ func _draw_path(angle: float) -> void:
 	var arrow_base_right = (base_p * radius * path_elevation) + (arrow_right * arrow_width * 0.5)
 	var arrow_tip = tip_p * radius * path_elevation
 	
+	var color_arrow = base_faction_color
+	color_arrow.a = 0.8
+	path_immediate_mesh.surface_set_color(color_arrow)
 	path_immediate_mesh.surface_add_vertex(arrow_base_left)
+	path_immediate_mesh.surface_set_color(color_arrow)
 	path_immediate_mesh.surface_add_vertex(arrow_tip)
+	path_immediate_mesh.surface_set_color(color_arrow)
 	path_immediate_mesh.surface_add_vertex(arrow_base_right)
 	
 	path_immediate_mesh.surface_end()
