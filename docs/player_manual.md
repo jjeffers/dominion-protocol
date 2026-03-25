@@ -40,6 +40,12 @@ Select any unit you own by `Left-Clicking` on it. Once selected, `Right-Click` a
 - A designated yellow path traces their intended route.
 - Land units embarking into the ocean automatically swap into "SEA TRANSPORT" mode. While seaborne, they move faster but suffer extreme defensive vulnerabilities in combat.
 
+## Diplomacy & Neutral Countries
+The global stage includes neutral countries that can be swayed to join your faction or pushed to align with your enemies. A list of all countries and their diplomatic opinion (ranging from +100 to -100) is displayed on your screen.
+- **Neutrality & Alignment**: At the start, most countries have a diplomatic opinion of 0. If a country's opinion of your faction reaches 50, they align with your faction. This grants you their city revenue, production capabilities, and access to their cities for repairs and air bases. If their opinion drops below 50, they become neutral again. If it drops below -50, they align with an enemy faction.
+- **Violating Neutrality**: Moving land units into a neutral country without aligning them first violates their neutrality, causing their opinion to decay rapidly (10 points every 10 seconds). Capturing a neutral city immediately drops their opinion to -100, instantly aligning them with an enemy faction.
+- **Foreign Aid**: For 10 credits, you can purchase Foreign Aid to improve diplomatic relations. Delivering aid to a country shifts their opinion in your favor (the total shift is 100 divided by the country's total number of cities). This can be used to peacefully align neutral countries to your side or pull enemy-aligned countries away from your rivals.
+
 ## Combat Mechanics
 Combat resolves automatically in real-time. 
 - "Engaged" status occurs the second a unit physically overlaps the engagement boundaries of an enemy.
