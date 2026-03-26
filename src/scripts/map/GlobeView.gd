@@ -2144,6 +2144,20 @@ func _load_cities(active_cities: Array[String]) -> void:
 
 			cullable_nodes.append(city_node)
 
+func _is_city_coastal(raw_city_name: String) -> bool:
+	for t_id in city_tile_cache:
+		if city_tile_cache[t_id] == raw_city_name:
+			var t = map_data.get_terrain(t_id)
+			if t in ["OCEAN", "DEEP_OCEAN", "LAKE", "COAST"]:
+				return true
+			# Check immediate neighbors of this exact tile
+			var neighbors = map_data.get_neighbors(t_id)
+			for n in neighbors:
+				var nt = map_data.get_terrain(n)
+				if nt in ["OCEAN", "DEEP_OCEAN", "LAKE", "COAST"]:
+					return true
+	return false
+
 func _update_city_highlights(active: bool, is_redeploy: bool = false, is_strategic_bombing: bool = false, is_foreign_aid: bool = false) -> void:
 	var local_id = multiplayer.get_unique_id() if multiplayer.has_multiplayer_peer() else 0
 	var local_faction = ""
@@ -2200,7 +2214,11 @@ func _update_city_highlights(active: bool, is_redeploy: bool = false, is_strateg
 							if not has_city and fac_data.get("money", 0.0) >= 10.0:
 								is_valid = true
 						elif has_city and has_money and not on_cooldown and not is_full:
-							is_valid = true
+							if deploying_unit_type in ["Cruiser", "Submarine"]:
+								if _is_city_coastal(c_name.replace("Unit_City_", "")):
+									is_valid = true
+							else:
+								is_valid = true
 						
 			if is_valid:
 				hr.visible = true

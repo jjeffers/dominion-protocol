@@ -253,12 +253,21 @@ func _handle_production() -> void:
 		else:
 			# Find an available city (no cooldown)
 			var best_city = ""
+			var is_sea_unit = (target_purchase in ["Cruiser", "Submarine"])
+			
 			for c in own_cities:
 				if not globe_view.city_cooldowns.has(c):
+					if is_sea_unit and globe_view.has_method("_is_city_coastal"):
+						if not globe_view._is_city_coastal(c):
+							continue
 					best_city = c
 					break
 					
 			if best_city == "":
+				if is_sea_unit:
+					# We want a sea unit, but have no available coastal cities. Clear the queue so we don't softlock!
+					target_purchase = ""
+					target_purchase_cost = 0.0
 				return # Wait for next loop if all cities are on cooldown
 				
 			var c_name = best_city if typeof(best_city) == TYPE_STRING else best_city.name

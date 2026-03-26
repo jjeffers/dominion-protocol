@@ -49,7 +49,7 @@
 - Represents 300k to 500k troops, artillery, helicopters.
 - Infantry units have a relative movement rate of 1.
 - Infantry will inflict 15 damage per 5 seconds on units it is engaged with.
-- Infantry units that remain motionless for 30 seconds become entrenched. An entrenched unit reduces incoming damage by 50%. Moving that unit will break the entrenchment. Entrenched units have a solid dark green bar at the bottom of their unit icon image.
+- Infantry units that remain motionless and are not engaged for 30 seconds become entrenched. An entrenched unit reduces incoming damage by 50%. Moving that unit will break the entrenchment. Entrenched units have a solid dark green bar at the bottom of their unit icon image.
 - Infantry units stop moving once they are engaged and cancel all movement orders. (They become *pinned*.)
 - Infantry units cost 5 credits to purchase.
 

@@ -126,7 +126,7 @@ func sync_unit_positions(pos_dict: Dictionary) -> void:
 				var dev = unit.current_position.distance_to(host_pos)
 				if dev > 0.05:
 					unit.current_position = host_pos
-				elif dev > 0.0001:
+				elif dev > 0.002: # Relaxed from 0.0001 to prevent backwards rubber-banding on typical ping rates
 					unit.current_position = unit.current_position.lerp(host_pos, 0.5)
 
 func _on_connected_ok():

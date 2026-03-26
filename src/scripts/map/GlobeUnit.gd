@@ -67,7 +67,7 @@ func _ready() -> void:
 
 func _on_unit_damage_synced(target_unit_name: String, amount: float, attacker_name: String) -> void:
 	if target_unit_name == name:
-		take_damage(amount, attacker_name)
+		take_damage(amount, attacker_name, true)
 
 func _on_unit_health_synced(target_unit_name: String, amount: float) -> void:
 	if target_unit_name == name:
@@ -568,10 +568,7 @@ func clear_combat_target() -> void:
 	if engagement_mesh:
 		engagement_mesh.clear_surfaces()
 
-func take_damage(amount: float, attacker_name: String = "Unknown") -> void:
-	if is_dead:
-		return
-		
+func get_defense_modifier() -> float:
 	var current_terrain = "PLAINS"
 	var p = get_parent()
 	if p and p.has_method("_get_tile_from_vector3"):
@@ -599,9 +596,16 @@ func take_damage(amount: float, attacker_name: String = "Unknown") -> void:
 		defense_modifier *= 0.5
 	
 	# Ensure damage never goes negative
-	defense_modifier = max(0.0, defense_modifier)
+	return max(0.0, defense_modifier)
+
+func take_damage(amount: float, attacker_name: String = "Unknown", is_raw: bool = false) -> void:
+	if is_dead:
+		return
+		
+	if not is_raw:
+		amount *= get_defense_modifier()
 	
-	health -= (amount * defense_modifier)
+	health -= amount
 	_update_health_bar()
 	
 	if is_friendly:
@@ -786,7 +790,14 @@ func _process(delta: float) -> void:
 					
 					# Hard stop if we hit max overlap (center tile collision)
 					if dist < (engagement_threshold * 0.9):
-						in_motion = false
+						var is_retreating = false
+						if target_position != null and in_motion:
+							var dist_target = target_position.distance_to(combat_target.current_position)
+							if dist_target > dist:
+								is_retreating = true
+								
+						if not is_retreating:
+							in_motion = false
 					
 					# Calculate direction to target in local space
 					var to_target = (combat_target.current_position - current_position).normalized()
@@ -800,6 +811,7 @@ func _process(delta: float) -> void:
 					_draw_engagement_line()
 					
 					combat_timer += delta
+					print("Combat Timer: ", combat_timer, " for ", self.name)
 					if combat_timer >= 5.0:
 						combat_timer -= 5.0
 						
@@ -822,10 +834,11 @@ func _process(delta: float) -> void:
 							if unit_type.capitalize() in ["Cruiser", "Submarine"] and combat_target.get("is_seaborne") and combat_target.unit_type.capitalize() not in ["Cruiser", "Submarine"]:
 								dmg *= 2.0
 								
+							var final_dmg = dmg * combat_target.get_defense_modifier()
 							if not is_offline:
-								NetworkManager.rpc("sync_unit_damage", combat_target.name, dmg, self.name)
+								NetworkManager.rpc("sync_unit_damage", combat_target.name, final_dmg, self.name)
 							else:
-								combat_target.take_damage(dmg, self.name)
+								combat_target.take_damage(final_dmg, self.name, true)
 						
 					# Defender advantage
 					if not combat_target.is_engaged and not combat_target.is_dead:

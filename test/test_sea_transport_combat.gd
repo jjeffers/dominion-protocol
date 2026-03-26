@@ -5,6 +5,11 @@ var globe_view_script := preload("res://src/scripts/map/GlobeView.gd")
 var globe_view: Node3D
 
 func before_each():
+	if multiplayer.has_multiplayer_peer():
+		multiplayer.multiplayer_peer = null
+	if NetworkManager != null and NetworkManager.multiplayer.has_multiplayer_peer():
+		NetworkManager.multiplayer.multiplayer_peer = null
+
 	globe_view = Node3D.new()
 	globe_view.set_script(globe_view_script)
 	add_child_autofree(globe_view)
@@ -85,9 +90,9 @@ func test_amphibious_vs_coastal_armor():
 	var start_hp_arm = arm.health
 	var start_hp_inf = inf.health
 	
-	# Tick exactly 5 seconds so they both fire once
-	inf._process(4.9)
-	arm._process(4.9)
+	# Tick 5 full seconds so they both fire once
+	inf._process(5.0)
+	arm._process(5.0)
 	
 	var end_hp_arm = arm.health
 	var end_hp_inf = inf.health
