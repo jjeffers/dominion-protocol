@@ -1480,7 +1480,12 @@ func sync_city_capture(city_name: String, new_faction: String, old_faction: Stri
 				active_scenario["factions"][old_faction]["cities"].erase(city_name)
 				
 	# Add to new faction
-	if active_scenario.has("factions") and active_scenario["factions"].has(new_faction):
+	if new_faction == "neutral":
+		if not active_scenario.has("neutral_cities"):
+			active_scenario["neutral_cities"] = []
+		if not active_scenario["neutral_cities"].has(city_name):
+			active_scenario["neutral_cities"].append(city_name)
+	elif active_scenario.has("factions") and active_scenario["factions"].has(new_faction):
 		if not active_scenario["factions"][new_faction].has("cities"):
 			active_scenario["factions"][new_faction]["cities"] = []
 		if not active_scenario["factions"][new_faction]["cities"].has(city_name):
@@ -3764,16 +3769,23 @@ func _process_nuke_impact(target_pos: Vector3) -> void:
 	twn.parallel().tween_property(mat, "albedo_color:a", 0.0, 8.5)
 	twn.tween_callback(sphere.queue_free)
 	
-	for u in units_list:
-		if is_instance_valid(u) and not u.get("is_dead"):
-			var dist = u.current_position.distance_to(surface_target)
-			if dist <= inner_radius:
-				u.take_damage(9999.0)
-			elif dist <= outer_radius:
-				if u.get("unit_type") != "Air":
-					var fraction = (dist - inner_radius) / (outer_radius - inner_radius)
-					var dmg = lerp(90.0, 10.0, fraction)
-					u.take_damage(dmg)
+	if not multiplayer.has_multiplayer_peer() or NetworkManager.is_host:
+		for u in units_list:
+			if is_instance_valid(u) and not u.get("is_dead"):
+				var dist = u.current_position.distance_to(surface_target)
+				var dmg = 0.0
+				if dist <= inner_radius:
+					dmg = 9999.0
+				elif dist <= outer_radius:
+					if u.get("unit_type") != "Air":
+						var fraction = (dist - inner_radius) / (outer_radius - inner_radius)
+						dmg = lerp(90.0, 10.0, fraction)
+				
+				if dmg > 0.0:
+					if multiplayer.has_multiplayer_peer():
+						NetworkManager.rpc("sync_unit_damage", u.name, dmg, "Nuke Strike")
+					else:
+						u.take_damage(dmg, "Nuke Strike", true)
 				
 	# Terrain conversion
 	var affected_tiles = [hit_tile]

@@ -148,6 +148,14 @@ func get_terrain(tile_id: int) -> String:
 ## Sets a runtime terrain override for a specific tile
 func set_terrain(tile_id: int, new_terrain: String) -> void:
 	_terrain_overrides[tile_id] = new_terrain
+	
+	if land_astar and land_astar.has_point(tile_id):
+		var weight = 1.0
+		match new_terrain:
+			"FOREST", "JUNGLE": weight = 2.0
+			"MOUNTAINS", "RUINS": weight = 3.0
+			"WASTELAND": weight = 4.0
+		land_astar.set_point_weight_scale(tile_id, weight)
 
 ## Returns the sovereign Region string
 func get_region(tile_id: int) -> String:

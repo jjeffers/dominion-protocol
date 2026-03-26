@@ -51,9 +51,7 @@ func _update_texture() -> void:
 
 	if tex:
 		sprite.texture = tex
-		if sprite.material_override != null and sprite.material_override is ShaderMaterial:
-			sprite.material_override.set_shader_parameter("tex_albedo", tex)
-			sprite.material_override.set_shader_parameter("is_air_unit", unit_type == "Air")
+		_apply_shared_material(tex)
 
 var combat_target: GlobeUnit = null
 var movement_target_unit: GlobeUnit = null
@@ -79,6 +77,19 @@ var current_position: Vector3
 var target_position: Vector3
 
 var current_path: Array[Vector3] = []
+var _last_path_update_pos: Vector3 = Vector3.ZERO
+var _last_target_update_pos: Vector3 = Vector3.ZERO
+
+static var _shared_materials: Dictionary = {}
+
+func clear_path() -> void:
+	current_path.clear()
+	path_update_timer = 0.0
+	if path_immediate_mesh:
+		path_immediate_mesh.clear_surfaces()
+	if destination_bracket:
+		destination_bracket.visible = false
+
 var path_update_timer: float = 0.0
 
 # 1 tile roughly equals 0.006 units. Move 1 width per 10 seconds.
@@ -204,7 +215,7 @@ func _init() -> void:
 	sprite.render_priority = 10
 	add_child(sprite)
 	
-	_setup_shader()
+	_update_texture()
 	
 	# Setup Clickable Area
 	click_area = Area3D.new()
@@ -224,17 +235,19 @@ func _init() -> void:
 	path_immediate_mesh = ImmediateMesh.new()
 	path_mesh_instance.mesh = path_immediate_mesh
 	
-	var path_mat = StandardMaterial3D.new()
-	# Glowing Yellow/White
-	path_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	path_mat.vertex_color_use_as_albedo = true
-	path_mat.albedo_color = Color(1.0, 1.0, 1.0, 1.0)
-	path_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	path_mat.use_point_size = false
-	path_mat.no_depth_test = true
-	path_mat.render_priority = 6
+	if not _shared_materials.has("path_mat"):
+		var path_mat = StandardMaterial3D.new()
+		# Glowing Yellow/White
+		path_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		path_mat.vertex_color_use_as_albedo = true
+		path_mat.albedo_color = Color(1.0, 1.0, 1.0, 1.0)
+		path_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		path_mat.use_point_size = false
+		path_mat.no_depth_test = true
+		path_mat.render_priority = 6
+		_shared_materials["path_mat"] = path_mat
 	
-	path_mesh_instance.material_override = path_mat
+	path_mesh_instance.material_override = _shared_materials["path_mat"]
 	path_mesh_instance.top_level = true
 	add_child(path_mesh_instance)
 	
@@ -243,14 +256,16 @@ func _init() -> void:
 	var bracket_tex = load("res://src/assets/target_bracket.png") as Texture2D
 	if bracket_tex:
 		destination_bracket.texture = bracket_tex
-		var tb_mat = StandardMaterial3D.new()
-		tb_mat.albedo_texture = bracket_tex
-		tb_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		tb_mat.albedo_color = Color(1.0, 1.0, 1.0, 1.0)
-		tb_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		tb_mat.no_depth_test = true
-		tb_mat.render_priority = 20
-		destination_bracket.material_override = tb_mat
+		if not _shared_materials.has("tb_mat"):
+			var tb_mat = StandardMaterial3D.new()
+			tb_mat.albedo_texture = bracket_tex
+			tb_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			tb_mat.albedo_color = Color(1.0, 1.0, 1.0, 1.0)
+			tb_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			tb_mat.no_depth_test = true
+			tb_mat.render_priority = 20
+			_shared_materials["tb_mat"] = tb_mat
+		destination_bracket.material_override = _shared_materials["tb_mat"]
 		# Initial sizing will be overridden by set_sizing() later based on map data
 		destination_bracket.pixel_size = (0.006 * 3.0) / 128.0
 	
@@ -263,13 +278,16 @@ func _init() -> void:
 	engagement_mesh = ImmediateMesh.new()
 	engagement_line.mesh = engagement_mesh
 	
-	var eng_mat = StandardMaterial3D.new()
-	eng_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	eng_mat.albedo_color = Color(1.0, 0.2, 0.2, 0.8) # Red laser line
-	eng_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	eng_mat.no_depth_test = true
-	eng_mat.render_priority = 6
-	engagement_line.material_override = eng_mat
+	if not _shared_materials.has("eng_mat"):
+		var eng_mat = StandardMaterial3D.new()
+		eng_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		eng_mat.albedo_color = Color(1.0, 0.2, 0.2, 0.8) # Red laser line
+		eng_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		eng_mat.no_depth_test = true
+		eng_mat.render_priority = 6
+		_shared_materials["eng_mat"] = eng_mat
+		
+	engagement_line.material_override = _shared_materials["eng_mat"]
 	engagement_line.top_level = true
 	add_child(engagement_line)
 	
@@ -285,7 +303,7 @@ func _init() -> void:
 func _update_health_bar() -> void:
 	if sprite and sprite.material_override is ShaderMaterial:
 		var pct = clamp(health / 100.0, 0.0, 1.0)
-		sprite.material_override.set_shader_parameter("health_pct", pct)
+		sprite.set_instance_shader_parameter("health_pct", pct)
 
 func set_sizing(tile_width: float) -> void:
 	# Match the physical dimensions of the 3x3 City tiles exactly.
@@ -296,25 +314,29 @@ func set_sizing(tile_width: float) -> void:
 	if destination_bracket:
 		destination_bracket.pixel_size = (tile_width * 3.0) / 128.0
 	
-func _setup_shader() -> void:
-	var outline_mat = ShaderMaterial.new()
-	var outline_shader = Shader.new()
-	outline_shader.code = """
+func _apply_shared_material(tex: Texture2D) -> void:
+	if not tex: return
+	var tex_id = tex.get_rid().get_id()
+	var mat_key = "outline_mat_" + str(tex_id)
+	
+	if not _shared_materials.has("base_outline_shader"):
+		var outline_shader = Shader.new()
+		outline_shader.code = """
 shader_type spatial;
 render_mode unshaded, depth_test_disabled;
 uniform sampler2D tex_albedo : source_color, filter_nearest;
-uniform vec4 outline_color : source_color = vec4(1.0, 1.0, 0.0, 1.0);
+instance uniform vec4 outline_color : source_color = vec4(1.0, 1.0, 0.0, 1.0);
 uniform float outline_width = 2.0;
 
-uniform bool use_bg_color = false;
-uniform vec4 bg_color_override : source_color = vec4(0.0);
+instance uniform bool use_bg_color = false;
+instance uniform vec4 bg_color_override : source_color = vec4(0.0);
 
-uniform float health_pct = 1.0;
-uniform bool is_entrenched = false;
-uniform bool is_engaged = false;
-uniform float engagement_angle = 0.0;
-uniform bool is_air_unit = false;
-uniform bool is_air_ready = true;
+instance uniform float health_pct = 1.0;
+instance uniform bool is_entrenched = false;
+instance uniform bool is_engaged = false;
+instance uniform float engagement_angle = 0.0;
+instance uniform bool is_air_unit = false;
+instance uniform bool is_air_ready = true;
 
 void fragment() {
 	// Scale UV to create padding inside the 38x38 quad for the 34x34 sprite
@@ -423,39 +445,48 @@ void fragment() {
 	}
 }
 """
-	outline_mat.shader = outline_shader
-	outline_mat.resource_local_to_scene = true
-	_update_texture()
-	outline_mat.set_shader_parameter("tex_albedo", sprite.texture)
-	outline_mat.set_shader_parameter("health_pct", 1.0)
-	outline_mat.set_shader_parameter("is_entrenched", entrenched)
-	outline_mat.set_shader_parameter("is_engaged", false)
-	outline_mat.set_shader_parameter("is_air_unit", unit_type == "Air")
-	outline_mat.set_shader_parameter("is_air_ready", is_air_ready)
-	outline_mat.set_shader_parameter("engagement_angle", 0.0)
-	# Default transparent outline so it does nothing if not explicitly set
-	outline_mat.set_shader_parameter("outline_color", Color(0, 0, 0, 0))
-	outline_mat.render_priority = 10
-	sprite.material_override = outline_mat
+		_shared_materials["base_outline_shader"] = outline_shader
+
+	if not _shared_materials.has(mat_key):
+		var outline_mat = ShaderMaterial.new()
+		outline_mat.shader = _shared_materials["base_outline_shader"]
+		outline_mat.resource_local_to_scene = false
+		outline_mat.set_shader_parameter("tex_albedo", tex)
+		_shared_materials[mat_key] = outline_mat
+		
+	sprite.material_override = _shared_materials[mat_key]
+	
+	# Initial instance uniforms setup
+	sprite.set_instance_shader_parameter("health_pct", clamp(health/100.0, 0, 1))
+	sprite.set_instance_shader_parameter("is_entrenched", entrenched)
+	sprite.set_instance_shader_parameter("is_engaged", is_engaged)
+	sprite.set_instance_shader_parameter("is_air_unit", unit_type == "Air")
+	sprite.set_instance_shader_parameter("is_air_ready", is_air_ready)
+	sprite.set_instance_shader_parameter("engagement_angle", 0.0)
+	sprite.set_instance_shader_parameter("outline_color", base_faction_color)
+	sprite.set_instance_shader_parameter("use_bg_color", is_seaborne)
+	if is_seaborne:
+		sprite.set_instance_shader_parameter("bg_color_override", Color("#1f679c"))
 
 ## Sets the outline color of the unit indicating faction alignment. Hex string e.g. "#FF0000"
 func set_faction_color(hex_color: String) -> void:
-	if sprite.material_override is ShaderMaterial:
-		var c = Color(hex_color)
-		base_faction_color = c
-		sprite.material_override.set_shader_parameter("outline_color", c)
+	var c = Color(hex_color)
+	base_faction_color = c
+	if sprite and sprite.material_override is ShaderMaterial:
+		sprite.set_instance_shader_parameter("outline_color", c)
 	update_render_priorities()
 	_update_air_readiness_visuals()
 
 func _update_air_readiness_visuals() -> void:
-	if unit_type == "Air" and sprite and sprite.material_override is ShaderMaterial:
-		sprite.material_override.set_shader_parameter("is_air_ready", is_air_ready)
+	if unit_type != "Air":
+		return
+	if sprite and sprite.material_override is ShaderMaterial:
+		sprite.set_instance_shader_parameter("is_air_ready", is_air_ready)
 		if is_air_ready:
-			sprite.material_override.set_shader_parameter("outline_color", base_faction_color)
+			sprite.set_instance_shader_parameter("outline_color", base_faction_color)
 		else:
-			# Semi-transparent outline for UNREADY
-			var dull = Color(base_faction_color.r, base_faction_color.g, base_faction_color.b, 0.2)
-			sprite.material_override.set_shader_parameter("outline_color", dull)
+			var dull = base_faction_color.lerp(Color.BLACK, 0.5)
+			sprite.set_instance_shader_parameter("outline_color", dull)
 
 func set_selected(selected: bool) -> void:
 	is_selected = selected
@@ -555,7 +586,7 @@ func set_combat_target(target: GlobeUnit) -> void:
 	combat_target = target
 	is_engaged = true
 	if sprite and sprite.material_override is ShaderMaterial:
-		sprite.material_override.set_shader_parameter("is_engaged", true)
+		sprite.set_instance_shader_parameter("is_engaged", true)
 	# Reset timer so attacker has to wait 5 seconds for their first swing
 	combat_timer = 0.0
 
@@ -563,7 +594,7 @@ func clear_combat_target() -> void:
 	combat_target = null
 	is_engaged = false
 	if sprite and sprite.material_override is ShaderMaterial:
-		sprite.material_override.set_shader_parameter("is_engaged", false)
+		sprite.set_instance_shader_parameter("is_engaged", false)
 	combat_timer = 0.0
 	if engagement_mesh:
 		engagement_mesh.clear_surfaces()
@@ -645,13 +676,15 @@ func take_damage(amount: float, attacker_name: String = "Unknown", is_raw: bool 
 			var death_tex = load("res://src/assets/death.jpeg") as Texture2D
 			if death_tex:
 				death_sprite.texture = death_tex
-				var d_mat = StandardMaterial3D.new()
-				d_mat.albedo_texture = death_tex
-				d_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-				d_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-				d_mat.render_priority = 10
-				d_mat.no_depth_test = true
-				death_sprite.material_override = d_mat
+				if not _shared_materials.has("d_mat"):
+					var d_mat = StandardMaterial3D.new()
+					d_mat.albedo_texture = death_tex
+					d_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+					d_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+					d_mat.render_priority = 10
+					d_mat.no_depth_test = true
+					_shared_materials["d_mat"] = d_mat
+				death_sprite.material_override = _shared_materials["d_mat"]
 				
 				var expected_width = 34.0 * sprite.pixel_size
 				death_sprite.pixel_size = expected_width / float(death_tex.get_width())
@@ -806,7 +839,7 @@ func _process(delta: float) -> void:
 					var angle_to_target = atan2(local_y, local_x)
 					
 					if sprite and sprite.material_override is ShaderMaterial:
-						sprite.material_override.set_shader_parameter("engagement_angle", angle_to_target)
+						sprite.set_instance_shader_parameter("engagement_angle", angle_to_target)
 					
 					_draw_engagement_line()
 					
@@ -867,33 +900,28 @@ func _process(delta: float) -> void:
 	if unit_type.capitalize() == "Submarine":
 		if is_engaged:
 			is_detected = true
-		elif in_motion:
-			var newly_detected = false
-			var all_units = get_tree().get_nodes_in_group("units")
-			for other in all_units:
-				if other != self and is_instance_valid(other) and not other.is_dead:
-					if other.faction_name != "" and self.faction_name != "" and other.faction_name != self.faction_name:
-						if other.unit_type.capitalize() in ["Cruiser", "Submarine"]:
-							var other_in_motion = other.get("is_moving") == true
-							var dist = current_position.distance_to(other.current_position)
-							if not other_in_motion:
-								if dist <= 0.024:
-									newly_detected = true
-									print("Submarine(", name, ") newly detected by ", other.name, " at dist: ", dist)
-									break
+		else:
+			var newly_detected = is_detected
+			if not has_meta("sub_timer"): set_meta("sub_timer", 0.0)
+			var st = get_meta("sub_timer") + delta
+			if st > 0.15:
+				st = 0.0
+				newly_detected = false
+				var p = get_parent()
+				if p and p.get("units_list") != null:
+					for other in p.units_list:
+						if other != self and is_instance_valid(other) and other.get("is_dead") != true:
+							var f_name = other.get("faction_name")
+							if f_name != null and self.faction_name != "" and f_name != self.faction_name:
+								var u_type = other.get("unit_type")
+								if u_type != null and u_type.capitalize() in ["Cruiser", "Submarine"]:
+									var c_pos = other.get("current_position")
+									if c_pos != null and current_position.distance_to(c_pos) <= 0.024:
+										newly_detected = true
+										break
+			set_meta("sub_timer", st)
 			is_detected = newly_detected
-		elif is_detected:
-			var still_detected = false
-			var all_units = get_tree().get_nodes_in_group("units")
-			for other in all_units:
-				if other != self and is_instance_valid(other) and not other.is_dead:
-					if other.faction_name != "" and self.faction_name != "" and other.faction_name != self.faction_name:
-						if other.unit_type.capitalize() in ["Cruiser", "Submarine"]:
-							if current_position.distance_to(other.current_position) <= 0.024:
-								still_detected = true
-								break
-			is_detected = still_detected
-			
+
 		if is_detected != previously_detected:
 			set_visibility(true) # Force native cascade update when detection state toggles
 
@@ -1091,8 +1119,11 @@ func _process(delta: float) -> void:
 			current_position = next_pos
 			if current_path.size() > 0 and current_position.distance_to(target_position) <= 0.005:
 				target_position = current_path.pop_front()
+		
+		if current_position.distance_to(_last_path_update_pos) > 0.002 or target_position != _last_target_update_pos:
 			_draw_path(angle)
-		_draw_path(angle)
+			_last_path_update_pos = current_position
+			_last_target_update_pos = target_position
 	else:
 		current_terrain_modifier = 1.0
 		# Evaluate terrain at organic rest to ensure graphics adhere.
@@ -1207,7 +1238,7 @@ func _process(delta: float) -> void:
 			if unit_type == "Infantry":
 				entrenched = true
 				if sprite and sprite.material_override is ShaderMaterial:
-					sprite.material_override.set_shader_parameter("is_entrenched", true)
+					sprite.set_instance_shader_parameter("is_entrenched", true)
 	else:
 		if actually_moved or actively_trying_to_move:
 			time_motionless = 0.0
@@ -1218,7 +1249,7 @@ func _process(delta: float) -> void:
 		if entrenched:
 			entrenched = false
 			if sprite and sprite.material_override is ShaderMaterial:
-				sprite.material_override.set_shader_parameter("is_entrenched", false)
+				sprite.set_instance_shader_parameter("is_entrenched", false)
 
 						
 func _draw_engagement_line() -> void:
@@ -1338,8 +1369,8 @@ func _set_seaborne(status: bool) -> void:
 		return
 	is_seaborne = status
 	if sprite and sprite.material_override is ShaderMaterial:
-		sprite.material_override.set_shader_parameter("use_bg_color", is_seaborne)
-		sprite.material_override.set_shader_parameter("bg_color_override", Color("#1f679c"))
+		sprite.set_instance_shader_parameter("use_bg_color", is_seaborne)
+		sprite.set_instance_shader_parameter("bg_color_override", Color("#1f679c"))
 
 func set_air_unready(override_time: float = -1.0, add_time: float = 0.0) -> void:
 	if unit_type != "Air":
