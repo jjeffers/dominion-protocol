@@ -1,6 +1,6 @@
 extends Node
 
-const GAME_VERSION: String = "v0.5.1"
+var GAME_VERSION: String = ProjectSettings.get_setting("application/config/version", "v0.5.2")
 
 var peer = ENetMultiplayerPeer.new()
 var is_host = false
