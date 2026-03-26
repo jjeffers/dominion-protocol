@@ -996,6 +996,7 @@ func _process(delta: float) -> void:
 					
 		var terrain_blocked = (lookahead_terrain_modifier <= 0.0)
 		var unit_blocked = false
+		var blocking_unit_pos = Vector3.ZERO
 		
 		if not terrain_blocked:
 			var all_units = get_tree().get_nodes_in_group("units")
@@ -1007,8 +1008,6 @@ func _process(delta: float) -> void:
 					
 					var target_range = 0.0165 if target_type.capitalize() == "Cruiser" else 0.012
 					var collision_threshold = (my_range + target_range) / 3.0
-					if other.get("faction_name") == self.get("faction_name"):
-						collision_threshold *= 0.25 # Friendlies can squeeze past each other closely
 					
 					if other.get("current_position") != null:
 						var dist_next = next_pos.distance_to(other.get("current_position"))
@@ -1018,6 +1017,7 @@ func _process(delta: float) -> void:
 							if dist_next < dist_now:
 								lookahead_terrain_modifier = 0.0
 								unit_blocked = true
+								blocking_unit_pos = other.get("current_position")
 								break
 					
 		if lookahead_terrain_modifier <= 0.0:
@@ -1051,8 +1051,6 @@ func _process(delta: float) -> void:
 							if not t_type or t_type.capitalize() == "Air" or self.unit_type.capitalize() == "Air": continue
 							var tr = 0.0165 if t_type.capitalize() == "Cruiser" else 0.012
 							var c_thresh = (my_range + tr) / 3.0
-							if other.get("faction_name") == self.get("faction_name"):
-								c_thresh *= 0.25
 							if other.get("current_position") != null:
 								var d_next = try_pos.distance_to(other.get("current_position"))
 								if d_next < c_thresh:
@@ -1071,6 +1069,24 @@ func _process(delta: float) -> void:
 					# Fully blocked by impassable physical terrain (not just traffic), wipe orders completely
 					target_position = current_position 
 					current_path.clear()
+				elif unit_blocked and p and p.get("map_data") != null and p.map_data.has_method("find_path"):
+					# Traffic jam! Replan alternative route around the blockage.
+					var final_dest = target_position
+					if current_path.size() > 0:
+						final_dest = current_path.back()
+						
+					var block_tile = p._get_tile_from_vector3(blocking_unit_pos) if p.has_method("_get_tile_from_vector3") else -1
+					if block_tile != -1:
+						var astar = p.map_data.naval_astar if u_type in ["Cruiser", "Submarine"] else p.map_data.land_astar
+						if astar.has_point(block_tile) and not astar.is_point_disabled(block_tile):
+							astar.set_point_disabled(block_tile, true)
+							
+							var new_path = p.map_data.find_path(current_position, final_dest, unit_type)
+							if new_path.size() > 0:
+								current_path = new_path
+								target_position = current_path.pop_front()
+								
+							astar.set_point_disabled(block_tile, false)
 		else:
 			current_position = next_pos
 			if current_path.size() > 0 and current_position.distance_to(target_position) <= 0.005:
@@ -1179,11 +1195,13 @@ func _process(delta: float) -> void:
 		if current_position.length_squared() > 0.0001:
 			look_at(Vector3.ZERO, Vector3.UP)
 
+	var actively_trying_to_move = (current_position != null and target_position != null and current_position.distance_to(target_position) > 0.0001)
+
 	var actually_moved = false
 	if starting_position != null and current_position != null and starting_position != current_position:
 		actually_moved = true
 		
-	if not actually_moved:
+	if not actually_moved and not actively_trying_to_move:
 		time_motionless += delta
 		if time_motionless >= 30.0:
 			if unit_type == "Infantry":
@@ -1191,8 +1209,10 @@ func _process(delta: float) -> void:
 				if sprite and sprite.material_override is ShaderMaterial:
 					sprite.material_override.set_shader_parameter("is_entrenched", true)
 	else:
-		time_motionless = 0.0
-		time_in_city = 0.0
+		if actually_moved or actively_trying_to_move:
+			time_motionless = 0.0
+		if actually_moved:
+			time_in_city = 0.0
 		recovery_timer = 0.0
 		is_recovering = false
 		if entrenched:
