@@ -34,6 +34,14 @@ var initial_countries: Dictionary = {}
 var _sync_timer: float = 0.0
 
 func _ready():
+	if OS.has_feature("editor"):
+		var output = []
+		var exit_code = OS.execute("git", ["describe", "--tags", "--always", "--abbrev=0"], output, true, false)
+		if exit_code == 0 and output.size() > 0:
+			GAME_VERSION = output[0].strip_edges()
+			
+	_update_window_title()
+			
 	multiplayer.connected_to_server.connect(_on_connected_ok)
 	multiplayer.connection_failed.connect(_on_connected_fail)
 	multiplayer.server_disconnected.connect(_on_server_disconnected)
