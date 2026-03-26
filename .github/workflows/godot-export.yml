@@ -85,11 +85,28 @@ jobs:
             VERSION_STRING="${LATEST_TAG}.${SHORT_SHA}"
           fi
           
-          echo "Setting version to: ${VERSION_STRING}"
+          # Extract only numbers and periods from the tag for Windows validity
+          NUMERIC_VERSION=$(echo $LATEST_TAG | sed 's/[^0-9.]//g')
+          # Ensure it has exactly 4 segments (x.y.z.w)
+          NUMBERS_COUNT=$(echo $NUMERIC_VERSION | grep -o '\.' | wc -l || echo 0)
+          if [ $NUMBERS_COUNT -eq 1 ]; then
+            NUMERIC_VERSION="${NUMERIC_VERSION}.0.0"
+          elif [ $NUMBERS_COUNT -eq 2 ]; then
+            NUMERIC_VERSION="${NUMERIC_VERSION}.0"
+          elif [ $NUMBERS_COUNT -eq 0 ]; then
+            NUMERIC_VERSION="${NUMERIC_VERSION}.0.0.0"
+          fi
+          
+          echo "Setting Semantic version to: ${VERSION_STRING}"
+          echo "Setting Windows Numeric version to: ${NUMERIC_VERSION}"
           echo "VERSION_STRING=${VERSION_STRING}" >> $GITHUB_ENV
+          
+          # Semantic name injection for game logic
           sed -i 's/config\/version=".*"/config\/version="'"${VERSION_STRING}"'"/' project.godot
-          sed -i 's/application\/product_version=".*"/application\/product_version="'"${VERSION_STRING}"'"/' export_presets.cfg
-          sed -i 's/application\/file_version=".*"/application\/file_version="'"${VERSION_STRING}"'"/' export_presets.cfg
+          
+          # Strict numeric injection for Windows OS Metadata (rcedit)
+          sed -i 's/application\/product_version=".*"/application\/product_version="'"${NUMERIC_VERSION}"'"/' export_presets.cfg
+          sed -i 's/application\/file_version=".*"/application\/file_version="'"${NUMERIC_VERSION}"'"/' export_presets.cfg
 
       - name: Export Game
         uses: firebelley/godot-export@v5.2.1
