@@ -908,8 +908,8 @@ func _process(delta: float) -> void:
 				st = 0.0
 				newly_detected = false
 				var p = get_parent()
-				if p and p.get("units_list") != null:
-					for other in p.units_list:
+				var units_to_check = p.units_list if p and p.get("units_list") != null else get_tree().get_nodes_in_group("units")
+				for other in units_to_check:
 						if other != self and is_instance_valid(other) and other.get("is_dead") != true:
 							var f_name = other.get("faction_name")
 							if f_name != null and self.faction_name != "" and f_name != self.faction_name:
