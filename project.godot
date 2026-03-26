@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Dominion Protocol"
-config/version="v0.5.2"
+config/version="v0.8.7"
 run/main_scene="res://src/scenes/MainMenu.tscn"
 config/features=PackedStringArray("4.6", "Forward Plus")
 
