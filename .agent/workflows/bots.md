@@ -7,12 +7,12 @@ This workflow launches two instances of the game. The host will act as the serve
 1. Start the Host Instance
 // turbo
 ```bash
-godot --host --faction=CFS --bot=CFS --auto-start &
+godot --host --faction=CFS --bot=CFS --host-ip=127.0.0.1 --host-port=7001 --auto-start &
 ```
 
 2. Start the Client Instance
 // turbo
 ```bash
-sleep 2 && godot --client --faction=CSP --bot=CSP &
+sleep 2 && godot --client --faction=CSP --bot=CSP --port=7001 &
 ```
 

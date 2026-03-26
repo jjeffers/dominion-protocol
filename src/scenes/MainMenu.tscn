@@ -80,6 +80,22 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 36
 text = "Host Game"
 
+[node name="HBoxContainer2" type="HBoxContainer" parent="CenterContainer/VBoxContainer/HostSection"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="CenterContainer/VBoxContainer/HostSection/HBoxContainer2"]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Bind IP:"
+
+[node name="HostIPInput" type="LineEdit" parent="CenterContainer/VBoxContainer/HostSection/HBoxContainer2"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+size_flags_horizontal = 3
+text = "*"
+placeholder_text = "ex: 127.0.0.1 (or * for any)"
+
 [node name="HBoxContainer" type="HBoxContainer" parent="CenterContainer/VBoxContainer/HostSection"]
 layout_mode = 2
 
@@ -153,6 +169,16 @@ custom_minimum_size = Vector2(0, 50)
 layout_mode = 2
 theme_override_font_sizes/font_size = 30
 text = "Join"
+
+[node name="HSeparator4" type="HSeparator" parent="CenterContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="SettingsButton" type="Button" parent="CenterContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 50)
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "Settings"
+
 
 [node name="StatusLabel" type="Label" parent="CenterContainer/VBoxContainer"]
 self_modulate = Color(0.8, 0.8, 0.3, 1)

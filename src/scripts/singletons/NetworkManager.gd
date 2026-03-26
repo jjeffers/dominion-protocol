@@ -45,18 +45,21 @@ func _ready():
 	multiplayer.peer_connected.connect(_on_peer_connected)
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
 
-func host_game(port: int) -> Error:
+func host_game(port: int, bind_address: String = "*") -> Error:
+	if bind_address != "" and bind_address != "*":
+		peer.set_bind_ip(bind_address)
+		
 	var error = peer.create_server(port)
 	if error == OK:
 		multiplayer.multiplayer_peer = peer
 		is_host = true
-		print("Hosting on port %d" % port)
+		print("Hosting on %s:%d" % [bind_address, port])
 		
 		# Register Host
 		players[1] = { "name": local_player_name, "faction": "" }
 		connection_succeeded.emit()
 	else:
-		print("Error hosting on port %d: %d" % [port, error])
+		print("Error hosting on %s:%d: %d" % [bind_address, port, error])
 	return error
 
 func join_game(ip: String, port: int) -> Error:

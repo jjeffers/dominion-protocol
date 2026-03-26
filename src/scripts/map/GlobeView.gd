@@ -1061,19 +1061,34 @@ func _unhandled_input(event: InputEvent) -> void:
 			if selected_unit and selected_unit.get("unit_type") == "Air":
 				_draw_air_ops_radius(selected_unit, false)
 			return
+			
+		var canceled_something = false
 		if selected_unit:
 			selected_unit.set_selected(false)
 			selected_unit = null
 			target_bracket.visible = false
 			air_ops_immediate_mesh.clear_surfaces()
+			canceled_something = true
 		if deploying_unit_type != "":
 			deploying_unit_type = ""
 			deployment_ghost.visible = false
 			_update_city_highlights(false)
+			canceled_something = true
 		if is_deploying_foreign_aid:
 			is_deploying_foreign_aid = false
 			if foreign_aid_bracket: foreign_aid_bracket.visible = false
 			_update_city_highlights(false)
+			canceled_something = true
+			
+		if canceled_something:
+			return
+			
+		if not has_node("SettingsMenu"):
+			var menu_scn = load("res://src/scenes/SettingsMenu.tscn").instantiate()
+			menu_scn.name = "SettingsMenu"
+			add_child(menu_scn)
+			get_viewport().set_input_as_handled()
+			return
 			
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 		if deploying_unit_type != "":

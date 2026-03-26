@@ -21,4 +21,4 @@
 ## Diplomatic Status Display
 - A list of all countries and their diplomatic opinion is displayed on the left hand side of the display. It is positioned between the top game status and the bottom terrain and unit status displays.
 - If the list is larger than the display panel a scroll bar is provided to allow a user to view all countries.
-- The list is sorted by most favorable to least favorable opinion.
+- The list is sorted by most favorabl, then least favorable, then all other countries with an opinion of 0.
