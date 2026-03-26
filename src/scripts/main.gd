@@ -732,7 +732,17 @@ func _do_update_diplomacy_ui() -> void:
 			var num_cities = c_data["cities"].size()
 			countries_list.append({"name": c_name, "opinion": op, "cities": num_cities})
 		
-	countries_list.sort_custom(func(a, b): return a["opinion"] > b["opinion"])
+	countries_list.sort_custom(func(a, b):
+		var op_a = a["opinion"]
+		var op_b = b["opinion"]
+		if op_a > 0 and op_b <= 0: return true
+		if op_b > 0 and op_a <= 0: return false
+		if op_a < 0 and op_b == 0: return true
+		if op_b < 0 and op_a == 0: return false
+		if op_a > 0 and op_b > 0: return op_a > op_b
+		if op_a < 0 and op_b < 0: return op_a < op_b
+		return a["name"] < b["name"]
+	)
 	
 	for child in diplomacy_vbox.get_children():
 		diplomacy_vbox.remove_child(child)
@@ -747,8 +757,10 @@ func _do_update_diplomacy_ui() -> void:
 		name_btn.add_theme_font_size_override("font_size", 24)
 		name_btn.flat = true
 		name_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		name_btn.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		name_btn.clip_text = true
 		
-		var op_val = clamp(floor(c_item["opinion"]), -100, 100)
+		var op_val = int(clamp(round(c_item["opinion"]), -100, 100))
 		var op_lbl = Label.new()
 		if op_val > 0:
 			op_lbl.text = "+" + str(op_val)
