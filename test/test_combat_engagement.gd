@@ -18,16 +18,13 @@ func _get_tile_from_vector3(pos: Vector3) -> int:
 func get_terrain(tile_id: int) -> String:
 	return "PLAINS"
 
-func before_all():
-	MapData.use_mock_data = true
-	GlobeView.skip_mesh_generation = true
 
-func after_all():
-	MapData.use_mock_data = false
-	GlobeView.skip_mesh_generation = false
 
 func before_each():
 	city_tile_cache.clear()
+	if multiplayer.has_multiplayer_peer():
+		multiplayer.multiplayer_peer = null
+	
 	var gv_scene = load("res://src/scenes/map/GlobeView.tscn")
 	mock_view = gv_scene.instantiate()
 	add_child(mock_view)

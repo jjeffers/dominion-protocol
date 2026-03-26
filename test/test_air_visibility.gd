@@ -6,9 +6,6 @@ var u1: GlobeUnit # Friendly Air Unit
 var u2: GlobeUnit # Enemy Armor
 var local_id = 1
 
-func before_all():
-	MapData.use_mock_data = true
-	GlobeView.skip_mesh_generation = true
 	
 	# Mock network
 	var peer = ENetMultiplayerPeer.new()
@@ -22,9 +19,6 @@ func before_all():
 	
 	globe_view_scene = load("res://src/scenes/map/GlobeView.tscn")
 
-func after_all():
-	MapData.use_mock_data = false
-	GlobeView.skip_mesh_generation = false
 	
 	multiplayer.multiplayer_peer = null
 	if NetworkManager.players.has(local_id):

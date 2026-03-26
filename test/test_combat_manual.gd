@@ -38,3 +38,6 @@ func _init():
 	print("Next distance: ", next_pos.distance_to(u2.current_position))
 	
 	quit()
+
+
+

@@ -12,3 +12,6 @@ func test_uvs_exist():
         assert_true(true, "SphereMesh auto-generates UVs.")
     else:
         fail_test("Mesh is neither ArrayMesh nor SphereMesh")
+
+
+

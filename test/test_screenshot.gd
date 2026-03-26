@@ -32,3 +32,6 @@ func test_screenshot():
         assert_not_null(out_img, "Should extract screenshot from viewport")
     else:
         assert_not_null(vp.get_texture(), "Headless screenshot texture returned.")
+
+
+

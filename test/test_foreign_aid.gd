@@ -92,3 +92,6 @@ func test_request_foreign_aid_fails_no_funds():
 	# Opinion should remain unchanged since sync never fired
 	var op = mock_globe.active_scenario["countries"]["TargetCountry1"]["opinions"]["Red"]
 	assert_eq(op, 0.0, "Opinion should not change if purchase failed due to lack of funds")
+
+
+

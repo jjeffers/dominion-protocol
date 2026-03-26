@@ -13,9 +13,6 @@ class MockMapData extends MapData:
 			return _terrain_map[tile_id]
 		return "PLAINS"
 
-func before_all():
-	MapData.use_mock_data = true
-	GlobeView.skip_mesh_generation = true
 	
 	# Mock network
 	var peer = ENetMultiplayerPeer.new()
@@ -27,9 +24,6 @@ func before_all():
 	}
 	NetworkManager.is_host = true
 
-func after_all():
-	MapData.use_mock_data = false
-	GlobeView.skip_mesh_generation = false
 	
 	multiplayer.multiplayer_peer = null
 	if NetworkManager.players.has(local_id):

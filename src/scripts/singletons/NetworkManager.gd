@@ -62,11 +62,19 @@ func host_game(port: int) -> Error:
 func join_game(ip: String, port: int) -> Error:
 	last_attempted_ip = ip
 	last_attempted_port = port
-	var error = peer.create_client(ip, port)
+	
+	var resolved_ip = ip
+	if not ip.is_valid_ip_address():
+		resolved_ip = IP.resolve_hostname(ip, IP.TYPE_IPV4)
+		if resolved_ip == "":
+			print("Error: Could not resolve hostname " + ip)
+			return ERR_CANT_RESOLVE
+			
+	var error = peer.create_client(resolved_ip, port)
 	if error == OK:
 		multiplayer.multiplayer_peer = peer
 		is_host = false
-		print("Joining %s:%d" % [ip, port])
+		print("Joining %s:%d (Resolved: %s)" % [ip, port, resolved_ip])
 	else:
 		print("Error joining %s:%d: %d" % [ip, port, error])
 	return error

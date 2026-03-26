@@ -94,3 +94,6 @@ func test_amphibious_vs_coastal_armor():
 	
 	assert_true(end_hp_arm < start_hp_arm, "Armor should take damage from Infantry. Expected < 100, got: " + str(end_hp_arm))
 	assert_true(end_hp_inf < start_hp_inf, "Infantry should take damage from Armor. Expected < 100, got: " + str(end_hp_inf))
+
+
+

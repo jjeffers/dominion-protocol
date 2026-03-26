@@ -34,5 +34,6 @@
     - Striking an allied city
     - Striking enemy units
     - Striking enemy units within your faction borders
+- Being the first faction to use nuclear weapons also adds a "first use" penalty to the diplomatic penalties above.
 
 

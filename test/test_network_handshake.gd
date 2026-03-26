@@ -19,3 +19,6 @@ func test_game_version_is_valid():
 	var ver = network_manager.GAME_VERSION
 	assert_true(ver.length() > 0, "GAME_VERSION must not be empty")
 	assert_true(ver.begins_with("v"), "GAME_VERSION should follow the v* format")
+
+
+

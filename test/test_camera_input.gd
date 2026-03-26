@@ -2,13 +2,7 @@ extends GutTest
 
 var globe_view_scene = preload("res://src/scenes/map/GlobeView.tscn")
 
-func before_all():
-	MapData.use_mock_data = true
-	GlobeView.skip_mesh_generation = true
 
-func after_all():
-	MapData.use_mock_data = false
-	GlobeView.skip_mesh_generation = false
 
 func test_camera_movement():
 	# Instantiate from the actual scene so it has child nodes like CameraPivot

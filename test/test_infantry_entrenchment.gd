@@ -48,3 +48,6 @@ func test_armor_never_entrenches():
 	# Simulate 35 seconds of waiting
 	unit._process(35.0)
 	assert_false(unit.entrenched, "Armor must never entrench regardless of motionless time.")
+
+
+

@@ -25,3 +25,6 @@ func test_nuke_input():
 	print("--- FINISHED N KEY ---")
 	
 	nm.queue_free()
+
+
+

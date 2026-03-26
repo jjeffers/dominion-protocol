@@ -99,8 +99,10 @@ func _ready() -> void:
 		# Create a dummy map for testing if none provided
 		map_data = MapData.new()
 		
-	_generate_mesh()
-	_update_camera()
+	if has_node("MeshInstance3D"):
+		_generate_mesh()
+	if has_node("CameraPivot/Camera3D"):
+		_update_camera()
 	
 	outline_immediate_mesh = ImmediateMesh.new()
 	outline_mesh_instance = MeshInstance3D.new()
@@ -3803,6 +3805,17 @@ func _rebuild_nuke_ash_layer() -> void:
 		add_child(nuke_ash_mesh_instance)
 
 	nuke_ash_mesh.clear_surfaces()
+	
+	var has_ruins = false
+	for t_id in map_data._terrain_overrides.keys():
+		var ter = map_data._terrain_overrides[t_id]
+		if (ter == "WASTELAND" or ter == "RUINS") and map_data.get_neighbors(t_id).size() == 4:
+			has_ruins = true
+			break
+			
+	if not has_ruins:
+		return
+		
 	nuke_ash_mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
 	
 	for t_id in map_data._terrain_overrides.keys():

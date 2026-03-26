@@ -20,3 +20,6 @@ func test_viewport_load():
         
     await wait_frames(1)
     assert_not_null(mesh.material, "Material must be assigned to mesh")
+
+
+

@@ -6,13 +6,7 @@ var GlobeUnitPath = "res://src/scripts/map/GlobeUnit.gd"
 var mock_view
 var u1
 
-func before_all():
-	MapData.use_mock_data = true
-	GlobeView.skip_mesh_generation = true
 
-func after_all():
-	MapData.use_mock_data = false
-	GlobeView.skip_mesh_generation = false
 
 func before_each():
 	mock_view = GlobeViewScene.instantiate()

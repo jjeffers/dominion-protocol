@@ -4,13 +4,7 @@ var globe_view_scene = preload("res://src/scenes/map/GlobeView.tscn")
 var globe_unit_script = preload("res://src/scripts/map/GlobeUnit.gd")
 var GlobeView = preload("res://src/scripts/map/GlobeView.gd")
 
-func before_all():
-	MapData.use_mock_data = true
-	GlobeView.skip_mesh_generation = true
 
-func after_all():
-	MapData.use_mock_data = false
-	GlobeView.skip_mesh_generation = false
 
 func test_strategic_bombing_success():
 	var gv = globe_view_scene.instantiate()

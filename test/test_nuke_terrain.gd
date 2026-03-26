@@ -37,3 +37,6 @@ func test_nuke_water_terrain_not_wasteland():
 	for n in map.get_neighbors(hit_tile):
 		assert_ne(map.get_terrain(n), "WASTELAND", "Neighbor should not turn into WASTELAND")
 		assert_eq(map.get_terrain(n), "OCEAN", "Neighbor should remain OCEAN")
+
+
+

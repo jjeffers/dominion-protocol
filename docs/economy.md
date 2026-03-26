@@ -20,7 +20,7 @@
     - The player may only purchase one unit at a time.
     - The player may only purchase a unit if they have enough credits to cover the cost.
     - The player may only purchase a unit if they have a city that is not currently producing a unit.
-    - The player may only purchase a unit if they have a city that is not currently pn production cooldown.
+    - The player may only purchase a unit if they have a city that is not currently son production cooldown.
 - To purchse a unit, press the 'P' key, select the unit, and press the 'Enter' key.
 - Pressing the 'Esc' key will close the purchase menu.
 - Once a unit is purchased the players must then select an available city to deploy the unit.

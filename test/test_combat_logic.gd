@@ -13,3 +13,6 @@ func test_initialization():
     
     var physical_width = tex.get_width() * unit_a.sprite.pixel_size * unit_a.sprite.scale.x
     assert_gt(physical_width, 0.0, "Visible 3D width should be calculated.")
+
+
+

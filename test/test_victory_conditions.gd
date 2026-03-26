@@ -3,13 +3,7 @@ extends GutTest
 var globe: GlobeView
 var main: MainScene
 
-func before_all():
-	MapData.use_mock_data = true
-	GlobeView.skip_mesh_generation = true
 
-func after_all():
-	MapData.use_mock_data = false
-	GlobeView.skip_mesh_generation = false
 
 func before_each() -> void:
 	var main_scene = load("res://src/scenes/main.tscn")

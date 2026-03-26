@@ -3,13 +3,7 @@ extends GutTest
 var globe_view_scene = preload("res://src/scenes/map/GlobeView.tscn")
 var globe_unit_script = preload("res://src/scripts/map/GlobeUnit.gd")
 
-func before_all():
-	MapData.use_mock_data = true
-	GlobeView.skip_mesh_generation = true
 
-func after_all():
-	MapData.use_mock_data = false
-	GlobeView.skip_mesh_generation = false
 
 class MockPlainsMapData extends MapData:
 	func get_terrain(tile: int) -> String:

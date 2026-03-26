@@ -327,3 +327,6 @@ func test_strategic_bombing_targets_enemy_cities():
 	# Reset state
 	mock_globe.city_nodes[2].global_position = original_city_pos
 	u1.free()
+
+
+

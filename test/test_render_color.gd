@@ -35,3 +35,6 @@ func test_render_color():
             assert_ne(center_pixel, Color(0,0,0,0), "Center pixel should have valid color data")
     else:
         assert_not_null(vp.get_texture(), "Headless render_color passes with texture existence.")
+
+
+

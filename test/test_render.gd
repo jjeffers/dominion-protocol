@@ -33,3 +33,6 @@ func test_basic_render():
         assert_not_null(img, "Should extract an image from the viewport.")
     else:
         assert_not_null(vp.get_texture(), "Headless viewport texture extraction.")
+
+
+
