@@ -917,8 +917,9 @@ func _process(delta: float) -> void:
 								if u_type != null and u_type.capitalize() in ["Cruiser", "Submarine"]:
 									var c_pos = other.get("current_position")
 									if c_pos != null and current_position.distance_to(c_pos) <= 0.024:
-										newly_detected = true
-										break
+										if is_moving and not other.get("is_moving"):
+											newly_detected = true
+											break
 			set_meta("sub_timer", st)
 			is_detected = newly_detected
 
