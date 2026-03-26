@@ -35,7 +35,7 @@ theme_override_constants/separation = 20
 
 [node name="Title" type="Label" parent="CenterContainer/VBoxContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 48
+theme_override_font_sizes/font_size = 72
 text = "Dominion Protocol"
 horizontal_alignment = 1
 
@@ -48,7 +48,7 @@ theme_override_constants/separation = 10
 
 [node name="Label" type="Label" parent="CenterContainer/VBoxContainer/PlayerSettings"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 24
+theme_override_font_sizes/font_size = 36
 text = "Player Settings"
 
 [node name="HBoxContainer" type="HBoxContainer" parent="CenterContainer/VBoxContainer/PlayerSettings"]
@@ -57,10 +57,12 @@ layout_mode = 2
 [node name="Label" type="Label" parent="CenterContainer/VBoxContainer/PlayerSettings/HBoxContainer"]
 custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
+theme_override_font_sizes/font_size = 24
 text = "Name:"
 
 [node name="PlayerNameInput" type="LineEdit" parent="CenterContainer/VBoxContainer/PlayerSettings/HBoxContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 24
 size_flags_horizontal = 3
 text = "Commander"
 max_length = 20
@@ -75,7 +77,7 @@ theme_override_constants/separation = 10
 
 [node name="Label" type="Label" parent="CenterContainer/VBoxContainer/HostSection"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 24
+theme_override_font_sizes/font_size = 36
 text = "Host Game"
 
 [node name="HBoxContainer" type="HBoxContainer" parent="CenterContainer/VBoxContainer/HostSection"]
@@ -84,10 +86,12 @@ layout_mode = 2
 [node name="Label" type="Label" parent="CenterContainer/VBoxContainer/HostSection/HBoxContainer"]
 custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
+theme_override_font_sizes/font_size = 24
 text = "Port:"
 
 [node name="HostPortInput" type="LineEdit" parent="CenterContainer/VBoxContainer/HostSection/HBoxContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 24
 size_flags_horizontal = 3
 text = "7001"
 max_length = 5
@@ -96,7 +100,7 @@ placeholder_text = "7001"
 [node name="HostButton" type="Button" parent="CenterContainer/VBoxContainer/HostSection"]
 custom_minimum_size = Vector2(0, 50)
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 30
 text = "Host"
 
 [node name="HSeparator2" type="HSeparator" parent="CenterContainer/VBoxContainer"]
@@ -108,7 +112,7 @@ theme_override_constants/separation = 10
 
 [node name="Label" type="Label" parent="CenterContainer/VBoxContainer/JoinSection"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 24
+theme_override_font_sizes/font_size = 36
 text = "Join Game"
 
 [node name="HBoxContainer2" type="HBoxContainer" parent="CenterContainer/VBoxContainer/JoinSection"]
@@ -117,10 +121,12 @@ layout_mode = 2
 [node name="Label" type="Label" parent="CenterContainer/VBoxContainer/JoinSection/HBoxContainer2"]
 custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
+theme_override_font_sizes/font_size = 24
 text = "IP Address:"
 
 [node name="JoinIPInput" type="LineEdit" parent="CenterContainer/VBoxContainer/JoinSection/HBoxContainer2"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 24
 size_flags_horizontal = 3
 text = "127.0.0.1"
 placeholder_text = "ex: 192.168.1.10"
@@ -131,10 +137,12 @@ layout_mode = 2
 [node name="Label" type="Label" parent="CenterContainer/VBoxContainer/JoinSection/HBoxContainer"]
 custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
+theme_override_font_sizes/font_size = 24
 text = "Port:"
 
 [node name="JoinPortInput" type="LineEdit" parent="CenterContainer/VBoxContainer/JoinSection/HBoxContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 24
 size_flags_horizontal = 3
 text = "7001"
 max_length = 5
@@ -143,12 +151,13 @@ placeholder_text = "7001"
 [node name="JoinButton" type="Button" parent="CenterContainer/VBoxContainer/JoinSection"]
 custom_minimum_size = Vector2(0, 50)
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 30
 text = "Join"
 
 [node name="StatusLabel" type="Label" parent="CenterContainer/VBoxContainer"]
 self_modulate = Color(0.8, 0.8, 0.3, 1)
 custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
+theme_override_font_sizes/font_size = 24
 horizontal_alignment = 1
 vertical_alignment = 1

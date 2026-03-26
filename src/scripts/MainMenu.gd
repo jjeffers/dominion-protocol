@@ -104,7 +104,7 @@ func _on_join_pressed():
 	
 	var err = NetworkManager.join_game(ip, port)
 	if err != OK:
-		status_label.text = "Failed to initiate connection."
+		status_label.text = "Failed to initiate connection: " + error_string(err)
 
 
 func _on_connection_success():

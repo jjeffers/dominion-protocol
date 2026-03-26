@@ -7,6 +7,8 @@ var is_host = false
 var local_player_name: String = ""
 var last_disconnect_reason: String = ""
 var match_id: String = "0"
+var last_attempted_ip: String = ""
+var last_attempted_port: int = 0
 
 signal connection_succeeded
 signal connection_failed(reason: String)
@@ -58,6 +60,8 @@ func host_game(port: int) -> Error:
 	return error
 
 func join_game(ip: String, port: int) -> Error:
+	last_attempted_ip = ip
+	last_attempted_port = port
 	var error = peer.create_client(ip, port)
 	if error == OK:
 		multiplayer.multiplayer_peer = peer
@@ -120,8 +124,9 @@ func _on_connected_ok():
 	connection_succeeded.emit()
 
 func _on_connected_fail():
-	print("Failed to connect to server.")
-	connection_failed.emit("Failed to connect to server.")
+	var msg = "Failed to connect to server at " + last_attempted_ip + ":" + str(last_attempted_port) + ". Connection refused or timed out."
+	print(msg)
+	connection_failed.emit(msg)
 
 func _on_server_disconnected():
 	print("Server disconnected.")
