@@ -622,11 +622,18 @@ func _process_economy_tick() -> void:
 	var updated = false
 	for faction_name in scenario_data["factions"].keys():
 		var fac_data = scenario_data["factions"][faction_name]
+		var city_count = 0
 		if fac_data.has("cities"):
-			var city_count = fac_data["cities"].size()
+			city_count = fac_data["cities"].size()
+			
+		var oil_count = 0
+		if fac_data.has("oil"):
+			oil_count = fac_data["oil"].size()
+			
+		if city_count > 0 or oil_count > 0:
 			var current_money = fac_data.get("money", 0.0)
-			# 1 Credit per 1 minute per city -> 0.0333 credit per 10 seconds
-			fac_data["money"] = current_money + (city_count * (ECONOMY_INTERVAL / 300.0))
+			# City: 1 Credit/1 min -> 5 per 300s | Oil: 10 per 300s
+			fac_data["money"] = current_money + (city_count * (ECONOMY_INTERVAL / 300.0)) + (oil_count * 10.0 * (ECONOMY_INTERVAL / 300.0))
 			updated = true
 			
 	if updated:
@@ -729,8 +736,15 @@ func _do_update_diplomacy_ui() -> void:
 		var c_data = scenario_data["countries"][c_name]
 		if c_data.has("cities") and c_data["cities"].size() > 0:
 			var op = c_data.get("opinions", {}).get(local_faction, 0.0)
-			var num_cities = c_data["cities"].size()
-			countries_list.append({"name": c_name, "opinion": op, "cities": num_cities})
+			var num_cities = 0
+			var num_oil = 0
+			for region in c_data["cities"]:
+				if region.begins_with("TOP_") or region.begins_with("BOTTOM_") or region.begins_with("LEFT_") or region.begins_with("RIGHT_") or region.begins_with("FRONT_") or region.begins_with("BACK_"):
+					num_oil += 1
+				else:
+					num_cities += 1
+					
+			countries_list.append({"name": c_name, "opinion": op, "cities": num_cities, "oil": num_oil})
 		
 	countries_list.sort_custom(func(a, b):
 		var op_a = a["opinion"]
@@ -752,7 +766,7 @@ func _do_update_diplomacy_ui() -> void:
 		var hb = HBoxContainer.new()
 		
 		var name_btn = Button.new()
-		name_btn.text = c_item["name"] + " (" + str(c_item["cities"]) + ")"
+		name_btn.text = c_item["name"] + " (" + str(c_item["cities"]) + "/" + str(c_item["oil"]) + ")"
 		name_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		name_btn.add_theme_font_size_override("font_size", 24)
 		name_btn.flat = true

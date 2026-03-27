@@ -62,7 +62,10 @@ func _ready():
 			money_spin.min_value = 0
 			money_spin.max_value = 99999
 			money_spin.step = 10
-			money_spin.value = fac.get("money", 0.0)
+			var starting_money = fac.get("money", 0.0)
+			if fac.has("oil"):
+				starting_money += fac["oil"].size() * 50.0
+			money_spin.value = starting_money
 			money_spin.add_theme_font_size_override("font_size", 48)
 			money_spin.get_line_edit().add_theme_font_size_override("font_size", 48)
 			# We'll update the editable state in _update_ui()

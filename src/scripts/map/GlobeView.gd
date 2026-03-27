@@ -13,6 +13,7 @@ var active_scenario: Dictionary = {}
 
 var radius: float = 1.0
 var city_tile_cache: Dictionary = {}
+var oil_tile_cache: Dictionary = {}
 var current_longitude: float = 0.192
 var current_latitude: float = 0.6196
 
@@ -58,6 +59,7 @@ var nuke_impact_sfx: AudioStreamPlayer
 var capitols: Dictionary = {}
 
 var city_nodes: Array[Node3D] = []
+var oil_nodes: Array[Node3D] = []
 var friendly_city_positions: Array[Vector3] = []
 var friendly_unit_positions: Array[Vector3] = []
 var friendly_air_bubbles: Array[Dictionary] = []
@@ -888,6 +890,7 @@ func _generate_mesh() -> void:
 		push_error("GlobeView: Failed to load globe_mesh.res!")
 var _violation_log_cooldowns: Dictionary = {}
 var active_captures: Dictionary = {} # Tracks 10-second city capture holds { "CityName": { "faction": string, "time": float } }
+var active_oil_captures: Dictionary = {} # Tracks 30-second oil holds { "OilTile": { "faction": string, "time": float } }
 
 func _process(delta: float) -> void:
 	if not camera:
@@ -1016,6 +1019,7 @@ func _process(delta: float) -> void:
 		if capture_timer >= CAPTURE_INTERVAL:
 			capture_timer -= CAPTURE_INTERVAL
 			_process_city_captures()
+			_process_oil_captures()
 			
 		diplomacy_timer += delta
 		if diplomacy_timer >= DIPLOMACY_INTERVAL:
@@ -1435,6 +1439,54 @@ func _process_city_captures() -> void:
 			# Reset progress if 0 or >1 land factions are inside
 			active_captures.erase(city_node.name)
 
+func _process_oil_captures() -> void:
+	for oil_node in oil_nodes:
+		var land_factions = []
+		var sea_factions = []
+		
+		# First find the 'current_owner'
+		var current_owner = "neutral"
+		var tile_id = oil_node.name
+		if active_scenario.has("factions"):
+			for f_name in active_scenario["factions"].keys():
+				if active_scenario["factions"][f_name].has("oil") and tile_id in active_scenario["factions"][f_name]["oil"]:
+					current_owner = f_name
+					break
+					
+		for u in units_list:
+			if not is_instance_valid(u): continue
+			if u.get("is_dead") != true:
+				var dist = oil_node.position.distance_to(u.position) / radius
+				if dist <= 0.01:
+					var fac = u.get("faction_name")
+					if u.get("unit_type") in ["Infantry", "Armor"]:
+						if not land_factions.has(fac): land_factions.append(fac)
+					elif u.get("unit_type") in ["Cruiser", "Submarine", "Transport"]:
+						if not sea_factions.has(fac): sea_factions.append(fac)
+						
+		# Oil can only be physically captured by a single faction's Land units
+		if land_factions.size() == 1:
+			var capturing_faction = land_factions[0]
+			var is_contested = false
+			for fac in sea_factions:
+				if fac != capturing_faction:
+					is_contested = true
+					break
+					
+			if not is_contested and capturing_faction != "" and capturing_faction != current_owner:
+				if not active_oil_captures.has(tile_id) or active_oil_captures[tile_id]["faction"] != capturing_faction:
+					active_oil_captures[tile_id] = { "faction": capturing_faction, "time": 1.0 }
+				else:
+					active_oil_captures[tile_id]["time"] += 1.0
+					
+				if active_oil_captures[tile_id]["time"] >= 30.0:
+					active_oil_captures.erase(tile_id)
+					rpc("sync_oil_capture", tile_id, capturing_faction, current_owner)
+			else:
+				active_oil_captures.erase(tile_id)
+		else:
+			active_oil_captures.erase(tile_id)
+
 @rpc("authority", "call_local", "reliable")
 func sync_city_capture(city_name: String, new_faction: String, old_faction: String) -> void:
 	print("City Capture: ", city_name, " captured by ", new_faction, " from ", old_faction)
@@ -1534,6 +1586,33 @@ func sync_city_capture(city_name: String, new_faction: String, old_faction: Stri
 @rpc("authority", "call_local", "reliable")
 func sync_victory(winning_faction: String) -> void:
 	victory_declared.emit(winning_faction)
+
+@rpc("authority", "call_local", "reliable")
+func sync_oil_capture(oil_id: String, new_faction: String, old_faction: String) -> void:
+	print("Oil Capture: ", oil_id, " captured by ", new_faction, " from ", old_faction)
+	var network_manager = get_node_or_null("/root/NetworkManager")
+	if network_manager and network_manager.is_host:
+		var old_str = old_faction if old_faction != "neutral" else "neutral forces"
+		var alert_str = "An oil hub was captured by " + new_faction + " from " + old_str + "."
+		ConsoleManager.log_message(alert_str)
+	
+	# Remove old ownership
+	if old_faction == "neutral":
+		if active_scenario.has("neutral_oil"):
+			active_scenario["neutral_oil"].erase(oil_id)
+	elif active_scenario.has("factions") and active_scenario["factions"].has(old_faction):
+		if active_scenario["factions"][old_faction].has("oil"):
+			active_scenario["factions"][old_faction]["oil"].erase(oil_id)
+			
+	# Add new ownership
+	if active_scenario.has("factions") and active_scenario["factions"].has(new_faction):
+		if not active_scenario["factions"][new_faction].has("oil"):
+			active_scenario["factions"][new_faction]["oil"] = []
+		if not active_scenario["factions"][new_faction]["oil"].has(oil_id):
+			active_scenario["factions"][new_faction]["oil"].append(oil_id)
+			
+	# Emit event if something UI-wise needs to know, otherwise we just silently redraw borders
+	_generate_faction_borders()
 
 func _update_camera() -> void:
 	var t = Transform3D.IDENTITY
@@ -1816,14 +1895,79 @@ func _instantiate_scenario(scenario_data: Dictionary, progress_callback: Callabl
 											faction_regions[faction_name].append(reg)
 			# Neutral oil
 			if scenario_data.has("neutral_oil"):
+				var remaining_neutral = []
 				for o_name in scenario_data["neutral_oil"]:
+					var o_tile = 0
+					var o_reg = ""
 					for marker in o_arr:
 						if marker.get("tile") == o_name:
 							var pos = marker.get("position")
-							var tile = _get_tile_from_vector3(Vector3(pos.x, pos.y, pos.z).normalized() * radius)
-							var reg = map_data.get_region(tile)
-							if reg != "" and not active_regions.has(reg):
-								active_regions.append(reg)
+							o_tile = _get_tile_from_vector3(Vector3(pos.x, pos.y, pos.z).normalized() * radius)
+							o_reg = map_data.get_region(o_tile)
+							break
+					
+					var assigned = false
+					if o_reg != "":
+						var adjacent_regions = {}
+						# Scan all tiles belonging to the oil region to find its neighbors
+						for t_id in map_data._region_map.keys():
+							if map_data._region_map[t_id] == o_reg:
+								for n in map_data.get_neighbors(t_id):
+									if map_data._region_map.has(n):
+										var r = map_data._region_map[n]
+										if r != "" and r != o_reg and r != "WILDERNESS":
+											adjacent_regions[r] = true
+											
+						var possible_owners = []
+						if scenario_data.has("factions"):
+							for f_name in scenario_data["factions"].keys():
+								for r in faction_regions[f_name]:
+									if adjacent_regions.has(r):
+										if not possible_owners.has("FAC_" + f_name):
+											possible_owners.append("FAC_" + f_name)
+											
+						if scenario_data.has("countries"):
+							for c_name in scenario_data["countries"].keys():
+								var is_neutral = true
+								if scenario_data.has("factions"):
+									for f_name in scenario_data["factions"].keys():
+										for city in scenario_data["countries"][c_name].get("cities", []):
+											if faction_regions[f_name].has(city):
+												is_neutral = false
+												break
+										if not is_neutral: break
+								if is_neutral:
+									for city in scenario_data["countries"][c_name].get("cities", []):
+										if adjacent_regions.has(city):
+											if not possible_owners.has("COU_" + c_name):
+												possible_owners.append("COU_" + c_name)
+												
+						if possible_owners.size() > 0:
+							var chosen = possible_owners[randi() % possible_owners.size()]
+							if chosen.begins_with("FAC_"):
+								var f_name = chosen.substr(4)
+								if not scenario_data["factions"][f_name].has("oil"):
+									scenario_data["factions"][f_name]["oil"] = []
+								scenario_data["factions"][f_name]["oil"].append(o_name)
+								if not faction_regions[f_name].has(o_reg):
+									faction_regions[f_name].append(o_reg)
+								assigned = true
+								print("GlobeView: Oil hub ", o_name, " in region ", o_reg, " randomly assigned to adjacent faction ", f_name)
+							elif chosen.begins_with("COU_"):
+								var c_name = chosen.substr(4)
+								if not scenario_data["countries"][c_name].has("cities"):
+									scenario_data["countries"][c_name]["cities"] = []
+								scenario_data["countries"][c_name]["cities"].append(o_reg)
+								print("GlobeView: Oil hub ", o_name, " in region ", o_reg, " randomly assigned to adjacent country ", c_name)
+								# Remains in remaining_neutral so it spawns as a neutral tile
+					
+					if not assigned:
+						remaining_neutral.append(o_name)
+						
+					if o_reg != "" and not active_regions.has(o_reg):
+						active_regions.append(o_reg)
+				
+				scenario_data["neutral_oil"] = remaining_neutral
 
 	if progress_callback.is_valid():
 		progress_callback.call(0.2, "Baking Regions...")
@@ -2308,8 +2452,13 @@ void fragment() {
 			var pos = Vector3(pos_data["x"], pos_data["y"], pos_data["z"])
 			var final_pos = pos.normalized() * radius
 			
+			var tile_id = _get_tile_from_vector3(final_pos)
+			oil_tile_cache[tile_id] = marker.get("tile")
+			
 			var oil_node = Node3D.new()
+			oil_node.name = marker.get("tile", "")
 			add_child(oil_node)
+			oil_nodes.append(oil_node)
 			
 			var sprite = Sprite3D.new()
 			sprite.texture = tex_oil

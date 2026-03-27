@@ -122,6 +122,43 @@ func _init() -> void:
 		region_map[tile_id] = city_name
 		pq.push(PQItem.new(0.0, tile_id, city_name))
 		
+	var oil_path = "res://src/data/oil_data.json"
+	if FileAccess.file_exists(oil_path):
+		var o_f = FileAccess.open(oil_path, FileAccess.READ)
+		var o_json = JSON.new()
+		if o_json.parse(o_f.get_as_text()) == OK:
+			var oils = o_json.data
+			print("Loaded ", oils.size(), " oil hubs as region seeds.")
+			for oil_obj in oils:
+				var tile_str = oil_obj.get("tile", "")
+				var pos_data = oil_obj.get("position", {})
+				if tile_str != "" and pos_data.has("x"):
+					var raw_pos = Vector3(pos_data["x"], pos_data["y"], pos_data["z"]).normalized() * 1.02
+					var tile_id = _get_tile_from_vector3(raw_pos)
+					
+					# Snap to land if needed
+					if map_data.get_terrain(tile_id) == "OCEAN":
+						var q = [tile_id]
+						var visited = {tile_id: true}
+						var found_land = -1
+						while q.size() > 0:
+							var curr = q.pop_front()
+							if map_data.get_terrain(curr) != "OCEAN":
+								found_land = curr
+								break
+							for n in map_data.get_neighbors(curr):
+								if not visited.has(n):
+									visited[n] = true
+									q.append(n)
+						if found_land != -1:
+							tile_id = found_land
+							
+					# Regions from oil will just use the tile string as the region name
+					cost_map[tile_id] = 0.0
+					region_map[tile_id] = tile_str
+					pq.push(PQItem.new(0.0, tile_id, tile_str))
+		o_f.close()
+		
 	print("Starting Dijkstra Flood-Fill...")
 	
 	var processed_count = 0
