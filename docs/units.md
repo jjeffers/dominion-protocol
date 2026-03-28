@@ -71,16 +71,16 @@ Infantry | Desert | 0.5 | 1.0
 Infantry | Mountains | 0.1 | 0.50
 Infantry | Polar | 0.25 | 1.0
 Infantry | City | 1 | 0.50  
-Armor | Plains | 1.5 | 1.0  
-Armor | Forest | 0.5 | 0.75 
-Armor | Jungle | 0.25 | 0.75 
-Armor | Desert | 1.0  | 1.0
-Armor | Mountains | 0.1 | 1.0 
-Armor | Polar | 0.25 | 1.0 
-Armor | City | 1.0 | 0.75 
+Armor | Plains | 3.75 | 1.0  
+Armor | Forest | 1.25 | 0.75 
+Armor | Jungle | 0.625 | 0.75 
+Armor | Desert | 2.5  | 1.0
+Armor | Mountains | 0.25 | 1.0 
+Armor | Polar | 0.625 | 1.0 
+Armor | City | 2.5 | 0.75 
 
 ##### TEC Terms
-- Movement Modifier: The factor by which the base movement rate is multiplied. For example, an armor unit on plains terrain has a movement rate of 1.5 * 1.0 = 1.5 unit widths per 10 seconds.
+- Movement Modifier: The total relative speed for the unit across terrain relative to a moving infantry unit on plains. For example, an armor unit on plains terrain has a movement rate of 3.75 unit widths per 10 seconds.
 - Defensive Modifier: The factor by which incoming damage is multiplied. For example, an armor unit on plains terrain takes 1.0 * damage per 5 seconds on units it is engaged with. (Low numbers are better for the defender.)
 
 ##### SEA TRANSPORT MODE
