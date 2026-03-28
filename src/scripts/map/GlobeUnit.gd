@@ -147,20 +147,20 @@ const TEC_MODIFIERS: Dictionary = {
 		"RUINS": {"movement": 1.0, "defense": 1.0}
 	},
 	"Armor": {
-		"PLAINS": {"movement": 1.5, "defense": 1.0},
-		"FOREST": {"movement": 0.5, "defense": 0.75},
-		"JUNGLE": {"movement": 0.25, "defense": 0.75},
-		"DESERT": {"movement": 1.0, "defense": 1.0},
-		"MOUNTAINS": {"movement": 0.1, "defense": 1.0},
-		"POLAR": {"movement": 0.25, "defense": 1.0},
-		"CITY": {"movement": 1.0, "defense": 0.75},
-		"DOCKS": {"movement": 1.0, "defense": 0.75},
+		"PLAINS": {"movement": 3.75, "defense": 1.0},
+		"FOREST": {"movement": 1.25, "defense": 0.75},
+		"JUNGLE": {"movement": 0.625, "defense": 0.75},
+		"DESERT": {"movement": 2.5, "defense": 1.0},
+		"MOUNTAINS": {"movement": 0.25, "defense": 1.0},
+		"POLAR": {"movement": 0.625, "defense": 1.0},
+		"CITY": {"movement": 2.5, "defense": 0.75},
+		"DOCKS": {"movement": 2.5, "defense": 0.75},
 		"OCEAN": {"movement": 3.0, "defense": 1.0},
 		"DEEP_OCEAN": {"movement": 3.0, "defense": 1.0},
 		"COAST": {"movement": 3.0, "defense": 1.0},
 		"LAKE": {"movement": 3.0, "defense": 1.0},
-		"WASTELAND": {"movement": 1.0, "defense": 1.0},
-		"RUINS": {"movement": 1.0, "defense": 1.0}
+		"WASTELAND": {"movement": 2.5, "defense": 1.0},
+		"RUINS": {"movement": 2.5, "defense": 1.0}
 	},
 	"Cruiser": {
 		"PLAINS": {"movement": 0.0, "defense": 1.0},
@@ -800,7 +800,7 @@ func _process(delta: float) -> void:
 		elif parent_map.get("map_data") != null:
 			current_terrain = parent_map.map_data.get_terrain(tile_id)
 
-	if current_terrain == "WASTELAND" or current_terrain == "RUINS":
+	if current_terrain == "WASTELAND":
 		health -= 5.0 * (delta / 30.0)
 		if health <= 0.0:
 			take_damage(9999.0) # reuse death flow

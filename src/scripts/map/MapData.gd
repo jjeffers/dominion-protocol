@@ -273,6 +273,10 @@ func find_path(start_pos: Vector3, end_pos: Vector3, unit_type: String) -> Array
 	if start_id == -1 or end_id == -1:
 		return []
 		
+	var nearest_valid_end = astar.get_point_position(end_id)
+	if end_pos.distance_to(nearest_valid_end) > 0.024:
+		return []
+		
 	var path_ids = astar.get_id_path(start_id, end_id)
 	var path: Array[Vector3] = []
 	for id in path_ids:
