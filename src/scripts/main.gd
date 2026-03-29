@@ -23,6 +23,7 @@ var hovered_c_name: String = ""
 @onready var economy_panel: Panel = $EconomyStatusPanel
 @onready var credits_label: Label = $EconomyStatusPanel/CreditsLabel
 @onready var cities_label = $EconomyStatusPanel/CitiesLabel
+@onready var oil_label: Label = $EconomyStatusPanel/OilLabel
 @onready var nukes_label: Label = $EconomyStatusPanel/NukesLabel
 
 @onready var diplomacy_panel: Panel = $DiplomaticStatusPanel
@@ -72,8 +73,8 @@ func _ready() -> void:
 	cities_label.name = "CitiesLabelRT"
 	cities_label.layout_mode = 1
 	cities_label.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	cities_label.offset_top = -90.0
-	cities_label.offset_bottom = -50.0
+	cities_label.offset_top = -130.0
+	cities_label.offset_bottom = -90.0
 	cities_label.bbcode_enabled = true
 	cities_label.scroll_active = false
 	cities_label.add_theme_font_size_override("normal_font_size", 36)
@@ -326,6 +327,8 @@ func _on_globe_hovered_tile_changed(tile_id: int, terrain: String, c_name: Strin
 			terrain_name.text = "RUINS"
 		elif terrain == "OCEAN" or terrain == "LAKE":
 			terrain_name.text = "DOCKS"
+		elif terrain == "OIL_HUB":
+			terrain_name.text = "OIL HUB"
 		else:
 			terrain_name.text = "CITY"
 			
@@ -355,7 +358,7 @@ func _on_globe_hovered_tile_changed(tile_id: int, terrain: String, c_name: Strin
 		if scenario_data.has("factions"):
 			for f_name in scenario_data["factions"]:
 				var f_data = scenario_data["factions"][f_name]
-				if f_data.has("cities") and region_name in f_data["cities"]:
+				if (f_data.has("cities") and region_name in f_data["cities"]) or (f_data.has("oil") and region_name in f_data["oil"]):
 					faction_owner = f_name
 					if f_data.has("color"):
 						faction_color = Color(f_data["color"])
@@ -364,7 +367,7 @@ func _on_globe_hovered_tile_changed(tile_id: int, terrain: String, c_name: Strin
 		if faction_owner == "" and scenario_data.has("countries"):
 			for country_name in scenario_data["countries"]:
 				var c_data = scenario_data["countries"][country_name]
-				if c_data.has("cities") and region_name in c_data["cities"]:
+				if (c_data.has("cities") and region_name in c_data["cities"]) or (c_data.has("oil") and region_name in c_data["oil"]):
 					faction_owner = country_name
 					if c_data.has("color"):
 						faction_color = Color(c_data["color"])
@@ -620,6 +623,20 @@ func _process_economy_tick() -> void:
 		return
 		
 	var updated = false
+	
+	# Pre-calculate unit counts for oil consumption
+	var unit_counts = {}
+	var all_units = get_tree().get_nodes_in_group("units")
+	for u in all_units:
+		if is_instance_valid(u) and u.get("is_dead") != true:
+			var fac = u.get("faction_name")
+			var utype = u.get("unit_type")
+			if fac != null and utype != null and fac != "" and utype != "":
+				if not unit_counts.has(fac):
+					unit_counts[fac] = {"Infantry": 0, "Armor": 0, "Air": 0}
+				if unit_counts[fac].has(utype):
+					unit_counts[fac][utype] += 1
+
 	for faction_name in scenario_data["factions"].keys():
 		var fac_data = scenario_data["factions"][faction_name]
 		var city_count = 0
@@ -630,11 +647,36 @@ func _process_economy_tick() -> void:
 		if fac_data.has("oil"):
 			oil_count = fac_data["oil"].size()
 			
-		if city_count > 0 or oil_count > 0:
-			var current_money = fac_data.get("money", 0.0)
-			# City: 1 Credit/1 min -> 5 per 300s | Oil: 10 per 300s
-			fac_data["money"] = current_money + (city_count * (ECONOMY_INTERVAL / 300.0)) + (oil_count * 10.0 * (ECONOMY_INTERVAL / 300.0))
-			updated = true
+		var inf_count = 0
+		var arm_count = 0
+		var air_count = 0
+		if unit_counts.has(faction_name):
+			inf_count = unit_counts[faction_name]["Infantry"]
+			arm_count = unit_counts[faction_name]["Armor"]
+			air_count = unit_counts[faction_name]["Air"]
+			
+		var oil_production = oil_count * 25
+		var oil_consumption = (city_count * 2) + (inf_count * 1) + (arm_count * 2) + (air_count * 3)
+		
+		var oil_stored = fac_data.get("oil_stored", 0)
+		var new_oil_stored = max(0, oil_stored + oil_production - oil_consumption)
+		
+		# Define active shortage
+		var is_shortage = (oil_stored <= 0 and oil_consumption > oil_production)
+		fac_data["oil_shortage"] = is_shortage
+		
+		var current_money = fac_data.get("money", 0.0)
+		# City: 1 Credit/1 min -> 5 per 300s | Oil: 10 per 300s
+		var city_money = (city_count * (ECONOMY_INTERVAL / 300.0))
+		if is_shortage:
+			city_money *= 0.1 # 90% income reduction
+			
+		fac_data["money"] = current_money + city_money + (oil_count * 10.0 * (ECONOMY_INTERVAL / 300.0))
+		fac_data["oil_stored"] = new_oil_stored
+		fac_data["oil_production"] = oil_production
+		fac_data["oil_consumption"] = oil_consumption
+		
+		updated = true
 			
 	if updated:
 		rpc("sync_economy", scenario_data)
@@ -646,6 +688,8 @@ func sync_economy(new_scenario_data: Dictionary) -> void:
 	scenario_data = new_scenario_data
 	if globe_view:
 		globe_view.active_scenario = scenario_data
+		if globe_view.has_method("_generate_faction_borders"):
+			globe_view._generate_faction_borders()
 	_update_economy_ui()
 
 func _update_economy_ui() -> void:
@@ -663,12 +707,18 @@ func _update_economy_ui() -> void:
 	if globe_view and globe_view.get("city_nodes"):
 		total_cities = globe_view.city_nodes.size()
 	var nukes = 0
+	var oil_prod = 0
+	var oil_cons = 0
+	var oil_stor = 0
 	
 	if local_faction != "" and scenario_data.has("factions"):
 		if scenario_data["factions"].has(local_faction):
 			var fac_data = scenario_data["factions"][local_faction]
 			credits = fac_data.get("money", 0.0)
 			nukes = fac_data.get("nukes", 0)
+			oil_prod = fac_data.get("oil_production", 0)
+			oil_cons = fac_data.get("oil_consumption", 0)
+			oil_stor = fac_data.get("oil_stored", 0)
 			
 		for fac in scenario_data["factions"].keys():
 			var f_data = scenario_data["factions"][fac]
@@ -684,12 +734,23 @@ func _update_economy_ui() -> void:
 	var neutral_cities_count = total_cities - (my_cities + enemy_cities)
 	if neutral_cities_count < 0: neutral_cities_count = 0
 			
-	credits_label.text = "Credits: %.0f (P - Buy)" % floor(credits)
-	cities_label.text = "[center]Cities: [outline_size=2][outline_color=#dddddd][color=%s]%d[/color][/outline_color][/outline_size] / [outline_size=2][outline_color=#dddddd][color=%s]%d[/color][/outline_color][/outline_size] / [color=#AAAAAA]%d[/color][/center]" % [my_color, my_cities, enemy_color, enemy_cities, neutral_cities_count]
-	if nukes > 0:
-		nukes_label.text = "Nukes: %d (N - Nuke)" % nukes
-	else:
-		nukes_label.text = "Nukes: 0"
+	if credits_label:
+		credits_label.text = "Credits: %.0f (P - Buy)" % floor(credits)
+	if cities_label:
+		cities_label.text = "[center]Cities: [outline_size=2][outline_color=#dddddd][color=%s]%d[/color][/outline_color][/outline_size] / [outline_size=2][outline_color=#dddddd][color=%s]%d[/color][/outline_color][/outline_size] / [color=#AAAAAA]%d[/color][/center]" % [my_color, my_cities, enemy_color, enemy_cities, neutral_cities_count]
+	
+	if oil_label:
+		if oil_stor <= 0:
+			oil_label.add_theme_color_override("font_color", Color(1.0, 0.0, 0.0))
+		else:
+			oil_label.remove_theme_color_override("font_color")
+		oil_label.text = "Oil: %d / %d / %d" % [oil_prod, oil_cons, oil_stor]
+		
+	if nukes_label:
+		if nukes > 0:
+			nukes_label.text = "Nukes: %d (N - Nuke)" % nukes
+		else:
+			nukes_label.text = "Nukes: 0"
 	
 	if nuke_hint_prompt:
 		if nukes > 0:
@@ -734,16 +795,11 @@ func _do_update_diplomacy_ui() -> void:
 	var countries_list = []
 	for c_name in scenario_data["countries"].keys():
 		var c_data = scenario_data["countries"][c_name]
-		if c_data.has("cities") and c_data["cities"].size() > 0:
+		var num_cities = c_data.get("cities", []).size()
+		var num_oil = c_data.get("oil", []).size()
+		
+		if num_cities > 0 or num_oil > 0:
 			var op = c_data.get("opinions", {}).get(local_faction, 0.0)
-			var num_cities = 0
-			var num_oil = 0
-			for region in c_data["cities"]:
-				if region.begins_with("TOP_") or region.begins_with("BOTTOM_") or region.begins_with("LEFT_") or region.begins_with("RIGHT_") or region.begins_with("FRONT_") or region.begins_with("BACK_"):
-					num_oil += 1
-				else:
-					num_cities += 1
-					
 			countries_list.append({"name": c_name, "opinion": op, "cities": num_cities, "oil": num_oil})
 		
 	countries_list.sort_custom(func(a, b):

@@ -318,13 +318,23 @@ func _log_target_purchase() -> void:
 func _find_high_value_target() -> Node3D:
 	var main_scene = get_node_or_null("/root/Main")
 	var own_cities = []
+	var own_oil = []
+	var has_shortage = false
+	
 	if main_scene and main_scene.scenario_data.has("factions") and main_scene.scenario_data["factions"].has(faction_name):
 		own_cities = main_scene.scenario_data["factions"][faction_name].get("cities", [])
+		own_oil = main_scene.scenario_data["factions"][faction_name].get("oil", [])
+		has_shortage = main_scene.scenario_data["factions"][faction_name].get("oil_shortage", false)
 		
 	var targets = []
 	for cn in globe_view.city_nodes:
 		if is_instance_valid(cn) and not (cn.name in own_cities):
 			targets.append(cn)
+			
+	if globe_view.get("oil_nodes") != null:
+		for on in globe_view.oil_nodes:
+			if is_instance_valid(on) and not (on.name in own_oil):
+				targets.append(on)
 			
 	if targets.size() == 0:
 		return null
@@ -356,6 +366,16 @@ func _find_high_value_target() -> Node3D:
 		# Heavily weight capitols by mathematically shrinking their perceived distance natively
 		if t.name in enemy_capitols:
 			dist *= 0.1 
+			
+		var is_oil = false
+		if globe_view.get("oil_nodes") != null and globe_view.oil_nodes.has(t):
+			is_oil = true
+			
+		if is_oil:
+			if has_shortage:
+				dist *= 0.1
+			else:
+				dist *= 0.5
 			
 		var t_faction = globe_view._get_city_faction(t.name)
 		if t_faction == "neutral":

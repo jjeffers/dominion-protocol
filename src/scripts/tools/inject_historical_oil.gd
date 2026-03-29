@@ -71,6 +71,7 @@ func _init() -> void:
 		var face_str = _get_coords_as_string(data["tile_uuid"])
 		var tile_str = face_str[0] + "_" + str(face_str[1]) + "_" + str(face_str[2])
 		clean_output.append({
+			"name": data["name"],
 			"tile": tile_str,
 			"position": data["position"]
 		})

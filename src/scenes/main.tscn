@@ -118,7 +118,7 @@ layout_mode = 1
 offset_left = 60.0
 offset_top = 60.0
 offset_right = 460.0
-offset_bottom = 200.0
+offset_bottom = 240.0
 
 [node name="CreditsLabel" type="Label" parent="EconomyStatusPanel"]
 layout_mode = 1
@@ -138,12 +138,27 @@ anchors_preset = 12
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_top = -130.0
+offset_bottom = -90.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_font_sizes/font_size = 36
+text = "Cities: 0/0"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="OilLabel" type="Label" parent="EconomyStatusPanel"]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
 offset_top = -90.0
 offset_bottom = -50.0
 grow_horizontal = 2
 grow_vertical = 0
 theme_override_font_sizes/font_size = 36
-text = "Cities: 0/0"
+text = "Oil: 0 / 0 / 0"
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -167,7 +182,7 @@ layout_mode = 1
 anchors_preset = 9
 anchor_bottom = 1.0
 offset_left = 60.0
-offset_top = 220.0
+offset_top = 260.0
 offset_right = 460.0
 offset_bottom = -440.0
 grow_vertical = 2

@@ -1240,8 +1240,12 @@ func _evaluate_country_alignment(country_name: String, triggering_faction: Strin
 				var fac_name = active_scenario["factions"][current_faction].get("display_name", current_faction) if (active_scenario.has("factions") and active_scenario["factions"].has(current_faction)) else current_faction
 				ConsoleManager.local_log_message("SYSTEM: " + country_name + " has declared neutrality and formally withdrawn from the " + fac_name + " alliance.")
 			if get_node_or_null("/root/NetworkManager") and NetworkManager.is_host:
-				for city in c_data["cities"]:
-					rpc("sync_city_capture", city, "neutral", current_faction)
+				if c_data.has("cities"):
+					for city in c_data["cities"]:
+						rpc("sync_city_capture", city, "neutral", current_faction)
+				if c_data.has("oil"):
+					for o_node in c_data["oil"]:
+						rpc("sync_oil_capture", o_node, "neutral", current_faction)
 			is_neutral = true
 			current_faction = ""
 			
@@ -1268,8 +1272,12 @@ func _evaluate_country_alignment(country_name: String, triggering_faction: Strin
 					var f_str = "[color=" + col + "]" + fac_name + "[/color]"
 					ConsoleManager.local_log_message("SYSTEM: " + country_name + " has joined the " + f_str + " alliance!")
 				if get_node_or_null("/root/NetworkManager") and NetworkManager.is_host:
-					for city in c_data["cities"]:
-						rpc("sync_city_capture", city, loves_faction, "neutral")
+					if c_data.has("cities"):
+						for city in c_data["cities"]:
+							rpc("sync_city_capture", city, loves_faction, "neutral")
+					if c_data.has("oil"):
+						for o_node in c_data["oil"]:
+							rpc("sync_oil_capture", o_node, loves_faction, "neutral")
 				return
 				
 		# Check if it hates someone enough to join their enemy
@@ -1306,11 +1314,13 @@ func _evaluate_country_alignment(country_name: String, triggering_faction: Strin
 					ConsoleManager.local_log_message("SYSTEM: " + country_name + " has joined the " + f_str + " alliance!")
 				if get_node_or_null("/root/NetworkManager") and NetworkManager.is_host:
 					if best_op < 50.0:
-						# User requested: when country joins due to invasion, its opinion of the joining faction should be at least +50
-						# We suppress alignment evaluation explicitly to avoid infinite recursion over the new 50.0 triggering a second event wave natively.
 						rpc("sync_diplomatic_penalty", country_name, best_fac, best_op - 50.0, "", false)
-					for city in c_data["cities"]:
-						rpc("sync_city_capture", city, best_fac, "neutral")
+					if c_data.has("cities"):
+						for city in c_data["cities"]:
+							rpc("sync_city_capture", city, best_fac, "neutral")
+					if c_data.has("oil"):
+						for o_node in c_data["oil"]:
+							rpc("sync_oil_capture", o_node, best_fac, "neutral")
 
 @rpc("authority", "call_local", "reliable")
 func sync_diplomatic_penalty(country_name: String, faction: String, penalty: float, log_reason: String = "", evaluate_alignment: bool = true) -> void:
@@ -1884,7 +1894,7 @@ func _instantiate_scenario(scenario_data: Dictionary, progress_callback: Callabl
 					if faction.has("oil"):
 						for o_name in faction["oil"]:
 							for marker in o_arr:
-								if marker.get("tile") == o_name:
+								if marker.get("name", marker.get("tile", "")) == o_name:
 									var pos = marker.get("position")
 									var tile = _get_tile_from_vector3(Vector3(pos.x, pos.y, pos.z).normalized() * radius)
 									var reg = map_data.get_region(tile)
@@ -1900,7 +1910,7 @@ func _instantiate_scenario(scenario_data: Dictionary, progress_callback: Callabl
 					var o_tile = 0
 					var o_reg = ""
 					for marker in o_arr:
-						if marker.get("tile") == o_name:
+						if marker.get("name", marker.get("tile", "")) == o_name:
 							var pos = marker.get("position")
 							o_tile = _get_tile_from_vector3(Vector3(pos.x, pos.y, pos.z).normalized() * radius)
 							o_reg = map_data.get_region(o_tile)
@@ -1919,13 +1929,6 @@ func _instantiate_scenario(scenario_data: Dictionary, progress_callback: Callabl
 											adjacent_regions[r] = true
 											
 						var possible_owners = []
-						if scenario_data.has("factions"):
-							for f_name in scenario_data["factions"].keys():
-								for r in faction_regions[f_name]:
-									if adjacent_regions.has(r):
-										if not possible_owners.has("FAC_" + f_name):
-											possible_owners.append("FAC_" + f_name)
-											
 						if scenario_data.has("countries"):
 							for c_name in scenario_data["countries"].keys():
 								var is_neutral = true
@@ -1944,25 +1947,29 @@ func _instantiate_scenario(scenario_data: Dictionary, progress_callback: Callabl
 												
 						if possible_owners.size() > 0:
 							var chosen = possible_owners[randi() % possible_owners.size()]
-							if chosen.begins_with("FAC_"):
-								var f_name = chosen.substr(4)
-								if not scenario_data["factions"][f_name].has("oil"):
-									scenario_data["factions"][f_name]["oil"] = []
-								scenario_data["factions"][f_name]["oil"].append(o_name)
-								if not faction_regions[f_name].has(o_reg):
-									faction_regions[f_name].append(o_reg)
-								assigned = true
-								print("GlobeView: Oil hub ", o_name, " in region ", o_reg, " randomly assigned to adjacent faction ", f_name)
-							elif chosen.begins_with("COU_"):
+							if chosen.begins_with("COU_"):
 								var c_name = chosen.substr(4)
-								if not scenario_data["countries"][c_name].has("cities"):
-									scenario_data["countries"][c_name]["cities"] = []
-								scenario_data["countries"][c_name]["cities"].append(o_reg)
+								if not scenario_data["countries"][c_name].has("oil"):
+									scenario_data["countries"][c_name]["oil"] = []
+								scenario_data["countries"][c_name]["oil"].append(o_name)
 								print("GlobeView: Oil hub ", o_name, " in region ", o_reg, " randomly assigned to adjacent country ", c_name)
-								# Remains in remaining_neutral so it spawns as a neutral tile
+								assigned = true
 					
 					if not assigned:
-						remaining_neutral.append(o_name)
+						if not scenario_data.has("countries"):
+							scenario_data["countries"] = {}
+						var c_name = o_name
+						if scenario_data["countries"].has(c_name):
+							c_name = c_name + " Region"
+							
+						scenario_data["countries"][c_name] = {
+							"opinions": {},
+							"cities": [],
+							"oil": [o_name]
+						}
+						print("GlobeView: Oil hub ", o_name, " in region ", o_reg, " was isolated. Assigned to new independent country ", c_name)
+					
+					remaining_neutral.append(o_name)
 						
 					if o_reg != "" and not active_regions.has(o_reg):
 						active_regions.append(o_reg)
@@ -2444,7 +2451,7 @@ void fragment() {
 	outline_mat.render_priority = 5
 	
 	for marker in oil_dict:
-		if not active_oil.has(marker.get("tile", "")):
+		if not active_oil.has(marker.get("name", marker.get("tile", ""))):
 			continue
 			
 		var pos_data = marker.get("position")
@@ -2453,10 +2460,10 @@ void fragment() {
 			var final_pos = pos.normalized() * radius
 			
 			var tile_id = _get_tile_from_vector3(final_pos)
-			oil_tile_cache[tile_id] = marker.get("tile")
+			oil_tile_cache[tile_id] = marker.get("name", marker.get("tile", ""))
 			
 			var oil_node = Node3D.new()
-			oil_node.name = marker.get("tile", "")
+			oil_node.name = marker.get("name", marker.get("tile", ""))
 			add_child(oil_node)
 			oil_nodes.append(oil_node)
 			
@@ -3107,6 +3114,9 @@ func _update_terrain_hover(screen_pos: Vector2) -> void:
 		var c_name = ""
 		if city_tile_cache.has(tile_id):
 			c_name = city_tile_cache[tile_id]
+		elif oil_tile_cache.has(tile_id):
+			c_name = oil_tile_cache[tile_id]
+			terrain = "OIL_HUB"
 			
 		var centroid = map_data.get_centroid(tile_id)
 		var snap_pos = centroid.normalized() * (radius * 1.03) # slightly atop city (1.02)
@@ -3229,14 +3239,18 @@ func _do_generate_faction_borders() -> void:
 	var city_to_owner = {}
 	if active_scenario.has("factions"):
 		for f_name in active_scenario["factions"]:
-			var f_cities = active_scenario["factions"][f_name].get("cities", [])
+			var f_cities = active_scenario["factions"][f_name].get("cities", []).duplicate()
+			if active_scenario["factions"][f_name].has("oil"):
+				f_cities.append_array(active_scenario["factions"][f_name]["oil"])
 			var c = Color(active_scenario["factions"][f_name].get("color", "#333333"))
 			for city in f_cities:
 				city_to_owner[city] = {"owner": f_name, "color": c}
 				
 	if active_scenario.has("countries"):
 		for c_name in active_scenario["countries"]:
-			var c_cities = active_scenario["countries"][c_name].get("cities", [])
+			var c_cities = active_scenario["countries"][c_name].get("cities", []).duplicate()
+			if active_scenario["countries"][c_name].has("oil"):
+				c_cities.append_array(active_scenario["countries"][c_name]["oil"])
 			var c = Color(active_scenario["countries"][c_name].get("color", "#333333"))
 			for city in c_cities:
 				if not city_to_owner.has(city):
@@ -3832,11 +3846,33 @@ func request_nuke_launch(target_pos: Vector3, launching_faction: String) -> void
 				main_node.rpc("sync_economy", active_scenario)
 				
 			# Apply global diplomatic penalty for nuke launch 
-			# Varies randomly per country between 20 and 60
+			# Severe penalty for countries near the blast zone, minor penalty for the rest of the world
 			if active_scenario.has("countries"):
 				var penalties = {}
+				
+				# Pre-map city positions to avoid O(N^2) lookup
+				var city_positions = {}
+				for city_node in city_nodes:
+					if is_instance_valid(city_node):
+						city_positions[city_node.name] = city_node.position
+						
 				for c_name in active_scenario["countries"].keys():
-					penalties[c_name] = randf_range(20.0, 60.0)
+					var c_data = active_scenario["countries"][c_name]
+					var min_dist = 9999.0
+					
+					if c_data.has("cities"):
+						for city_name in c_data["cities"]:
+							if city_positions.has(city_name):
+								var dist = city_positions[city_name].distance_to(target_pos)
+								if dist < min_dist:
+									min_dist = dist
+									
+					# Major penalty for countries near the blast (approx ~30 degrees arc)
+					if min_dist <= (radius * 0.5):
+						penalties[c_name] = randf_range(40.0, 80.0)
+					else:
+						penalties[c_name] = randf_range(5.0, 15.0)
+						
 				rpc("sync_global_diplomatic_penalty", launching_faction, penalties, "Nuke Detonation")
 		else:
 			print("DEBUG Server: NAUGHTY CLIENT! Nuke launch rejected. Inventory is 0.")
@@ -4064,6 +4100,8 @@ func _get_city_faction(city_name: String) -> String:
 	if active_scenario.has("factions"):
 		for f_name in active_scenario["factions"].keys():
 			if active_scenario["factions"][f_name].has("cities") and city_name in active_scenario["factions"][f_name]["cities"]:
+				return f_name
+			if active_scenario["factions"][f_name].has("oil") and city_name in active_scenario["factions"][f_name]["oil"]:
 				return f_name
 	return ""
 

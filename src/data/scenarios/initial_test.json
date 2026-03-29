@@ -1,191 +1,193 @@
 {
-    "name": "Initial test",
-    "cold_war_minutes": 0,
-    "factions": {
-        "CFS": {
-            "display_name": "Coalition of Free States",
-            "color": "#0000FF",
-            "cities": [
-                "London",
-                "Paris",
-                "Luxembourg",
-                "Brussels",
-                "Marseille",
-                "Amsterdam",
-                "Bordeaux"
-            ],
-            "capitol": "Paris",
-            "oil": [],
-            "money": 50,
-            "fuel": 0,
-            "nukes": 0,
-            "units": [
-                {
-                    "type": "infantry",
-                    "entrenched": true,
-                    "location": "London"
-                },
-                {
-                    "type": "infantry",
-                    "entrenched": true,
-                    "location": "Paris"
-                },
-                {
-                    "type": "armor",
-                    "location": "Paris"
-                },
-                {
-                    "type": "infantry",
-                    "entrenched": true,
-                    "location": "Luxembourg"
-                },
-                {
-                    "type": "infantry",
-                    "entrenched": true,
-                    "location": "Brussels"
-                },
-                {
-                    "type": "infantry",
-                    "entrenched": true,
-                    "location": "Marseille"
-                },
-                {
-                    "type": "infantry",
-                    "entrenched": true,
-                    "location": "Amsterdam"
-                },
-                {
-                    "type": "air",
-                    "location": "Brussels"
-                },
-                {
-                    "type": "air",
-                    "location": "London"
-                },
-                {
-                    "type": "cruiser",
-                    "latitude": 54.0,
-                    "longitude": 3.0,
-                    "notes": "North Sea"
-                },
-                {
-                    "type": "cruiser",
-                    "latitude": 55.0,
-                    "longitude": 4.0,
-                    "notes": "North Sea"
-                }
-            ]
-        },
-        "CSP": {
-            "display_name": "Central Security Pact",
-            "color": "#FF0000",
-            "cities": [
-                "Hamburg",
-                "Berlin",
-                "Munich",
-                "Prague",
-                "Königsberg"
-            ],
-            "capitol": "Berlin",
-            "oil": [],
-            "money": 40,
-            "fuel": 0,
-            "nukes": 0,
-            "units": [
-                {
-                    "type": "infantry",
-                    "entrenched": true,
-                    "location": "Hamburg"
-                },
-                {
-                    "type": "infantry",
-                    "entrenched": true,
-                    "location": "Munich"
-                },
-                {
-                    "type": "infantry",
-                    "entrenched": true,
-                    "latitude": 53.2,
-                    "longitude": 10.1,
-                    "notes": "Red Border North 1"
-                },
-                {
-                    "type": "infantry",
-                    "entrenched": true,
-                    "latitude": 52.8,
-                    "longitude": 10.2,
-                    "notes": "Red Border North 2"
-                },
-                {
-                    "type": "infantry",
-                    "entrenched": true,
-                    "latitude": 52.4,
-                    "longitude": 10.3,
-                    "notes": "Red Border North 3"
-                },
-                {
-                    "type": "infantry",
-                    "entrenched": true,
-                    "latitude": 52.0,
-                    "longitude": 10.5,
-                    "notes": "Red Border Mid 1"
-                },
-                {
-                    "type": "infantry",
-                    "entrenched": true,
-                    "latitude": 51.5,
-                    "longitude": 10.6,
-                    "notes": "Red Border Mid 2"
-                },
-                {
-                    "type": "armor",
-                    "latitude": 51.0,
-                    "longitude": 10.8,
-                    "notes": "Red Border South 1"
-                },
-                {
-                    "type": "armor",
-                    "latitude": 50.5,
-                    "longitude": 10.9,
-                    "notes": "Red Border South 2"
-                },
-                {
-                    "type": "air",
-                    "location": "Hamburg"
-                },
-                {
-                    "type": "cruiser",
-                    "location": "Hamburg"
-                },
-                {
-                    "type": "submarine",
-                    "latitude": 58.0,
-                    "longitude": 5.0,
-                    "notes": "Coast of Norway"
-                }
-            ]
-        }
-    },
-    "neutral_cities": [],
-    "neutral_oil": [
-        "TOP_212_236",
-        "TOP_101_151",
-        "TOP_80_102",
-        "TOP_75_101",
-        "RIGHT_141_65",
-        "TOP_18_44",
-        "RIGHT_177_88",
-        "RIGHT_171_92",
-        "LEFT_17_43",
-        "LEFT_29_38",
-        "LEFT_23_68",
-        "BACK_242_74",
-        "LEFT_58_88",
-        "LEFT_246_187",
-        "LEFT_16_36",
-        "TOP_45_75",
-        "RIGHT_272_150",
-        "BACK_12_290",
-        "BACK_199_164"
-    ]
+	"cold_war_minutes": 0.0,
+	"factions": {
+		"CFS": {
+			"capitol": "Paris",
+			"cities": [
+				"London",
+				"Paris",
+				"Luxembourg",
+				"Brussels",
+				"Marseille",
+				"Amsterdam",
+				"Bordeaux"
+			],
+			"color": "#0000FF",
+			"display_name": "Coalition of Free States",
+			"fuel": 0.0,
+			"money": 50.0,
+			"nukes": 0.0,
+			"oil": [],
+			"oil_stored": 350.0,
+			"units": [
+				{
+					"entrenched": true,
+					"location": "London",
+					"type": "infantry"
+				},
+				{
+					"entrenched": true,
+					"location": "Paris",
+					"type": "infantry"
+				},
+				{
+					"location": "Paris",
+					"type": "armor"
+				},
+				{
+					"entrenched": true,
+					"location": "Luxembourg",
+					"type": "infantry"
+				},
+				{
+					"entrenched": true,
+					"location": "Brussels",
+					"type": "infantry"
+				},
+				{
+					"entrenched": true,
+					"location": "Marseille",
+					"type": "infantry"
+				},
+				{
+					"entrenched": true,
+					"location": "Amsterdam",
+					"type": "infantry"
+				},
+				{
+					"location": "Brussels",
+					"type": "air"
+				},
+				{
+					"location": "London",
+					"type": "air"
+				},
+				{
+					"latitude": 54.0,
+					"longitude": 3.0,
+					"notes": "North Sea",
+					"type": "cruiser"
+				},
+				{
+					"latitude": 55.0,
+					"longitude": 4.0,
+					"notes": "North Sea",
+					"type": "cruiser"
+				}
+			]
+		},
+		"CSP": {
+			"capitol": "Berlin",
+			"cities": [
+				"Hamburg",
+				"Berlin",
+				"Munich",
+				"Prague",
+				"Königsberg"
+			],
+			"color": "#FF0000",
+			"display_name": "Central Security Pact",
+			"fuel": 0.0,
+			"money": 40.0,
+			"nukes": 0.0,
+			"oil": [],
+			"oil_stored": 350.0,
+			"units": [
+				{
+					"entrenched": true,
+					"location": "Hamburg",
+					"type": "infantry"
+				},
+				{
+					"entrenched": true,
+					"location": "Munich",
+					"type": "infantry"
+				},
+				{
+					"entrenched": true,
+					"latitude": 53.2,
+					"longitude": 10.1,
+					"notes": "Red Border North 1",
+					"type": "infantry"
+				},
+				{
+					"entrenched": true,
+					"latitude": 52.8,
+					"longitude": 10.2,
+					"notes": "Red Border North 2",
+					"type": "infantry"
+				},
+				{
+					"entrenched": true,
+					"latitude": 52.4,
+					"longitude": 10.3,
+					"notes": "Red Border North 3",
+					"type": "infantry"
+				},
+				{
+					"entrenched": true,
+					"latitude": 52.0,
+					"longitude": 10.5,
+					"notes": "Red Border Mid 1",
+					"type": "infantry"
+				},
+				{
+					"entrenched": true,
+					"latitude": 51.5,
+					"longitude": 10.6,
+					"notes": "Red Border Mid 2",
+					"type": "infantry"
+				},
+				{
+					"latitude": 51.0,
+					"longitude": 10.8,
+					"notes": "Red Border South 1",
+					"type": "armor"
+				},
+				{
+					"latitude": 50.5,
+					"longitude": 10.9,
+					"notes": "Red Border South 2",
+					"type": "armor"
+				},
+				{
+					"location": "Hamburg",
+					"type": "air"
+				},
+				{
+					"location": "Hamburg",
+					"type": "cruiser"
+				},
+				{
+					"latitude": 58.0,
+					"longitude": 5.0,
+					"notes": "Coast of Norway",
+					"type": "submarine"
+				}
+			]
+		}
+	},
+	"name": "Initial test",
+	"neutral_cities": [],
+	"neutral_oil": [
+		"North Slope",
+		"Siberia",
+		"Volga-Urals 1",
+		"Volga-Urals 2",
+		"Texas / Mid-Con",
+		"Baku / Caucasus",
+		"Gulf of Mexico 1",
+		"Gulf of Mexico 2",
+		"Kuwait Hub",
+		"Iranian Hub",
+		"Saudi Hub",
+		"Libyan Hub",
+		"Oman / UAE",
+		"Indonesia",
+		"Iraq / Basra",
+		"Central Asia",
+		"Venezuela",
+		"Brazil / Pre-Salt",
+		"West Africa"
+	]
 }

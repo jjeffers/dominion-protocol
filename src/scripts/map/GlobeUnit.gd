@@ -731,7 +731,14 @@ func _process(delta: float) -> void:
 	# Handle Air Unit Cooldown
 	var old_ready = is_air_ready
 	if unit_type == "Air" and not is_air_ready:
-		air_cooldown_timer -= delta
+		var drop = delta
+		var p = get_parent()
+		if p and p.get("active_scenario") and p.active_scenario.has("factions"):
+			var f_data = p.active_scenario["factions"].get(faction_name)
+			if f_data and f_data.get("oil_shortage", false):
+				drop = delta * 0.333333 # Increased cooldown by 200%
+				
+		air_cooldown_timer -= drop
 		if air_cooldown_timer <= 0.0:
 			is_air_ready = true
 			air_cooldown_timer = 0.0
@@ -985,6 +992,14 @@ func _process(delta: float) -> void:
 		current_terrain_modifier = 1.0
 		if TEC_MODIFIERS[u_type].has(effective_terrain):
 			current_terrain_modifier = TEC_MODIFIERS[u_type][effective_terrain]["movement"]
+			
+		if p and p.get("active_scenario") and p.active_scenario.has("factions"):
+			var f_data = p.active_scenario["factions"].get(faction_name)
+			if f_data and f_data.get("oil_shortage", false):
+				if u_type == "Infantry":
+					current_terrain_modifier *= 0.5
+				elif u_type == "Armor":
+					current_terrain_modifier *= 0.333333
 					
 		step *= current_terrain_modifier
 		

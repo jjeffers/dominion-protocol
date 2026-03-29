@@ -153,10 +153,11 @@ func _init() -> void:
 						if found_land != -1:
 							tile_id = found_land
 							
-					# Regions from oil will just use the tile string as the region name
+					# Regions from oil will just use the name as the region name
+					var region_name = oil_obj.get("name", tile_str)
 					cost_map[tile_id] = 0.0
-					region_map[tile_id] = tile_str
-					pq.push(PQItem.new(0.0, tile_id, tile_str))
+					region_map[tile_id] = region_name
+					pq.push(PQItem.new(0.0, tile_id, region_name))
 		o_f.close()
 		
 	print("Starting Dijkstra Flood-Fill...")

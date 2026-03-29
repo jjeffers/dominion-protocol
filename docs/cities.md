@@ -78,7 +78,7 @@ Kyiv
 Montevideo
 Addis Ababa
 Curitiba
-Ahmedabad
+Karachi
 Port Louis
 Almaty
 Sofia
