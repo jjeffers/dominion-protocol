@@ -3844,36 +3844,6 @@ func request_nuke_launch(target_pos: Vector3, launching_faction: String) -> void
 			var main_node = get_node_or_null("/root/Main")
 			if main_node and main_node.has_method("rpc"):
 				main_node.rpc("sync_economy", active_scenario)
-				
-			# Apply global diplomatic penalty for nuke launch 
-			# Severe penalty for countries near the blast zone, minor penalty for the rest of the world
-			if active_scenario.has("countries"):
-				var penalties = {}
-				
-				# Pre-map city positions to avoid O(N^2) lookup
-				var city_positions = {}
-				for city_node in city_nodes:
-					if is_instance_valid(city_node):
-						city_positions[city_node.name] = city_node.position
-						
-				for c_name in active_scenario["countries"].keys():
-					var c_data = active_scenario["countries"][c_name]
-					var min_dist = 9999.0
-					
-					if c_data.has("cities"):
-						for city_name in c_data["cities"]:
-							if city_positions.has(city_name):
-								var dist = city_positions[city_name].distance_to(target_pos)
-								if dist < min_dist:
-									min_dist = dist
-									
-					# Major penalty for countries near the blast (approx ~30 degrees arc)
-					if min_dist <= (radius * 0.5):
-						penalties[c_name] = randf_range(40.0, 80.0)
-					else:
-						penalties[c_name] = randf_range(5.0, 15.0)
-						
-				rpc("sync_global_diplomatic_penalty", launching_faction, penalties, "Nuke Detonation")
 		else:
 			print("DEBUG Server: NAUGHTY CLIENT! Nuke launch rejected. Inventory is 0.")
 
@@ -3895,9 +3865,9 @@ func sync_nuke_launch(target_pos: Vector3, launching_faction: String) -> void:
 	
 	# Wait for visual impact roughly 5 seconds (not exact visually, but mechanically delays destruction)
 	var timer = get_tree().create_timer(5.0)
-	timer.timeout.connect(func(): _process_nuke_impact(target_pos))
+	timer.timeout.connect(func(): _process_nuke_impact(target_pos, launching_faction))
 
-func _process_nuke_impact(target_pos: Vector3) -> void:
+func _process_nuke_impact(target_pos: Vector3, launching_faction: String = "") -> void:
 	var hint = _get_location_hint_string(target_pos)
 	var alert_msg = "NUCLEAR IMPACT CATASTROPHE" + hint.to_upper()
 	ConsoleManager.local_log_message("[outline_size=2][outline_color=#dddddd][color=red]" + alert_msg + "[/color][/outline_color][/outline_size]")
@@ -4017,6 +3987,37 @@ func _process_nuke_impact(target_pos: Vector3) -> void:
 		if economy_changed:
 			if main_node and main_node.has_method("rpc"):
 				main_node.rpc("sync_economy", active_scenario)
+				
+		if launching_faction != "":
+			# Apply global diplomatic penalty for nuke impact 
+			# Severe penalty for countries near the blast zone, minor penalty for the rest of the world
+			if active_scenario.has("countries"):
+				var penalties = {}
+				
+				# Pre-map city positions to avoid O(N^2) lookup
+				var city_positions = {}
+				for city_node in city_nodes:
+					if is_instance_valid(city_node):
+						city_positions[city_node.name] = city_node.position
+						
+				for c_name in active_scenario["countries"].keys():
+					var c_data = active_scenario["countries"][c_name]
+					var min_dist = 9999.0
+					
+					if c_data.has("cities"):
+						for city_name in c_data["cities"]:
+							if city_positions.has(city_name):
+								var dist = city_positions[city_name].distance_to(target_pos)
+								if dist < min_dist:
+									min_dist = dist
+									
+					# Major penalty for countries near the blast (approx ~30 degrees arc)
+					if min_dist <= (radius * 0.5):
+						penalties[c_name] = randf_range(40.0, 80.0)
+					else:
+						penalties[c_name] = randf_range(5.0, 15.0)
+						
+				rpc("sync_global_diplomatic_penalty", launching_faction, penalties, "Nuke Detonation")
 			
 	_rebuild_nuke_ash_layer()
 	
