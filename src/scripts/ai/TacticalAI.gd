@@ -527,7 +527,13 @@ func _handle_attacking() -> void:
 								elif u_type in ["Cruiser", "Submarine"]:
 									if n_terrain == "OCEAN" or n_terrain == "DEEP_OCEAN" or n_terrain == "LAKE" or n_terrain == "COAST":
 										is_valid = true
-										
+								if is_valid:
+									var n_pos = globe_view.map_data.get_centroid(n).normalized() * globe_view.radius
+									if u_type != "Air":
+										var test_path = globe_view.map_data.find_path(u.global_position, n_pos, u_type)
+										if test_path.size() == 0 and u.global_position.distance_to(n_pos) >= 0.005:
+											is_valid = false
+											
 								if is_valid:
 									var n_pos = globe_view.map_data.get_centroid(n).normalized() * globe_view.radius
 									var dist = u.global_position.distance_to(n_pos)

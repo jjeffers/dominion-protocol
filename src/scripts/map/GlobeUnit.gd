@@ -560,7 +560,11 @@ func set_target(pos: Vector3) -> void:
 		if current_path.size() > 0:
 			target_position = current_path.pop_front()
 		else:
-			target_position = pos.normalized() * radius
+			if current_position != null and current_position.distance_to(pos.normalized() * radius) < 0.005:
+				target_position = pos.normalized() * radius
+			else:
+				if current_position != null:
+					target_position = current_position
 	else:
 		target_position = pos.normalized() * radius
 		current_path.clear()

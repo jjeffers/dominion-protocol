@@ -463,6 +463,9 @@ func _on_victory_declared(winning_faction: String) -> void:
 		local_fac = NetworkManager.players[multiplayer.get_unique_id()].get("faction", "")
 	print("[MATCH_RESULT] MATCH=%s ROLE=%s FACTION=%s WINNER=%s" % [NetworkManager.match_id, role, local_fac, winning_faction])
 	
+	if MemoryProfiler.is_profiling():
+		MemoryProfiler.dump_report()
+	
 	victory_banner.text = "%s WINS!" % get_faction_name(winning_faction).to_upper()
 	victory_banner.show()
 
