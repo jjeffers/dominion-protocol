@@ -519,10 +519,10 @@ func _handle_attacking() -> void:
 								var n_terrain = globe_view.map_data.get_terrain(n)
 								var is_valid = false
 								
-								if globe_view.city_tile_cache.has(n):
-									is_valid = true
-								elif u_type == "Infantry" or u_type == "Armor":
-									if n_terrain != "OCEAN" and n_terrain != "DEEP_OCEAN" and n_terrain != "LAKE":
+								if u_type == "Infantry" or u_type == "Armor":
+									if globe_view.city_tile_cache.has(n):
+										is_valid = true
+									elif n_terrain != "OCEAN" and n_terrain != "DEEP_OCEAN" and n_terrain != "LAKE":
 										is_valid = true
 								elif u_type in ["Cruiser", "Submarine"]:
 									if n_terrain == "OCEAN" or n_terrain == "DEEP_OCEAN" or n_terrain == "LAKE" or n_terrain == "COAST":
