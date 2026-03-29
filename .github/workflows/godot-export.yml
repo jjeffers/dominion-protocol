@@ -120,7 +120,7 @@ jobs:
         with:
           name: macOS Build
           path: |
-            ./dp_mac.zip
+            ./macOS/dp_mac.zip
 
       - name: Itch.io deployment
         if: github.ref == 'refs/heads/main'
@@ -142,7 +142,7 @@ jobs:
           
           # Prep macOS upload directory
           mkdir itch_mac
-          cp "./dp_mac.zip" itch_mac/ 2>/dev/null || true
+          cp "./macOS/dp_mac.zip" itch_mac/ 2>/dev/null || true
           
           # Push to Itch.io using butler
           ./butler push itch_windows vomitron/dominion-protocol:windows --userversion ${VERSION_STRING}
