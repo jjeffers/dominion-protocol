@@ -684,7 +684,7 @@ func take_damage(amount: float, attacker_name: String = "Unknown", is_raw: bool 
 					d_mat.render_priority = 10
 					d_mat.no_depth_test = true
 					_shared_materials["d_mat"] = d_mat
-				death_sprite.material_override = _shared_materials["d_mat"]
+				death_sprite.material_override = _shared_materials["d_mat"].duplicate()
 				
 				var expected_width = 34.0 * sprite.pixel_size
 				death_sprite.pixel_size = expected_width / float(death_tex.get_width())
