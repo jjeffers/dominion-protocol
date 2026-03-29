@@ -2173,6 +2173,19 @@ func _load_cities(active_cities: Array[String]) -> void:
 			if cap != "":
 				capitols[cap] = faction.get("color", "#FFFFFF")
 		
+	var m_center_xforms = []
+	var m_center_colors = []
+	
+	var m_land_xforms = []
+	var m_ocean_xforms = []
+	var m_cap_land_xforms = []
+	var m_cap_ocean_xforms = []
+	for i in range(8):
+		m_land_xforms.append([])
+		m_ocean_xforms.append([])
+		m_cap_land_xforms.append([])
+		m_cap_ocean_xforms.append([])
+		
 	for city_name in cities_dict:
 		if not active_cities.has(city_name):
 			continue
@@ -2197,7 +2210,6 @@ func _load_cities(active_cities: Array[String]) -> void:
 			
 			# Discover exact physical size of the terrain quad here to correct for spherified cube distortion
 			var tile_width = _get_tile_width(tile_id)
-				
 			var node_pixel_size = tile_width / 32.0
 			
 			var city_node = Node3D.new()
@@ -2207,19 +2219,18 @@ func _load_cities(active_cities: Array[String]) -> void:
 			
 			var is_capitol = capitols.has(city_name)
 			
-			var sprite_main = Sprite3D.new()
-			sprite_main.texture = tex_center
-			if is_capitol:
-				sprite_main.modulate = Color(capitols[city_name])
+			# Orient the Node directly away from the core
+			city_node.position = pos
+			if pos.normalized().abs() != Vector3.UP:
+				city_node.look_at(Vector3.ZERO, Vector3.UP)
 			
-			# Mathematically exactly size the 32x32 sprite to stretch perfectly across the true width of the underlying geometric tile!
-			sprite_main.pixel_size = node_pixel_size
-			# Turn off Billboard so the Sprite lays mathematically flat against the XYZ rotation of the `city_node` LookAt
-			sprite_main.billboard = BaseMaterial3D.BILLBOARD_DISABLED
-			sprite_main.no_depth_test = true # Guarantee rendering over terrain
-			sprite_main.render_priority = 7 # Renters UNDER units (priority 10)
-			city_node.add_child(sprite_main)
+			# Add center sprite details to MultiMesh Arrays
+			var c_color = Color.WHITE
+			if is_capitol: c_color = Color(capitols[city_name])
+			m_center_xforms.append(city_node.transform.scaled_local(Vector3(tile_width, tile_width, 1.0)))
+			m_center_colors.append(c_color)
 			
+			# City Border acts as the target bracket and takes on Faction colors
 			var border_sprite = Sprite3D.new()
 			border_sprite.texture = load("res://src/assets/target_bracket.png")
 			border_sprite.pixel_size = node_pixel_size * 1.05
@@ -2230,13 +2241,6 @@ func _load_cities(active_cities: Array[String]) -> void:
 			border_sprite.visible = false
 			city_node.add_child(border_sprite)
 			
-
-			
-			# Orient the Node directly away from the core
-			city_node.position = pos
-			if pos.normalized().abs() != Vector3.UP:
-				city_node.look_at(Vector3.ZERO, Vector3.UP)
-				
 			# Generate the 8 surrounding subtiles using the dynamically retrieved tile width
 			# Order matches: NW, N, NE, E, SE, S, SW, W -> Index 0 to 7
 			var grid_offsets = [
@@ -2244,9 +2248,9 @@ func _load_cities(active_cities: Array[String]) -> void:
 				Vector3(0, tile_width, 0),            # 1: N  (Top)
 				Vector3(tile_width, tile_width, 0),   # 2: NE (Top-Right)
 				Vector3(tile_width, 0, 0),            # 3: E  (Right)
-				Vector3(-tile_width, -tile_width, 0), # 4: SW (Bottom-Left) - Fixed Swap
+				Vector3(-tile_width, -tile_width, 0), # 4: SW (Bottom-Left)
 				Vector3(0, -tile_width, 0),           # 5: S  (Bottom)
-				Vector3(tile_width, -tile_width, 0),  # 6: SE (Bottom-Right) - Fixed Swap
+				Vector3(tile_width, -tile_width, 0),  # 6: SE (Bottom-Right)
 				Vector3(-tile_width, 0, 0)            # 7: W  (Left)
 			]
 			
@@ -2254,27 +2258,17 @@ func _load_cities(active_cities: Array[String]) -> void:
 			for local_offset in grid_offsets:
 				# Convert the local XY tangent offset to true Godot global 3D space relative to the angled CityNode
 				var global_offset = city_node.to_global(local_offset)
-				# Reverse-project the global 3D coordinate back into the specific XYZ Face coordinate string of the map
 				var sub_tile_id = _get_tile_from_vector3(global_offset)
-				# Cache adjacent tile so hover tooltip displays city name within 3x3 array
 				city_tile_cache[sub_tile_id] = city_name
-				# Query the memory dictionary to ascertain the biome
 				var is_ocean = map_data.get_terrain(sub_tile_id) == "OCEAN"
 				
-				# Spawn the correct adjacent piece
-				var sub_sprite = Sprite3D.new()
+				var sub_xform = city_node.transform.translated_local(local_offset).scaled_local(Vector3(tile_width, tile_width, 1.0))
 				if is_ocean:
-					sub_sprite.texture = tex_cap_ocean[o_idx] if is_capitol else tex_ocean[o_idx]
+					if is_capitol: m_cap_ocean_xforms[o_idx].append(sub_xform)
+					else: m_ocean_xforms[o_idx].append(sub_xform)
 				else:
-					sub_sprite.texture = tex_cap_land[o_idx] if is_capitol else tex_land[o_idx]
-				
-				sub_sprite.pixel_size = node_pixel_size
-				sub_sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
-				sub_sprite.no_depth_test = true
-				sub_sprite.render_priority = 5
-				sub_sprite.position = local_offset # We position it linearly off the center node
-				
-				city_node.add_child(sub_sprite)
+					if is_capitol: m_cap_land_xforms[o_idx].append(sub_xform)
+					else: m_land_xforms[o_idx].append(sub_xform)
 				o_idx += 1
 				
 			var hl_tex = load("res://src/assets/target_bracket.png") as Texture2D
@@ -2292,13 +2286,64 @@ func _load_cities(active_cities: Array[String]) -> void:
 				highlight_sprite.visible = false
 				highlight_sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
 				highlight_sprite.name = "HighlightRing"
-				
-				# Place it exactly at the center of the city node to prevent any parallax shifting 
-				# (Render priority 25 ensures it still draws on top)
 				highlight_sprite.position = Vector3.ZERO
 				city_node.add_child(highlight_sprite)
 
 			cullable_nodes.append(city_node)
+
+	_build_city_multimesh(m_center_xforms, m_center_colors, tex_center, 7, true)
+	for i in range(8):
+		_build_city_multimesh(m_land_xforms[i], [], tex_land[i], 5)
+		_build_city_multimesh(m_ocean_xforms[i], [], tex_ocean[i], 5)
+		_build_city_multimesh(m_cap_land_xforms[i], [], tex_cap_land[i], 5)
+		_build_city_multimesh(m_cap_ocean_xforms[i], [], tex_cap_ocean[i], 5)
+
+func _build_city_multimesh(xforms: Array, colors: Array, tex: Texture2D, priority: int, use_color: bool = false) -> void:
+	if xforms.is_empty(): return
+	var mm_inst = MultiMeshInstance3D.new()
+	var mm = MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = use_color
+	mm.instance_count = xforms.size()
+	
+	for i in range(xforms.size()):
+		mm.set_instance_transform(i, xforms[i])
+		if use_color:
+			mm.set_instance_color(i, colors[i])
+			
+	var quad = QuadMesh.new()
+	quad.size = Vector2(1.0, 1.0)
+	
+	var mat = ShaderMaterial.new()
+	var shader = Shader.new()
+	shader.code = """
+shader_type spatial;
+render_mode unshaded, depth_test_disabled, cull_disabled;
+uniform sampler2D albedo_texture : source_color, filter_nearest;
+void fragment() {
+	vec3 world_pos = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	vec3 cam_pos = normalize(CAMERA_POSITION_WORLD);
+	if (dot(normalize(world_pos), cam_pos) <= 0.15) {
+		discard;
+	}
+	vec4 c = texture(albedo_texture, UV);
+	ALBEDO = c.rgb * COLOR.rgb;
+}
+"""
+	mat.shader = shader
+	mat.set_shader_parameter("albedo_texture", tex)
+	mat.render_priority = priority
+	
+	quad.material = mat
+	mm.mesh = quad
+	mm_inst.multimesh = mm
+	
+	var parent_node = get_node_or_null("CityMultiMeshes")
+	if not parent_node:
+		parent_node = Node3D.new()
+		parent_node.name = "CityMultiMeshes"
+		add_child(parent_node)
+	parent_node.add_child(mm_inst)
 
 func _is_city_coastal(raw_city_name: String) -> bool:
 	for t_id in city_tile_cache:
@@ -2420,10 +2465,15 @@ func _load_oil(active_oil: Array[String]) -> void:
 	var outline_shader = Shader.new()
 	outline_shader.code = """
 shader_type spatial;
-render_mode unshaded, depth_test_disabled;
+render_mode unshaded, depth_test_disabled, cull_disabled;
 uniform sampler2D tex_albedo : source_color, filter_nearest;
 uniform vec4 outline_color : source_color = vec4(1.0, 1.0, 0.0, 1.0);
 void fragment() {
+	vec3 world_pos = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	vec3 cam_pos = normalize(CAMERA_POSITION_WORLD);
+	if (dot(normalize(world_pos), cam_pos) <= 0.15) {
+		discard;
+	}
 	vec4 c = texture(tex_albedo, UV);
 	vec2 size = vec2(32.0, 32.0);
 	float o = 0.0;
@@ -2450,6 +2500,8 @@ void fragment() {
 	outline_mat.set_shader_parameter("tex_albedo", tex_oil)
 	outline_mat.render_priority = 5
 	
+	var m_oil_xforms = []
+	
 	for marker in oil_dict:
 		if not active_oil.has(marker.get("name", marker.get("tile", ""))):
 			continue
@@ -2467,24 +2519,35 @@ void fragment() {
 			add_child(oil_node)
 			oil_nodes.append(oil_node)
 			
-			var sprite = Sprite3D.new()
-			sprite.texture = tex_oil
-			
-			# Enlarged pixel size so the 32x32 sprite is slightly easier to spot than a city
-			sprite.pixel_size = 0.00035
-			sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
-			sprite.no_depth_test = true
-			sprite.render_priority = 5
-			sprite.material_override = outline_mat
-			
-			oil_node.add_child(sprite)
-			
-			# Target coordinates generated from map_data.get_centroid, which is explicitly mathematical radius. Push by 1.02 multiplier matching Cities
 			oil_node.position = final_pos
 			if final_pos.normalized().abs() != Vector3.UP:
 				oil_node.look_at(Vector3.ZERO, Vector3.UP)
+				
+			m_oil_xforms.append(oil_node.transform)
+
+	if not m_oil_xforms.is_empty():
+		var mm_inst = MultiMeshInstance3D.new()
+		var mm = MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_colors = false
+		mm.instance_count = m_oil_xforms.size()
+		
+		for i in range(m_oil_xforms.size()):
+			mm.set_instance_transform(i, m_oil_xforms[i])
 			
-			cullable_nodes.append(oil_node)
+		var quad = QuadMesh.new()
+		quad.size = Vector2(0.0112, 0.0112)
+		quad.material = outline_mat
+		
+		mm.mesh = quad
+		mm_inst.multimesh = mm
+		
+		var parent_node = get_node_or_null("OilMultiMeshes")
+		if not parent_node:
+			parent_node = Node3D.new()
+			parent_node.name = "OilMultiMeshes"
+			add_child(parent_node)
+		parent_node.add_child(mm_inst)
 
 func update_outline(min_lon: float, max_lon: float, min_lat: float, max_lat: float) -> void:
 	outline_immediate_mesh.clear_surfaces()
