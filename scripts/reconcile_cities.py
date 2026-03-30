@@ -88,6 +88,9 @@ def main():
     if "Sevastopol" in new_db:
         new_db["Sevastopol"]["latitude"] = 44.6166
         new_db["Sevastopol"]["longitude"] = 33.5254
+    if "Tunis" in new_db:
+        new_db["Tunis"]["latitude"] = 36.8065
+        new_db["Tunis"]["longitude"] = 10.1815
         
     for city, data in new_db.items():
         new_db[city]["vector3"] = lat_lon_to_vector3(data["latitude"], data["longitude"])

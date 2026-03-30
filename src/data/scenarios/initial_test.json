@@ -168,7 +168,12 @@
 		}
 	},
 	"name": "Initial test",
-	"neutral_cities": [],
+	"neutral_cities": [
+		"Athens",
+		"Geneva",
+		"Sevastopol",
+		"Tunis"
+	],
 	"neutral_oil": [
 		"North Slope",
 		"Siberia",
