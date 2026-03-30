@@ -209,6 +209,31 @@ func _build_pathfinding_graphs() -> void:
 				
 			# Land AStar unconditionally connects all tiles, allowing land-to-sea movement
 			land_astar.connect_points(i, n, true)
+			
+		# Connect Intra-face Diagonals
+		var face = i / (RESOLUTION * RESOLUTION)
+		var rem = i % (RESOLUTION * RESOLUTION)
+		var y = rem / RESOLUTION
+		var x = rem % RESOLUTION
+		
+		if y < RESOLUTION - 1:
+			if x < RESOLUTION - 1:
+				var n_diag1 = face * (RESOLUTION * RESOLUTION) + (y + 1) * RESOLUTION + (x + 1)
+				if n_diag1 > i and n_diag1 < total_tiles:
+					var n_terrain = get_terrain(n_diag1)
+					var n_is_ocean = (n_terrain == "OCEAN" or n_terrain == "LAKE")
+					if is_ocean and n_is_ocean:
+						naval_astar.connect_points(i, n_diag1, true)
+					land_astar.connect_points(i, n_diag1, true)
+					
+			if x > 0:
+				var n_diag2 = face * (RESOLUTION * RESOLUTION) + (y + 1) * RESOLUTION + (x - 1)
+				if n_diag2 > i and n_diag2 < total_tiles:
+					var n_terrain = get_terrain(n_diag2)
+					var n_is_ocean = (n_terrain == "OCEAN" or n_terrain == "LAKE")
+					if is_ocean and n_is_ocean:
+						naval_astar.connect_points(i, n_diag2, true)
+					land_astar.connect_points(i, n_diag2, true)
 	
 	print("MapData: Built AStar3D pathfinding graphs for ", total_tiles, " tiles.")
 
