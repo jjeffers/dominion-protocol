@@ -1,0 +1,59 @@
+name: Track Memory Profile
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+      - 'release-*'
+
+permissions:
+  contents: write
+  deployments: write
+
+jobs:
+  benchmark:
+    name: Run Memory Profiling
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Godot
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: '4.3.0' # Adjust this if your project uses a different version
+          use-dotnet: false
+
+      - name: Run Memory Profile (Headless Bots)
+        run: |
+          echo "Starting Host Instance"
+          godot --headless --host --faction=CFS --bot=CFS --profile --auto-start &
+          
+          echo "Starting Client Instance"
+          sleep 2 && godot --headless --client --faction=CSP --bot=CSP --profile &
+          
+          echo "Waiting for match to conclude..."
+          wait
+          
+          echo "Match concluded. Logs generated."
+
+      - name: Parse Profiling Logs
+        run: |
+          python3 .agent/scripts/parse_memory_profile.py > benchmark_data.json
+          echo "Parsed Benchmark Data:"
+          cat benchmark_data.json
+
+      - name: Store Profile Results via GitHub Pages
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: 'Godot Memory Profile'
+          tool: 'customSmallerIsBetter'
+          output-file-path: benchmark_data.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          # Show alert with commit comment on detecting possible performance regression
+          alert-threshold: '120%'
+          comment-on-alert: true
+          fail-on-alert: true
