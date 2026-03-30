@@ -53,6 +53,11 @@ jobs:
           echo "Parsed Benchmark Data:"
           cat benchmark_data.json
 
+      - name: Clean Working Directory
+        run: |
+          git reset --hard
+          git clean -fdx -e benchmark_data.json
+
       - name: Store Profile Results via GitHub Pages
         uses: benchmark-action/github-action-benchmark@v1
         with:
