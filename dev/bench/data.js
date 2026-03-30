@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1774900534916,
+  "lastUpdate": 1774912964986,
   "repoUrl": "https://github.com/jjeffers/dominion-protocol",
   "entries": {
     "Godot Memory Profile": [
@@ -107,6 +107,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "Client Peak Resource Count",
             "value": 36,
+            "unit": "Resources"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jdjeffers@protonmail.com",
+            "name": "James Jeffers",
+            "username": "jjeffers"
+          },
+          "committer": {
+            "email": "jdjeffers@protonmail.com",
+            "name": "James Jeffers",
+            "username": "jjeffers"
+          },
+          "distinct": true,
+          "id": "493323a39218771b5b2ff3a90b4bc65dc005ac5f",
+          "message": "Add dp_mac.zip to gitignore",
+          "timestamp": "2026-03-30T19:14:03-04:00",
+          "tree_id": "8376e3ac1249bd5d30c127fcf735f7b29443189e",
+          "url": "https://github.com/jjeffers/dominion-protocol/commit/493323a39218771b5b2ff3a90b4bc65dc005ac5f"
+        },
+        "date": 1774912964665,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Host Peak Static Memory",
+            "value": 1295,
+            "unit": "MB"
+          },
+          {
+            "name": "Host Peak Node Count",
+            "value": 796,
+            "unit": "Nodes"
+          },
+          {
+            "name": "Host Peak Resource Count",
+            "value": 38,
+            "unit": "Resources"
+          },
+          {
+            "name": "Client Peak Static Memory",
+            "value": 1295,
+            "unit": "MB"
+          },
+          {
+            "name": "Client Peak Node Count",
+            "value": 800,
+            "unit": "Nodes"
+          },
+          {
+            "name": "Client Peak Resource Count",
+            "value": 37,
             "unit": "Resources"
           }
         ]
