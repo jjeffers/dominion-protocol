@@ -216,36 +216,36 @@ func _build_pathfinding_graphs() -> void:
 		var y = rem / RESOLUTION
 		var x = rem % RESOLUTION
 		
-		if y < RESOLUTION - 1:
-			if x < RESOLUTION - 1:
-				var n_diag1 = face * (RESOLUTION * RESOLUTION) + (y + 1) * RESOLUTION + (x + 1)
-				if n_diag1 > i and n_diag1 < total_tiles:
-					var n_terrain = get_terrain(n_diag1)
-					var n_is_ocean = (n_terrain == "OCEAN" or n_terrain == "LAKE")
-					
-					var n_adj1 = face * (RESOLUTION * RESOLUTION) + y * RESOLUTION + (x + 1)
-					var n_adj2 = face * (RESOLUTION * RESOLUTION) + (y + 1) * RESOLUTION + x
-					var is_adj1_ocean = (get_terrain(n_adj1) == "OCEAN" or get_terrain(n_adj1) == "LAKE")
-					var is_adj2_ocean = (get_terrain(n_adj2) == "OCEAN" or get_terrain(n_adj2) == "LAKE")
-					
-					if is_ocean and n_is_ocean and is_adj1_ocean and is_adj2_ocean:
-						naval_astar.connect_points(i, n_diag1, true)
-					land_astar.connect_points(i, n_diag1, true)
-					
-			if x > 0:
-				var n_diag2 = face * (RESOLUTION * RESOLUTION) + (y + 1) * RESOLUTION + (x - 1)
-				if n_diag2 > i and n_diag2 < total_tiles:
-					var n_terrain = get_terrain(n_diag2)
-					var n_is_ocean = (n_terrain == "OCEAN" or n_terrain == "LAKE")
-					
-					var n_adj1 = face * (RESOLUTION * RESOLUTION) + y * RESOLUTION + (x - 1)
-					var n_adj2 = face * (RESOLUTION * RESOLUTION) + (y + 1) * RESOLUTION + x
-					var is_adj1_ocean = (get_terrain(n_adj1) == "OCEAN" or get_terrain(n_adj1) == "LAKE")
-					var is_adj2_ocean = (get_terrain(n_adj2) == "OCEAN" or get_terrain(n_adj2) == "LAKE")
-					
-					if is_ocean and n_is_ocean and is_adj1_ocean and is_adj2_ocean:
-						naval_astar.connect_points(i, n_diag2, true)
-					land_astar.connect_points(i, n_diag2, true)
+#		if y < RESOLUTION - 1:
+#			if x < RESOLUTION - 1:
+#				var n_diag1 = face * (RESOLUTION * RESOLUTION) + (y + 1) * RESOLUTION + (x + 1)
+#				if n_diag1 > i and n_diag1 < total_tiles:
+#					var n_terrain = get_terrain(n_diag1)
+#					var n_is_ocean = (n_terrain == "OCEAN" or n_terrain == "LAKE")
+#					
+#					var n_adj1 = face * (RESOLUTION * RESOLUTION) + y * RESOLUTION + (x + 1)
+#					var n_adj2 = face * (RESOLUTION * RESOLUTION) + (y + 1) * RESOLUTION + x
+#					var is_adj1_ocean = (get_terrain(n_adj1) == "OCEAN" or get_terrain(n_adj1) == "LAKE")
+#					var is_adj2_ocean = (get_terrain(n_adj2) == "OCEAN" or get_terrain(n_adj2) == "LAKE")
+#					
+#					if is_ocean and n_is_ocean and is_adj1_ocean and is_adj2_ocean:
+#						naval_astar.connect_points(i, n_diag1, true)
+#					land_astar.connect_points(i, n_diag1, true)
+#					
+#			if x > 0:
+#				var n_diag2 = face * (RESOLUTION * RESOLUTION) + (y + 1) * RESOLUTION + (x - 1)
+#				if n_diag2 > i and n_diag2 < total_tiles:
+#					var n_terrain = get_terrain(n_diag2)
+#					var n_is_ocean = (n_terrain == "OCEAN" or n_terrain == "LAKE")
+#					
+#					var n_adj1 = face * (RESOLUTION * RESOLUTION) + y * RESOLUTION + (x - 1)
+#					var n_adj2 = face * (RESOLUTION * RESOLUTION) + (y + 1) * RESOLUTION + x
+#					var is_adj1_ocean = (get_terrain(n_adj1) == "OCEAN" or get_terrain(n_adj1) == "LAKE")
+#					var is_adj2_ocean = (get_terrain(n_adj2) == "OCEAN" or get_terrain(n_adj2) == "LAKE")
+#					
+#					if is_ocean and n_is_ocean and is_adj1_ocean and is_adj2_ocean:
+#						naval_astar.connect_points(i, n_diag2, true)
+#					land_astar.connect_points(i, n_diag2, true)
 	
 	print("MapData: Built AStar3D pathfinding graphs for ", total_tiles, " tiles.")
 
@@ -317,8 +317,51 @@ func find_path(start_pos: Vector3, end_pos: Vector3, unit_type: String) -> Array
 		return []
 		
 	var path_ids = astar.get_id_path(start_id, end_id)
+	
+	var smoothed_ids: Array[int] = []
+	if path_ids.size() > 0:
+		smoothed_ids.append(path_ids[0])
+		
+	var i = 0
+	while i < path_ids.size() - 1:
+		var pulled = false
+		if i + 2 < path_ids.size():
+			var p1 = path_ids[i]
+			var p3 = path_ids[i+2]
+			var face1 = p1 / (RESOLUTION * RESOLUTION)
+			var face3 = p3 / (RESOLUTION * RESOLUTION)
+			
+			if face1 == face3:
+				var rem1 = p1 % (RESOLUTION * RESOLUTION)
+				var rem3 = p3 % (RESOLUTION * RESOLUTION)
+				var x1 = rem1 % RESOLUTION
+				var y1 = rem1 / RESOLUTION
+				var x3 = rem3 % RESOLUTION
+				var y3 = rem3 / RESOLUTION
+				
+				if abs(x1 - x3) == 1 and abs(y1 - y3) == 1:
+					var n1 = face1 * (RESOLUTION * RESOLUTION) + y1 * RESOLUTION + x3
+					var n2 = face1 * (RESOLUTION * RESOLUTION) + y3 * RESOLUTION + x1
+					
+					var valid_bridge = true
+					if u_type in ["Cruiser", "Submarine"]:
+						var t1 = get_terrain(n1)
+						var t2 = get_terrain(n2)
+						if (t1 != "OCEAN" and t1 != "LAKE") or (t2 != "OCEAN" and t2 != "LAKE"):
+							# Forbid cutting corners around land tiles
+							valid_bridge = false
+					
+					if valid_bridge:
+						smoothed_ids.append(p3)
+						i += 2
+						pulled = true
+						
+		if not pulled:
+			smoothed_ids.append(path_ids[i+1])
+			i += 1
+
 	var path: Array[Vector3] = []
-	for id in path_ids:
+	for id in smoothed_ids:
 		path.append(astar.get_point_position(id))
 		
 	if path.size() > 1:
