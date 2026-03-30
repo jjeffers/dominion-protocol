@@ -1,7 +1,9 @@
 # Dominion Protocol: Player Manual
 
 ## Overview
-Dominion Protocol is a global strategic wargame where you command land, sea, and air forces on a discrete global grid representing the Earth. Your strategic objective is to capture enemy cities, maintain your economy, eradicate your opponents, and achieve absolute global victory.
+Dominion Protocol is a global strategic wargame where you command land, sea, and air forces on a discrete global grid representing the Earth. Your strategic objective is to capture enemy cities, maintain your economy, manage vital oil logistics, eradicate your opponents, and achieve absolute global victory.
+
+**Game Settings:** You can press the `ESC` key at any time to open the Settings Menu. From here, you can configure the Master, Music, and SFX volumes, as well as Save or Load your current game, or exit to desktop.
 
 ## The World Map
 The game environment uses a global grid to represent the earth interactively. 
@@ -19,6 +21,20 @@ Capturing and maintaining territory is the lifeblood of your war machine.
 - Once a unit is purchased, you must deploy it to a friendly, controlled city. 
 - A city is placed into a **5-minute manufacturing cooldown** after deploying any unit, preventing consecutive rapid drops. You also cannot deploy into a city if its physical space (a 3x3 grid) is completely blocked.
 
+### Oil Logistics
+Your war machine runs on fuel, and securing oil is imperative.
+- **Acquiring Oil**: Oil resources dot the map and are captured exactly like cities (holding the center tile for 30 seconds). A controlled oil node produces **25 oil every 10 seconds** and has no storage limit.
+- **Consumption**: Every active element burns oil continuously.
+  - **Cities**: 2 oil / 10s
+  - **Infantry**: 1 oil / 10s
+  - **Armor**: 2 oil / 10s
+  - **Air Units**: 3 oil / 10s
+- **Oil Shortages**: If your storage hits 0 and consumption outpaces production, your faction enters a critical shortage (indicated by red text on the HUD). During a shortage:
+  - Infantry movement speed slows by 50%.
+  - Armor movement speed slows by a severe 200%.
+  - Air unit readiness recovery time jumps by 200%.
+  - City credit production drops by an abysmal 90%.
+
 ## Units
 You can purchase and deploy three classes of core units: Land, Sea, and Air forces.
 
@@ -28,12 +44,19 @@ You can purchase and deploy three classes of core units: Land, Sea, and Air forc
 
 ### Sea Units
 - **Cruisers (Cost: 50)**: High-speed naval vessels. They can only traverse Ocean and Lake tiles (or dock at coastal cities). Cruisers excel at off-shore bombardment, inflicting heavy damage from a 1.5 unit range against both naval and ground targets.
+- **Submarines (Cost: 35)**: Stealth hunters restricted solely to sea targets at a 1.0 unit range. Submarines are **completely invisible** to enemy players unless the submarine is actively moving while a stationary enemy sea unit is within 2.0 unit widths. Once detected, they remain continuously visible until they manage to escape detection range.
 
 ### Air Units
 - **Air Bases (Cost: 30)**: Air units station permanently at your cities and project a massive Operations Radius around themselves. Air units don't have health—they are either **READY** or **UNREADY**.
 - **Air Strike (Hot Key 'A')**: Target enemies within the air unit's radius. Ground strikes strip 50% of the target's total maximum Health, while sea strikes deal a flat 35 damage. Air strikes instantly turn the attacker UNREADY.
 - **Redeploy (Hot Key 'R')**: Transfers the air base to another friendly city up to 10x the operational radius.
 - **Dogfights & Interception**: If your air strike enters an enemy Air unit's operational radius, there is a chance they will intercept you. Depending on the dice roll, your strike may succeed, randomly abort, or your aircraft may be shot down. If your intercepting air unit is caught while UNREADY, it suffers massive interception capability penalties.
+
+### Strategic Superweapons
+- **Nuclear Weapons (Cost: 20)**: Devastating continent-killers. Press **'N'** to initiate a launch and `Left-Click` any viable target. Factions are strictly limited to launching no more than 3 nukes above what the most aggressive rival has launched.
+  - **Blast Zone**: Everything inside the massive 1.35 unit radius is instantly vaporized. Units caught in the outer 2.25 unit shockwave take severe scalable damage.
+  - **Permanent Scorched Earth**: Terrain caught in the primary 1.35 unit blast is permanently converted to **WASTELAND** and **RUINS**. Cities and terrain transformed into Ruins cannot be used for deployment, repair, or production ever again. Units traversing these irradiated hot-zones suffer 5 damage every 30 seconds to permanent attrition.
+  - **Diplomatic Fallout**: The use of nuclear weapons heavily degrades relations. You incur massive proximity-based opinion penalties depending on who you strike (neutrals and allies trigger the worst reactions). Being the absolute first player to push the red button also incurs an additional flat "First Use" global diplomatic penalty.
 
 ## Movement
 Select any unit you own by `Left-Clicking` on it. Once selected, `Right-Click` anywhere on the globe to issue an automated movement order. 
