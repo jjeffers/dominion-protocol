@@ -5,6 +5,8 @@ extends Control
 @onready var host_ip_input = $CenterContainer/VBoxContainer/HostSection/HBoxContainer2/HostIPInput
 @onready var host_port_input = $CenterContainer/VBoxContainer/HostSection/HBoxContainer/HostPortInput
 @onready var host_btn = $CenterContainer/VBoxContainer/HostSection/HostButton
+@onready var load_btn = $CenterContainer/VBoxContainer/HostSection/LoadGameButton
+@onready var load_dialog = $LoadGameDialog
 
 @onready var join_ip_input = $CenterContainer/VBoxContainer/JoinSection/HBoxContainer2/JoinIPInput
 @onready var join_port_input = $CenterContainer/VBoxContainer/JoinSection/HBoxContainer/JoinPortInput
@@ -21,6 +23,11 @@ func _ready():
 	MusicManager.play_music("res://src/assets/audio/Last Orders in the War Room.mp3")
 	
 	host_btn.pressed.connect(_on_host_pressed)
+	if load_btn:
+		load_btn.pressed.connect(_on_load_pressed)
+	if load_dialog:
+		load_dialog.file_selected.connect(_on_load_file_selected)
+		
 	join_btn.pressed.connect(_on_join_pressed)
 	
 	if settings_btn:
@@ -101,10 +108,40 @@ func _on_host_pressed():
 		
 	_save_config()
 	
+	# Ensure loaded state is clear on a fresh host
+	if GameStateManager != null:
+		GameStateManager.current_loaded_state = {}
+	
 	var err = NetworkManager.host_game(port, ip)
 	if err != OK:
 		status_label.text = "Failed to host on port " + str(port)
 
+func _on_load_pressed():
+	if load_dialog:
+		if OS.has_feature("windows") or OS.has_feature("macos") or OS.has_feature("linux"):
+			load_dialog.use_native_dialog = true
+		load_dialog.popup_centered()
+
+func _on_load_file_selected(path: String):
+	if GameStateManager == null:
+		return
+		
+	var success = GameStateManager.load_game(path)
+	if not success:
+		status_label.text = "Failed to parse save file."
+		return
+		
+	status_label.text = "Save loaded. Starting Host..."
+	var ip = host_ip_input.text
+	var port = host_port_input.text.to_int()
+	if port <= 0:
+		port = 7001
+		
+	_save_config()
+	
+	var err = NetworkManager.host_game(port, ip)
+	if err != OK:
+		status_label.text = "Failed to host on port " + str(port)
 
 func _on_join_pressed():
 	var ip = join_ip_input.text

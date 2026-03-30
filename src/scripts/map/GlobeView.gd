@@ -3572,6 +3572,74 @@ func focus_on_city(city_name: String) -> void:
 			set_focus(deg_to_rad(c_data["longitude"]), deg_to_rad(c_data["latitude"]))
 
 func _spawn_unit(unit_def: Dictionary, faction_name: String, c_dict: Dictionary, faction_regions: Dictionary) -> void:
+	if unit_def.has("current_position") and unit_def["current_position"] != null:
+		var c_pos_arr = unit_def["current_position"]
+		var raw_pos = Vector3(c_pos_arr[0], c_pos_arr[1], c_pos_arr[2])
+		var tile_id = _get_tile_from_vector3(raw_pos)
+		var tile_width = _get_tile_width(tile_id)
+		
+		var unit = GlobeUnitScript.new()
+		if unit_def.has("type"):
+			unit.unit_type = str(unit_def["type"]).capitalize()
+			
+		unit.radius = radius
+		add_child(unit)
+		if faction_name != "":
+			unit.faction_name = faction_name
+			unit.is_friendly = (faction_name == _get_local_faction())
+			var faction = _get_faction_data(faction_name)
+			if faction.has("color"):
+				unit.set_faction_color(faction["color"])
+		unit.name = _get_standard_unit_name(unit.faction_name, unit.unit_type)
+		
+		if unit.has_method("set_sizing"):
+			unit.set_sizing(tile_width)
+			
+		# Apply exact stored stats if available
+		if unit_def.has("health"):
+			unit.health = float(unit_def["health"])
+		if unit_def.has("entrenched"):
+			unit.entrenched = unit_def["entrenched"]
+		if unit_def.has("time_motionless"):
+			unit.time_motionless = float(unit_def["time_motionless"])
+		if unit_def.has("time_in_city"):
+			unit.time_in_city = float(unit_def["time_in_city"])
+		if unit_def.has("is_engaged"):
+			unit.is_engaged = unit_def["is_engaged"]
+		if unit_def.has("is_air_ready"):
+			unit.is_air_ready = unit_def["is_air_ready"]
+		if unit_def.has("air_cooldown_timer"):
+			unit.air_cooldown_timer = float(unit_def["air_cooldown_timer"])
+		if unit_def.has("is_recovering"):
+			unit.is_recovering = unit_def["is_recovering"]
+		if unit_def.has("recovery_timer"):
+			unit.recovery_timer = float(unit_def["recovery_timer"])
+		if unit_def.has("is_detected"):
+			unit.is_detected = unit_def["is_detected"]
+		if unit_def.has("is_moving"):
+			unit.is_moving = unit_def["is_moving"]
+			
+		# Special visual initialization overrides based on stats
+		if unit.sprite and unit.sprite.material_override is ShaderMaterial:
+			if unit.entrenched:
+				unit.sprite.material_override.set_shader_parameter("is_entrenched", true)
+			if unit.is_engaged:
+				unit.sprite.material_override.set_shader_parameter("is_engaged", true)
+		
+		unit.spawn(raw_pos)
+		unit._update_health_bar()
+		unit._update_air_readiness_visuals()
+		
+		# Target position setting
+		if unit_def.has("target_position") and unit_def["target_position"] != null:
+			var t_pos_arr = unit_def["target_position"]
+			var target_p = Vector3(t_pos_arr[0], t_pos_arr[1], t_pos_arr[2])
+			unit.target_position = target_p 
+		
+		units_list.append(unit)
+		cullable_nodes.append(unit)
+		return
+
 	if unit_def.has("latitude") and unit_def.has("longitude"):
 		var lat = unit_def["latitude"]
 		var lon = unit_def["longitude"]

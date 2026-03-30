@@ -18,11 +18,14 @@ var faction_buttons: Dictionary = {}
 var money_spinboxes: Dictionary = {}
 
 func _ready():
-	var spath = "res://src/data/scenarios/initial_test.json"
-	if FileAccess.file_exists(spath):
-		var s_json = JSON.new()
-		if s_json.parse(FileAccess.open(spath, FileAccess.READ).get_as_text()) == OK:
-			scenario_data = s_json.data
+	if GameStateManager != null and not GameStateManager.current_loaded_state.is_empty():
+		scenario_data = GameStateManager.current_loaded_state.duplicate(true)
+	else:
+		var spath = "res://src/data/scenarios/initial_test.json"
+		if FileAccess.file_exists(spath):
+			var s_json = JSON.new()
+			if s_json.parse(FileAccess.open(spath, FileAccess.READ).get_as_text()) == OK:
+				scenario_data = s_json.data
 			
 	for child in faction_button_container.get_children():
 		child.queue_free()
@@ -239,6 +242,9 @@ func _on_fade_finished() -> void:
 		get_tree().current_scene = main_instance
 		main_instance.visible = true
 		queue_free()
+		
+	if GameStateManager != null:
+		GameStateManager.current_loaded_state.clear()
 
 func update_progress(pct: float, text: String) -> void:
 	loading_bar.value = pct
@@ -274,6 +280,12 @@ func _host_generate_scenario() -> void:
 	for c in all_cities:
 		if not active_cities.has(c):
 			unaligned.append(c)
+			
+	if scenario_data.has("countries"):
+		var countries = scenario_data["countries"]
+		NetworkManager.rpc("sync_initial_countries", countries)
+		set_process(true)
+		return
 			
 	var countries = {}
 	if unaligned.size() > 0:

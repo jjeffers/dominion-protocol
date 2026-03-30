@@ -1402,3 +1402,21 @@ func set_air_unready(override_time: float = -1.0, add_time: float = 0.0) -> void
 		air_cooldown_timer += add_time
 	_update_air_readiness_visuals()
 
+func serialize() -> Dictionary:
+	return {
+		"type": unit_type,
+		"health": health,
+		"current_position": [current_position.x, current_position.y, current_position.z] if current_position else null,
+		"target_position": [target_position.x, target_position.y, target_position.z] if target_position else null,
+		"entrenched": entrenched,
+		"time_motionless": time_motionless,
+		"time_in_city": time_in_city,
+		"is_engaged": is_engaged,
+		"is_air_ready": is_air_ready,
+		"air_cooldown_timer": air_cooldown_timer,
+		"is_recovering": is_recovering,
+		"recovery_timer": recovery_timer,
+		"is_detected": is_detected,
+		"is_moving": is_moving
+	}
+
