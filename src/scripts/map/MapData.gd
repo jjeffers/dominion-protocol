@@ -182,14 +182,15 @@ func _build_pathfinding_graphs() -> void:
 		# Naval AStar includes OCEAN
 		if terrain == "OCEAN" or terrain == "LAKE":
 			naval_astar.add_point(i, pos)
-		else:
-			land_astar.add_point(i, pos)
-			var weight = 1.0
-			match terrain:
-				"FOREST", "JUNGLE": weight = 2.0
-				"MOUNTAINS", "RUINS": weight = 3.0
-				"WASTELAND": weight = 4.0
-			land_astar.set_point_weight_scale(i, weight)
+			
+		# Land AStar includes ALL tiles (allows SEA TRANSPORT)
+		land_astar.add_point(i, pos)
+		var weight = 1.0
+		match terrain:
+			"FOREST", "JUNGLE": weight = 2.0
+			"MOUNTAINS", "RUINS": weight = 3.0
+			"WASTELAND": weight = 4.0
+		land_astar.set_point_weight_scale(i, weight)
 
 	# Pass 2: Connect Edges
 	for i in range(total_tiles):
@@ -205,8 +206,9 @@ func _build_pathfinding_graphs() -> void:
 			
 			if is_ocean and n_is_ocean:
 				naval_astar.connect_points(i, n, true)
-			elif not is_ocean and not n_is_ocean:
-				land_astar.connect_points(i, n, true)
+				
+			# Land AStar unconditionally connects all tiles, allowing land-to-sea movement
+			land_astar.connect_points(i, n, true)
 	
 	print("MapData: Built AStar3D pathfinding graphs for ", total_tiles, " tiles.")
 
