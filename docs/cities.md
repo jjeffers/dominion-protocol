@@ -16,6 +16,7 @@ Stockholm
 Seoul
 Oslo
 Copenhagen
+Geneva
 Athens
 Dallas
 Toronto
