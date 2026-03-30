@@ -26,3 +26,4 @@ host.log
 client.log
 *.log
 node_modules
+dp_mac.zip
