@@ -25,3 +25,4 @@ src/data/quad_data.json
 host.log
 client.log
 *.log
+node_modules
