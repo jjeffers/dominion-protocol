@@ -8,13 +8,13 @@ Once the match concludes, peak memory consumption and subsystem breakdowns are w
 1. Start the Host Instance
 // turbo
 ```bash
-godot --headless --host --faction=CFS --bot=CFS --profile --auto-start &
+timeout 300 godot --headless --host --faction=CFS --bot=CFS --profile --auto-start || true &
 ```
 
 2. Start the Client Instance
 // turbo
 ```bash
-sleep 2 && godot --headless --client --faction=CSP --bot=CSP --profile &
+sleep 2 && timeout 300 godot --headless --client --faction=CSP --bot=CSP --profile || true &
 ```
 
 3. View resulting profile reports (wait for match completion first)

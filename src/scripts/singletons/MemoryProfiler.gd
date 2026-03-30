@@ -33,6 +33,10 @@ func _process(_delta: float) -> void:
 	if res > _peak_resource_count:
 		_peak_resource_count = int(res)
 
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		dump_report()
+
 func is_profiling() -> bool:
 	return _is_profiling
 

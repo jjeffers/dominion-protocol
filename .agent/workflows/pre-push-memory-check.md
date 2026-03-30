@@ -5,8 +5,8 @@ description: Run the memory profile locally and compare with existing gh-pages d
 1. Run the headless bots to generate a new memory profile
 // turbo-all
 ```bash
-godot --headless --host --faction=CFS --bot=CFS --profile --auto-start &
-sleep 2 && godot --headless --client --faction=CSP --bot=CSP --profile &
+timeout 300 godot --headless --host --faction=CFS --bot=CFS --profile --auto-start || true &
+sleep 2 && timeout 300 godot --headless --client --faction=CSP --bot=CSP --profile || true &
 wait
 ```
 

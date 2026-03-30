@@ -29,10 +29,10 @@ jobs:
       - name: Run Memory Profile (Headless Bots)
         run: |
           echo "Starting Host Instance"
-          godot --headless --host --faction=CFS --bot=CFS --profile --auto-start &
+          timeout 300 godot --headless --host --faction=CFS --bot=CFS --profile --auto-start || true &
           
           echo "Starting Client Instance"
-          sleep 2 && godot --headless --client --faction=CSP --bot=CSP --profile &
+          sleep 2 && timeout 300 godot --headless --client --faction=CSP --bot=CSP --profile || true &
           
           echo "Waiting for match to conclude..."
           wait
