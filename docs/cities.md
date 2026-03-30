@@ -14,16 +14,15 @@ Washington, DC
 Dublin
 Stockholm
 Seoul
-Zurich
 Oslo
 Copenhagen
+Athens
 Dallas
 Toronto
 Singapore
 Munich
 Brisbane
 Chicago
-Geneva
 Denver
 Amsterdam
 Atlanta
@@ -85,8 +84,7 @@ Sofia
 Quito
 Yekaterinburg
 Accra
-Ljubljana
-Kraków
+Sevastopol
 Dakar
 Tashkent
 Brasília
@@ -104,6 +102,7 @@ Tehran
 Havanna
 Caracas
 Sao Luis
-Dublin
 Reykjavik
-
+Pearl Harbor
+Rabaul
+Port Moresby
