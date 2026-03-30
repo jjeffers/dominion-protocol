@@ -33,7 +33,6 @@ Luxembourg
 Philadelphia
 Brussels
 Minneapolis
-Vienna
 Vancouver
 Helsinki
 Hamburg
