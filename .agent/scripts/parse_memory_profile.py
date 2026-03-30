@@ -3,9 +3,11 @@ import re
 import sys
 import os
 
+import sys
+
 def parse_log(filename, prefix):
     if not os.path.exists(filename):
-        print(f"Warning: {filename} not found.")
+        sys.stderr.write(f"Warning: {filename} not found.\n")
         return []
 
     results = []

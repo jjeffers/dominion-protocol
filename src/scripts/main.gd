@@ -226,6 +226,14 @@ func _ready() -> void:
 			ConsoleManager.log_message("==================================\n")
 			post_news_event("GLOBAL CONFLICT AUTHORIZED", [])
 
+	if MemoryProfiler.is_profiling():
+		var t = get_tree().create_timer(300.0)
+		t.timeout.connect(func():
+			print("MainScene: Profiling time limit (5 mins) reached. Dumping report and quitting.")
+			MemoryProfiler.dump_report()
+			get_tree().quit(0)
+		)
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:
 		if event.physical_keycode == KEY_P:
