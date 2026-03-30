@@ -222,7 +222,13 @@ func _build_pathfinding_graphs() -> void:
 				if n_diag1 > i and n_diag1 < total_tiles:
 					var n_terrain = get_terrain(n_diag1)
 					var n_is_ocean = (n_terrain == "OCEAN" or n_terrain == "LAKE")
-					if is_ocean and n_is_ocean:
+					
+					var n_adj1 = face * (RESOLUTION * RESOLUTION) + y * RESOLUTION + (x + 1)
+					var n_adj2 = face * (RESOLUTION * RESOLUTION) + (y + 1) * RESOLUTION + x
+					var is_adj1_ocean = (get_terrain(n_adj1) == "OCEAN" or get_terrain(n_adj1) == "LAKE")
+					var is_adj2_ocean = (get_terrain(n_adj2) == "OCEAN" or get_terrain(n_adj2) == "LAKE")
+					
+					if is_ocean and n_is_ocean and is_adj1_ocean and is_adj2_ocean:
 						naval_astar.connect_points(i, n_diag1, true)
 					land_astar.connect_points(i, n_diag1, true)
 					
@@ -231,7 +237,13 @@ func _build_pathfinding_graphs() -> void:
 				if n_diag2 > i and n_diag2 < total_tiles:
 					var n_terrain = get_terrain(n_diag2)
 					var n_is_ocean = (n_terrain == "OCEAN" or n_terrain == "LAKE")
-					if is_ocean and n_is_ocean:
+					
+					var n_adj1 = face * (RESOLUTION * RESOLUTION) + y * RESOLUTION + (x - 1)
+					var n_adj2 = face * (RESOLUTION * RESOLUTION) + (y + 1) * RESOLUTION + x
+					var is_adj1_ocean = (get_terrain(n_adj1) == "OCEAN" or get_terrain(n_adj1) == "LAKE")
+					var is_adj2_ocean = (get_terrain(n_adj2) == "OCEAN" or get_terrain(n_adj2) == "LAKE")
+					
+					if is_ocean and n_is_ocean and is_adj1_ocean and is_adj2_ocean:
 						naval_astar.connect_points(i, n_diag2, true)
 					land_astar.connect_points(i, n_diag2, true)
 	
