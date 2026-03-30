@@ -26,6 +26,9 @@ jobs:
           version: '4.3.0' # Adjust this if your project uses a different version
           use-dotnet: false
 
+      - name: Godot Import Warmup
+        run: godot --headless --editor --quit-after 20 || true
+
       - name: Run Memory Profile (Headless Bots)
         run: |
           echo "Starting Host Instance"
