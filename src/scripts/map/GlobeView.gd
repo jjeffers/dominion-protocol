@@ -71,6 +71,7 @@ var city_cooldowns: Dictionary = {}
 var cached_city_data: Dictionary = {}
 var recent_threats: Dictionary = {}
 var deployment_ghost: Sprite3D
+var city_highlight_multimesh: MultiMeshInstance3D = null
 
 var unit_name_counters: Dictionary = {}
 
@@ -2186,6 +2187,7 @@ func _load_cities(active_cities: Array[String]) -> void:
 		m_cap_land_xforms.append([])
 		m_cap_ocean_xforms.append([])
 		
+	var node_pixel_size: float = 0.005
 	for city_name in cities_dict:
 		if not active_cities.has(city_name):
 			continue
@@ -2210,7 +2212,7 @@ func _load_cities(active_cities: Array[String]) -> void:
 			
 			# Discover exact physical size of the terrain quad here to correct for spherified cube distortion
 			var tile_width = _get_tile_width(tile_id)
-			var node_pixel_size = tile_width / 32.0
+			node_pixel_size = tile_width / 32.0
 			
 			var city_node = Node3D.new()
 			city_node.name = city_name
@@ -2271,24 +2273,6 @@ func _load_cities(active_cities: Array[String]) -> void:
 					else: m_land_xforms[o_idx].append(sub_xform)
 				o_idx += 1
 				
-			var hl_tex = load("res://src/assets/target_bracket.png") as Texture2D
-			if hl_tex:
-				var highlight_sprite = Sprite3D.new()
-				highlight_sprite.texture = hl_tex
-				highlight_sprite.pixel_size = node_pixel_size * 1.2
-				var hl_mat = StandardMaterial3D.new()
-				hl_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-				hl_mat.albedo_color = Color(1.0, 1.0, 1.0, 0.4)
-				hl_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-				hl_mat.no_depth_test = true
-				hl_mat.render_priority = 25
-				highlight_sprite.material_override = hl_mat
-				highlight_sprite.visible = false
-				highlight_sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
-				highlight_sprite.name = "HighlightRing"
-				highlight_sprite.position = Vector3.ZERO
-				city_node.add_child(highlight_sprite)
-
 			cullable_nodes.append(city_node)
 
 	_build_city_multimesh(m_center_xforms, m_center_colors, tex_center, 7, true)
@@ -2297,6 +2281,8 @@ func _load_cities(active_cities: Array[String]) -> void:
 		_build_city_multimesh(m_ocean_xforms[i], [], tex_ocean[i], 5)
 		_build_city_multimesh(m_cap_land_xforms[i], [], tex_cap_land[i], 5)
 		_build_city_multimesh(m_cap_ocean_xforms[i], [], tex_cap_ocean[i], 5)
+		
+	_build_city_highlight_multimesh(node_pixel_size)
 
 func _build_city_multimesh(xforms: Array, colors: Array, tex: Texture2D, priority: int, use_color: bool = false) -> void:
 	if xforms.is_empty(): return
@@ -2345,6 +2331,51 @@ void fragment() {
 		add_child(parent_node)
 	parent_node.add_child(mm_inst)
 
+func _build_city_highlight_multimesh(px_size: float) -> void:
+	if city_highlight_multimesh: return
+	
+	var hl_tex = load("res://src/assets/target_bracket.png") as Texture2D
+	if not hl_tex: return
+		
+	var quad = QuadMesh.new()
+	var t_sz = hl_tex.get_size()
+	quad.size = Vector2(t_sz.x, t_sz.y) * px_size * 1.2
+	
+	var mat = ShaderMaterial.new()
+	var shader = Shader.new()
+	shader.code = """
+shader_type spatial;
+render_mode unshaded, depth_test_disabled, cull_disabled;
+uniform sampler2D albedo_texture : source_color, filter_nearest;
+void fragment() {
+	vec3 world_pos = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	vec3 cam_pos = normalize(CAMERA_POSITION_WORLD);
+	if (dot(normalize(world_pos), cam_pos) <= 0.15) {
+		discard;
+	}
+	vec4 c = texture(albedo_texture, UV);
+	ALBEDO = c.rgb;
+	ALPHA = c.a * 0.4;
+}
+"""
+	mat.shader = shader
+	mat.set_shader_parameter("albedo_texture", hl_tex)
+	mat.render_priority = 25
+	quad.material = mat
+	
+	city_highlight_multimesh = MultiMeshInstance3D.new()
+	city_highlight_multimesh.name = "CityHighlightMultiMesh"
+	
+	var mm = MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = false
+	mm.instance_count = 0 
+	mm.mesh = quad
+	
+	city_highlight_multimesh.multimesh = mm
+	city_highlight_multimesh.visible = false
+	add_child(city_highlight_multimesh)
+
 func _is_city_coastal(raw_city_name: String) -> bool:
 	for t_id in city_tile_cache:
 		if city_tile_cache[t_id] == raw_city_name:
@@ -2366,66 +2397,69 @@ func _update_city_highlights(active: bool, is_redeploy: bool = false, is_strateg
 	if nm and nm.players.has(local_id):
 		local_faction = nm.players[local_id].get("faction", "")
 		
+	var active_xforms = []
+	
 	for city_node in city_nodes:
-		var hr = city_node.get_node_or_null("HighlightRing")
-		if hr:
-			if not active:
-				hr.visible = false
-				continue
+		if not active:
+			continue
+			
+		var c_name = city_node.name
+		var is_valid = false
+		if c_name != "" and local_faction != "":
+			if active_scenario.has("factions") and active_scenario["factions"].has(local_faction):
+				var fac_data = active_scenario["factions"][local_faction]
+				var has_city = fac_data.has("cities") and fac_data["cities"].has(c_name)
+				var has_money = true if is_redeploy else fac_data.get("money", 0.0) >= deploying_unit_cost
+				var on_cooldown = false if is_redeploy else city_cooldowns.has(c_name)
+				var is_full = _is_city_full(c_name)
 				
-			var c_name = city_node.name
-			var is_valid = false
-			if c_name != "" and local_faction != "":
-				if active_scenario.has("factions") and active_scenario["factions"].has(local_faction):
-					var fac_data = active_scenario["factions"][local_faction]
-					var has_city = fac_data.has("cities") and fac_data["cities"].has(c_name)
-					var has_money = true if is_redeploy else fac_data.get("money", 0.0) >= deploying_unit_cost
-					var on_cooldown = false if is_redeploy else city_cooldowns.has(c_name)
-					var is_full = _is_city_full(c_name)
-					
-					
-					if is_strategic_bombing and selected_unit:
-						if not has_city:
-							var is_enemy = false
-							for e_fac in active_scenario["factions"].keys():
-								if e_fac != local_faction and active_scenario["factions"][e_fac].has("cities") and active_scenario["factions"][e_fac]["cities"].has(c_name):
-									is_enemy = true
+				
+				if is_strategic_bombing and selected_unit:
+					if not has_city:
+						var is_enemy = false
+						for e_fac in active_scenario["factions"].keys():
+							if e_fac != local_faction and active_scenario["factions"][e_fac].has("cities") and active_scenario["factions"][e_fac]["cities"].has(c_name):
+								is_enemy = true
+								break
+						if is_enemy:
+							var attacker_pos = selected_unit.current_position
+							var target_tile = -1
+							for t_id in city_tile_cache:
+								if city_tile_cache[t_id] == c_name:
+									target_tile = t_id
 									break
-							if is_enemy:
-								var attacker_pos = selected_unit.current_position
-								var target_tile = -1
-								for t_id in city_tile_cache:
-									if city_tile_cache[t_id] == c_name:
-										target_tile = t_id
-										break
-								if target_tile != -1:
-									var target_pos = map_data.get_centroid(target_tile).normalized() * radius
-									var distance = attacker_pos.distance_to(target_pos)
-									var ops_radius = 30.0 * _get_tile_width(_get_tile_from_vector3(attacker_pos))
-									if distance <= ops_radius:
-										is_valid = true
-					else:
-						if is_redeploy and selected_unit:
-							var origin_tile = _get_tile_from_vector3(selected_unit.current_position)
-							var origin_city = city_tile_cache.get(origin_tile, "")
-							if c_name == origin_city:
-								has_city = false
-								
-						if is_foreign_aid:
-							if not has_city and fac_data.get("money", 0.0) >= 10.0:
-								is_valid = true
-						elif has_city and has_money and not on_cooldown and not is_full:
-							if deploying_unit_type in ["Cruiser", "Submarine"]:
-								if _is_city_coastal(c_name.replace("Unit_City_", "")):
+							if target_tile != -1:
+								var target_pos = map_data.get_centroid(target_tile).normalized() * radius
+								var distance = attacker_pos.distance_to(target_pos)
+								var ops_radius = 30.0 * _get_tile_width(_get_tile_from_vector3(attacker_pos))
+								if distance <= ops_radius:
 									is_valid = true
-							else:
+				else:
+					if is_redeploy and selected_unit:
+						var origin_tile = _get_tile_from_vector3(selected_unit.current_position)
+						var origin_city = city_tile_cache.get(origin_tile, "")
+						if c_name == origin_city:
+							has_city = false
+							
+					if is_foreign_aid:
+						if not has_city and fac_data.get("money", 0.0) >= 10.0:
+							is_valid = true
+					elif has_city and has_money and not on_cooldown and not is_full:
+						if deploying_unit_type in ["Cruiser", "Submarine"]:
+							if _is_city_coastal(c_name.replace("Unit_City_", "")):
 								is_valid = true
-						
-			if is_valid:
-				hr.visible = true
-			else:
-				hr.visible = false
+						else:
+							is_valid = true
+					
+		if is_valid:
+			active_xforms.append(city_node.transform)
 				
+	if city_highlight_multimesh:
+		var mm = city_highlight_multimesh.multimesh
+		mm.instance_count = active_xforms.size()
+		for i in range(active_xforms.size()):
+			mm.set_instance_transform(i, active_xforms[i])
+		city_highlight_multimesh.visible = (active_xforms.size() > 0)
 	for u in units_list:
 		if is_instance_valid(u):
 			if active:
