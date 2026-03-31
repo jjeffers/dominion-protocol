@@ -236,6 +236,19 @@ func _ready() -> void:
 			get_tree().quit(0)
 		)
 
+func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.is_echo():
+		if event.physical_keycode == KEY_TAB:
+			if purchase_menu.visible:
+				purchase_menu.hide()
+			_cycle_friendly_city()
+			get_viewport().set_input_as_handled()
+		elif event.physical_keycode == KEY_C:
+			if purchase_menu.visible:
+				purchase_menu.hide()
+			_focus_camera_on_capitol()
+			get_viewport().set_input_as_handled()
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:
 		if event.physical_keycode == KEY_P:
@@ -946,3 +959,31 @@ func _focus_camera_on_capitol() -> void:
 						var lon = deg_to_rad(c_json.data[cap_name].get("longitude", 0.0))
 						globe_view.set_focus(lon, lat)
 						globe_view.target_zoom = globe_view.min_zoom
+
+var _current_city_cycle_idx: int = -1
+
+func _cycle_friendly_city() -> void:
+	if globe_view == null: return
+	
+	var local_id = multiplayer.get_unique_id() if multiplayer.has_multiplayer_peer() else 0
+	var local_faction = ""
+	var nm = get_node_or_null("/root/NetworkManager")
+	if nm and nm.players.has(local_id):
+		local_faction = nm.players[local_id].get("faction", "")
+		
+	if local_faction == "" or not scenario_data.has("factions") or not scenario_data["factions"].has(local_faction):
+		return
+		
+	var my_cities = scenario_data["factions"][local_faction].get("cities", [])
+	if my_cities.is_empty(): return
+	
+	var sorted_cities = my_cities.duplicate()
+	sorted_cities.sort() # Ensure deterministic cycling order regardless of capture timestamp
+	
+	_current_city_cycle_idx += 1
+	if _current_city_cycle_idx >= sorted_cities.size():
+		_current_city_cycle_idx = 0
+		
+	var target_city = sorted_cities[_current_city_cycle_idx]
+	if globe_view.has_method("focus_on_city"):
+		globe_view.focus_on_city(target_city)
