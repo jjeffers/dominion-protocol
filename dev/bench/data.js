@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1774992626906,
+  "lastUpdate": 1774998531185,
   "repoUrl": "https://github.com/jjeffers/dominion-protocol",
   "entries": {
     "Godot Memory Profile": [
@@ -642,6 +642,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "Client Peak Node Count",
             "value": 805,
+            "unit": "Nodes"
+          },
+          {
+            "name": "Client Peak Resource Count",
+            "value": 38,
+            "unit": "Resources"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jdjeffers@protonmail.com",
+            "name": "James Jeffers",
+            "username": "jjeffers"
+          },
+          "committer": {
+            "email": "jdjeffers@protonmail.com",
+            "name": "James Jeffers",
+            "username": "jjeffers"
+          },
+          "distinct": true,
+          "id": "d7332b17eef5f9172f1b71c3d9f46735c8bcd3ee",
+          "message": "Fix oil capture defection triggers, UI alignment counters, and AI log formatting",
+          "timestamp": "2026-03-31T19:01:40-04:00",
+          "tree_id": "2c26c7af4aa83b68e02e3bcb0c57e4b708d4ace2",
+          "url": "https://github.com/jjeffers/dominion-protocol/commit/d7332b17eef5f9172f1b71c3d9f46735c8bcd3ee"
+        },
+        "date": 1774998530750,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Host Peak Static Memory",
+            "value": 621,
+            "unit": "MB"
+          },
+          {
+            "name": "Host Peak Node Count",
+            "value": 633,
+            "unit": "Nodes"
+          },
+          {
+            "name": "Host Peak Resource Count",
+            "value": 39,
+            "unit": "Resources"
+          },
+          {
+            "name": "Client Peak Static Memory",
+            "value": 621,
+            "unit": "MB"
+          },
+          {
+            "name": "Client Peak Node Count",
+            "value": 631,
             "unit": "Nodes"
           },
           {
