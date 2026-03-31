@@ -25,6 +25,43 @@ var available_colors: Array[Color] = [
 	Color.WHITE, Color.GRAY
 ]
 
+func _get_faction_display_name(fac_key: String) -> String:
+	if not scenario_data.has("factions") or not scenario_data["factions"].has(fac_key):
+		return fac_key
+		
+	var fac = scenario_data["factions"][fac_key]
+	var d_name = fac.get("display_name", "")
+	
+	if d_name != "" and d_name != fac_key and not "(to be renamed" in d_name:
+		return d_name
+		
+	var c_hex = fac.get("color", "ffffff")
+	if typeof(c_hex) == TYPE_STRING:
+		c_hex = c_hex.to_lower()
+		var color_map = {
+			Color.RED.to_html(false).to_lower(): "Red",
+			Color.BLUE.to_html(false).to_lower(): "Blue",
+			Color.GOLD.to_html(false).to_lower(): "Gold",
+			Color.GREEN.to_html(false).to_lower(): "Green",
+			Color.BLACK.to_html(false).to_lower(): "Black",
+			Color.PURPLE.to_html(false).to_lower(): "Purple",
+			Color.ORANGE.to_html(false).to_lower(): "Orange",
+			Color.YELLOW.to_html(false).to_lower(): "Yellow",
+			Color.CYAN.to_html(false).to_lower(): "Cyan",
+			Color.MAGENTA.to_html(false).to_lower(): "Magenta",
+			Color.WHITE.to_html(false).to_lower(): "White",
+			Color.GRAY.to_html(false).to_lower(): "Gray",
+			"#ff0000": "Red",
+			"#0000ff": "Blue",
+			"#00ff00": "Green"
+		}
+		if color_map.has(c_hex):
+			return color_map[c_hex] + " Faction"
+			
+	return fac_key
+
+var test_compile_flag = false
+
 func _ready():
 	# Build the Scenario Header UI
 	var vbox = $CenterContainer/VBoxContainer
@@ -144,14 +181,6 @@ func _process_scenario_defaults() -> void:
 	for fac_key in scenario_data["factions"].keys():
 		var fac = scenario_data["factions"][fac_key]
 		var d_name = fac.get("display_name", "")
-		
-		# Generate name if explicitly asked or missing
-		if d_name == "" or "(to be renamed" in d_name or fac_key.begins_with("Faction"):
-			fac["display_name"] = FactionNameGenerator.generate_faction_name()
-			
-		var final_d_name = fac.get("display_name", fac_key)
-		if not fac.has("abbreviation") or fac["abbreviation"] == "":
-			fac["abbreviation"] = FactionNameGenerator.generate_faction_acronym(final_d_name)
 			
 		if not fac.has("color") or fac["color"] == "":
 			var picked = Color.WHITE
@@ -201,7 +230,7 @@ func _build_faction_ui():
 			vbox.add_theme_constant_override("separation", 10)
 			
 			var btn = Button.new()
-			var d_name = fac.get("display_name", fac_key)
+			var d_name = _get_faction_display_name(fac_key)
 			var oil_reserves = fac.get("oil_stored", 0)
 			if fac.has("oil"):
 				oil_reserves += fac["oil"].size() * 500
@@ -267,7 +296,7 @@ func _update_ui():
 			
 		var fac_display = faction_str
 		if scenario_data.has("factions") and scenario_data["factions"].has(faction_str):
-			fac_display = scenario_data["factions"][faction_str].get("display_name", faction_str)
+			fac_display = _get_faction_display_name(faction_str)
 			
 		var display_text = "%s - %s" % [p_info.get("name", "Player " + str(id)), fac_display]
 		if id == multiplayer.get_unique_id():
@@ -305,8 +334,21 @@ func sync_faction_money(fac_key: String, money: float) -> void:
 		if money_spinboxes.has(fac_key):
 			money_spinboxes[fac_key].set_value_no_signal(money)
 
+var _game_started_rpc_sent = false
+
 func _on_start_game():
-	if NetworkManager.is_host:
+	if NetworkManager.is_host and not _game_started_rpc_sent:
+		_game_started_rpc_sent = true
+		if scenario_data.has("factions"):
+			for fac_key in scenario_data["factions"].keys():
+				var fac = scenario_data["factions"][fac_key]
+				var check_name = fac.get("display_name", "")
+				if check_name == "" or "(to be renamed" in check_name or check_name == fac_key:
+					var generated_name = FactionNameGenerator.generate_faction_name()
+					fac["display_name"] = generated_name
+					fac["abbreviation"] = FactionNameGenerator.generate_faction_acronym(generated_name)
+		
+		rpc("sync_scenario", scenario_data)
 		NetworkManager.rpc("start_game")
 
 func _on_game_started():
