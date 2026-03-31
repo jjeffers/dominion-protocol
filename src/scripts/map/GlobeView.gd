@@ -406,7 +406,7 @@ func _on_unit_path_synced(unit_name: String, path: Array, target_pos: Vector3, e
 						recent_threats[threat_key] = current_time
 						var main_node = get_node_or_null("/root/Main")
 						if main_node and main_node.has_method("post_news_event"):
-							var msg = "%s FORCE THREATENS %s" % [unit.get("faction_name").to_upper(), c_name.to_upper()]
+							var msg = "%s FORCE THREATENS %s" % [_get_fac_abbr(unit.get("faction_name")).to_upper(), c_name.to_upper()]
 							main_node.post_news_event(msg, [c_faction])
 
 func _on_air_strike_requested(sender_id: int, unit_name: String, target_unit_name: String) -> void:
@@ -732,7 +732,7 @@ func _on_strategic_bombing_synced(unit_name: String, target_city: String, counte
 	if success:
 		if target_fac != "":
 			active_scenario["factions"][target_fac]["money"] -= 10.0
-			var msg = "%s AIR FORCES SUCCESSFULLY STRATEGICALLY BOMBED %s!" % [attacker_fac.to_upper(), target_city.to_upper()]
+			var msg = "%s AIR FORCES SUCCESSFULLY STRATEGICALLY BOMBED %s!" % [_get_fac_abbr(attacker_fac).to_upper(), target_city.to_upper()]
 			ConsoleManager.log_message("[outline_size=2][outline_color=#dddddd][color=green]" + msg + "[/color][/outline_color][/outline_size]")
 			if main_node and main_node.has_method("post_news_event"):
 				main_node.post_news_event(msg, [attacker_fac, target_fac])
@@ -740,12 +740,12 @@ func _on_strategic_bombing_synced(unit_name: String, target_city: String, counte
 			city_cooldowns[target_city] = city_cooldowns.get(target_city, 0.0) + 120.0
 	else:
 		if attacker_status == "DESTROYED":
-			var msg = "%s STRATEGIC BOMBER OVER %s SHOT DOWN BY %s COUNTERMEASURES!" % [attacker_fac.to_upper(), target_city.to_upper(), target_fac.to_upper()]
+			var msg = "%s STRATEGIC BOMBER OVER %s SHOT DOWN BY %s COUNTERMEASURES!" % [_get_fac_abbr(attacker_fac).to_upper(), target_city.to_upper(), _get_fac_abbr(target_fac).to_upper()]
 			ConsoleManager.log_message("[outline_size=2][outline_color=#dddddd][color=red]" + msg + "[/color][/outline_color][/outline_size]")
 			if main_node and main_node.has_method("post_news_event"):
 				main_node.post_news_event(msg, [attacker_fac, target_fac])
 		elif attacker_status == "UNREADY":
-			var msg = "%s STRATEGIC BOMBING MISSION IN %s ABORTED DUE TO %s INTERCEPTORS!" % [attacker_fac.to_upper(), target_city.to_upper(), target_fac.to_upper()]
+			var msg = "%s STRATEGIC BOMBING MISSION IN %s ABORTED DUE TO %s INTERCEPTORS!" % [_get_fac_abbr(attacker_fac).to_upper(), target_city.to_upper(), _get_fac_abbr(target_fac).to_upper()]
 			ConsoleManager.log_message("[color=yellow]" + msg + "[/color]")
 			if main_node and main_node.has_method("post_news_event"):
 				main_node.post_news_event(msg, [attacker_fac, target_fac])
@@ -808,13 +808,13 @@ func _on_air_strike_synced(unit_name: String, target_unit_name: String, counter_
 			var region = map_data.get_region(target_tile) if target else ""
 			if region == "": region = "WILDERNESS"
 			
-			var msg = "%s AIRSTRIKE IN %s COUNTERED BY %s AIR DEFENSES" % [attacker_fac.to_upper(), region.to_upper(), defender_fac.to_upper()]
+			var msg = "%s AIRSTRIKE IN %s COUNTERED BY %s AIR DEFENSES" % [_get_fac_abbr(attacker_fac).to_upper(), region.to_upper(), _get_fac_abbr(defender_fac).to_upper()]
 			var colors = [attacker_fac, defender_fac]
 			
 			if attacker_status == "DESTROYED":
-				msg = "%s AIRSTRIKE OVER %s SHOT DOWN BY %s COUNTERMEASURES!" % [attacker_fac.to_upper(), region.to_upper(), defender_fac.to_upper()]
+				msg = "%s AIRSTRIKE OVER %s SHOT DOWN BY %s COUNTERMEASURES!" % [_get_fac_abbr(attacker_fac).to_upper(), region.to_upper(), _get_fac_abbr(defender_fac).to_upper()]
 			elif defender_status == "DESTROYED":
-				msg = "%s AIRSTRIKE OVER %s CRUSHED ALL %s INTERCEPTORS!" % [attacker_fac.to_upper(), region.to_upper(), defender_fac.to_upper()]
+				msg = "%s AIRSTRIKE OVER %s CRUSHED ALL %s INTERCEPTORS!" % [_get_fac_abbr(attacker_fac).to_upper(), region.to_upper(), _get_fac_abbr(defender_fac).to_upper()]
 
 			var main_node = get_node_or_null("/root/Main")
 			if main_node and main_node.has_method("post_news_event"):
@@ -827,7 +827,7 @@ func _on_air_strike_synced(unit_name: String, target_unit_name: String, counter_
 		var region = map_data.get_region(target_tile) if target else ""
 		if region == "": region = "WILDERNESS"
 		
-		var msg = "%s AIRSTRIKE OVER %s DESTROYED BY %s ANTI-AIR!" % [attacker_fac.to_upper(), region.to_upper(), target_fac.to_upper()]
+		var msg = "%s AIRSTRIKE OVER %s DESTROYED BY %s ANTI-AIR!" % [_get_fac_abbr(attacker_fac).to_upper(), region.to_upper(), _get_fac_abbr(target_fac).to_upper()]
 		var main_node = get_node_or_null("/root/Main")
 		if main_node and main_node.has_method("post_news_event"):
 			main_node.post_news_event(msg, [attacker_fac, target_fac])
@@ -854,8 +854,8 @@ func _on_air_strike_synced(unit_name: String, target_unit_name: String, counter_
 				val = target_health * 0.50
 		target.take_damage(val)
 		
-		var log_attacker = attacker.get("faction_name") if attacker else "UNKNOWN"
-		var log_target = target.get("faction_name") if target else "UNKNOWN"
+		var log_attacker = _get_fac_abbr(attacker.get("faction_name")) if attacker else "UNKNOWN"
+		var log_target = _get_fac_abbr(target.get("faction_name")) if target else "UNKNOWN"
 		ConsoleManager.local_log_message("SYSTEM: " + log_attacker + " Air Strike hit " + log_target + " for " + str(int(val)) + " damage.")
 		
 		if not counter:
@@ -865,7 +865,7 @@ func _on_air_strike_synced(unit_name: String, target_unit_name: String, counter_
 			var region = map_data.get_region(target_tile) if target else ""
 			if region == "": region = "WILDERNESS"
 			
-			var msg = "%s AIRSTRIKE DEALT %d DAMAGE TO %s IN %s!" % [attacker_fac.to_upper(), int(val), target_fac.to_upper(), region.to_upper()]
+			var msg = "%s AIRSTRIKE DEALT %d DAMAGE TO %s IN %s!" % [_get_fac_abbr(attacker_fac).to_upper(), int(val), _get_fac_abbr(target_fac).to_upper(), region.to_upper()]
 			var main_node = get_node_or_null("/root/Main")
 			if main_node and main_node.has_method("post_news_event"):
 				main_node.post_news_event(msg, [attacker_fac, target_fac])
@@ -878,7 +878,7 @@ func _on_air_strike_synced(unit_name: String, target_unit_name: String, counter_
 			var region = map_data.get_region(target_tile) if target else ""
 			if region == "": region = "WILDERNESS"
 			
-			var msg = "%s AIRSTRIKE FAILED TO HIT %s TARGETS IN %s!" % [attacker_fac.to_upper(), target_fac.to_upper(), region.to_upper()]
+			var msg = "%s AIRSTRIKE FAILED TO HIT %s TARGETS IN %s!" % [_get_fac_abbr(attacker_fac).to_upper(), _get_fac_abbr(target_fac).to_upper(), region.to_upper()]
 			var main_node = get_node_or_null("/root/Main")
 			if main_node and main_node.has_method("post_news_event"):
 				main_node.post_news_event(msg, [attacker_fac, target_fac])
@@ -1293,15 +1293,19 @@ func _evaluate_country_alignment(country_name: String, triggering_faction: Strin
 			# Leave faction, become neutral
 			print("DIPLOMACY: ", country_name, " has left the ", current_faction, " faction and is now neutral!")
 			if ConsoleManager and ConsoleManager.has_method("local_log_message"):
-				var fac_name = active_scenario["factions"][current_faction].get("display_name", current_faction) if (active_scenario.has("factions") and active_scenario["factions"].has(current_faction)) else current_faction
+				var fac_name = _get_fac_color_rich(current_faction)
 				ConsoleManager.local_log_message("SYSTEM: " + country_name + " has declared neutrality and formally withdrawn from the " + fac_name + " alliance.")
 			if get_node_or_null("/root/NetworkManager") and NetworkManager.is_host:
 				if c_data.has("cities"):
 					for city in c_data["cities"]:
-						rpc("sync_city_capture", city, "neutral", current_faction)
+						var f = _get_city_faction(city)
+						if f == current_faction:
+							rpc("sync_city_capture", city, "neutral", current_faction)
 				if c_data.has("oil"):
 					for o_node in c_data["oil"]:
-						rpc("sync_oil_capture", o_node, "neutral", current_faction)
+						var f = _get_city_faction(o_node)
+						if f == current_faction:
+							rpc("sync_oil_capture", o_node, "neutral", current_faction)
 			is_neutral = true
 			current_faction = ""
 			
@@ -1328,10 +1332,14 @@ func _evaluate_country_alignment(country_name: String, triggering_faction: Strin
 				if get_node_or_null("/root/NetworkManager") and NetworkManager.is_host:
 					if c_data.has("cities"):
 						for city in c_data["cities"]:
-							rpc("sync_city_capture", city, loves_faction, "neutral")
+							var f = _get_city_faction(city)
+							if f == "neutral" or f == "":
+								rpc("sync_city_capture", city, loves_faction, "neutral")
 					if c_data.has("oil"):
 						for o_node in c_data["oil"]:
-							rpc("sync_oil_capture", o_node, loves_faction, "neutral")
+							var f = _get_city_faction(o_node)
+							if f == "neutral" or f == "":
+								rpc("sync_oil_capture", o_node, loves_faction, "neutral")
 				return
 				
 		# Check if it hates someone enough to join their enemy
@@ -1369,10 +1377,14 @@ func _evaluate_country_alignment(country_name: String, triggering_faction: Strin
 						rpc("sync_diplomatic_penalty", country_name, best_fac, best_op - 50.0, "", false)
 					if c_data.has("cities"):
 						for city in c_data["cities"]:
-							rpc("sync_city_capture", city, best_fac, "neutral")
+							var f = _get_city_faction(city)
+							if f == "neutral" or f == "":
+								rpc("sync_city_capture", city, best_fac, "neutral")
 					if c_data.has("oil"):
 						for o_node in c_data["oil"]:
-							rpc("sync_oil_capture", o_node, best_fac, "neutral")
+							var f = _get_city_faction(o_node)
+							if f == "neutral" or f == "":
+								rpc("sync_oil_capture", o_node, best_fac, "neutral")
 
 @rpc("authority", "call_local", "reliable")
 func sync_diplomatic_penalty(country_name: String, faction: String, penalty: float, log_reason: String = "", evaluate_alignment: bool = true) -> void:
