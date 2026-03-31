@@ -19,7 +19,8 @@ signal initial_countries_received
 # Lobby Signals
 signal players_updated
 signal game_started
-signal unit_target_synced(unit_name: String, target_pos: Vector3, enemy_target_name: String)
+signal unit_move_requested(unit_name: String, target_pos: Vector3, enemy_target_name: String)
+signal unit_path_synced(unit_name: String, path: Array, target_pos: Vector3, enemy_target_name: String)
 signal air_strike_requested(sender_id: int, unit_name: String, target_unit_name: String)
 signal air_strike_synced(unit_name: String, target_unit_name: String, counter_unit_name: String, attacker_status: String, defender_status: String, target_hit: bool)
 signal strategic_bombing_requested(sender_id: int, unit_name: String, target_city: String)
@@ -96,10 +97,8 @@ func _broadcast_positions() -> void:
 	var units = get_tree().get_nodes_in_group("units")
 	for unit in units:
 		if unit.get("current_position") != null:
-			var tp = unit.get("target_position")
 			pos_dict[unit.name] = {
-				"pos": unit.current_position,
-				"targ": tp if tp != null else unit.current_position
+				"pos": unit.current_position
 			}
 	
 	if pos_dict.size() > 0:
@@ -115,12 +114,8 @@ func sync_unit_positions(pos_dict: Dictionary) -> void:
 	for unit in units:
 		if pos_dict.has(unit.name):
 			var data = pos_dict[unit.name]
-			if typeof(data) == TYPE_DICTIONARY and data.has("pos") and data.has("targ"):
+			if typeof(data) == TYPE_DICTIONARY and data.has("pos"):
 				var host_pos = data["pos"]
-				var host_targ = data["targ"]
-				
-				# Update intended destination to ensure client stops simulating if host deadlocked/reached target
-				unit.target_position = host_targ
 				
 				# Seamlessly lerp minor deviations, hard snap major divergences or new spawns
 				var dev = unit.current_position.distance_to(host_pos)
@@ -273,12 +268,12 @@ func request_unit_move(unit_name: String, target_pos: Vector3, enemy_target_name
 	# verify that `unit.faction_name` actually matches `players[sender_id]["faction"]`.
 	# For now, we trust the client's `_handle_click` block and just broadcast.
 	if players.has(sender_id):
-		rpc("sync_unit_target", unit_name, target_pos, enemy_target_name)
+		unit_move_requested.emit(unit_name, target_pos, enemy_target_name)
 
 @rpc("authority", "call_local", "reliable")
-func sync_unit_target(unit_name: String, target_pos: Vector3, enemy_target_name: String):
-	print("Peer ", multiplayer.get_unique_id(), " received sync_unit_target for ", unit_name, " enemy: ", enemy_target_name)
-	unit_target_synced.emit(unit_name, target_pos, enemy_target_name)
+func sync_unit_path(unit_name: String, path: Array, target_pos: Vector3, enemy_target_name: String):
+	print("Peer ", multiplayer.get_unique_id(), " received sync_unit_path for ", unit_name, " enemy: ", enemy_target_name)
+	unit_path_synced.emit(unit_name, path, target_pos, enemy_target_name)
 
 @rpc("any_peer", "call_local", "reliable")
 func request_air_strike(unit_name: String, target_unit_name: String):

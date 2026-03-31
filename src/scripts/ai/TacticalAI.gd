@@ -726,8 +726,7 @@ func _issue_move_order(unit: Node3D, target_pos: Vector3, enemy_target_name: Str
 
 	# Use network manager to sync movement, ensuring parity with players
 	if network_manager and network_manager.is_host:
-		network_manager.rpc("sync_unit_target", unit.name, target_pos, enemy_target_name)
-		network_manager.sync_unit_target(unit.name, target_pos, enemy_target_name)
+		network_manager.unit_move_requested.emit(unit.name, target_pos, enemy_target_name)
 
 func _is_enemy_visible_to_faction(enemy: Node3D) -> bool:
 	var vision_range = 0.036

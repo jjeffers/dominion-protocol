@@ -66,9 +66,7 @@ var last_bombing_target = ''
 var players = {1: {"name": "TestPlayer", "faction": "Red"}}
 
 
-@rpc('any_peer')
-func sync_unit_target(a, b, c=''):
-	pass
+signal unit_move_requested(unit_name, target_pos, enemy_target_name)
 
 @rpc('any_peer', 'call_local')
 func request_air_strike(unit, enemy):

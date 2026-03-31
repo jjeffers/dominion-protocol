@@ -551,24 +551,39 @@ func spawn(pos: Vector3) -> void:
 	_recalc_base_priority()
 	update_render_priorities()
 
+@rpc("authority", "call_local", "reliable")
+func apply_sync_path(path: Array, target: Vector3) -> void:
+	current_path.clear()
+	for p in path:
+		current_path.append(p)
+	
+	if current_path.size() > 0:
+		target_position = current_path.pop_front()
+	else:
+		if current_position != null and current_position.distance_to(target.normalized() * radius) < 0.005:
+			target_position = target.normalized() * radius
+		else:
+			if current_position != null:
+				target_position = current_position
+
 func set_target(pos: Vector3) -> void:
 	movement_target_unit = null
 	var p = get_parent()
+	var should_calc = not multiplayer.has_multiplayer_peer() or multiplayer.is_server()
+	
 	if unit_type.capitalize() != "Air" and p and p.get("map_data") != null and p.map_data.has_method("find_path"):
-		current_path = p.map_data.find_path(current_position, pos, unit_type)
-		print("DEBUG: Unit ", name, " computed find_path to ", pos, " and got path size: ", current_path.size())
-		if current_path.size() > 0:
-			target_position = current_path.pop_front()
-		else:
-			if current_position != null and current_position.distance_to(pos.normalized() * radius) < 0.005:
-				target_position = pos.normalized() * radius
+		if should_calc:
+			var new_path = p.map_data.find_path(current_position, pos, unit_type)
+			if multiplayer.has_multiplayer_peer():
+				rpc("apply_sync_path", new_path, pos)
 			else:
-				if current_position != null:
-					target_position = current_position
+				apply_sync_path(new_path, pos)
 	else:
-		target_position = pos.normalized() * radius
-		current_path.clear()
-		print("DEBUG: Unit ", name, " skipping find_path because Air or missing map_data.")
+		if should_calc:
+			if multiplayer.has_multiplayer_peer():
+				rpc("apply_sync_path", [], pos)
+			else:
+				apply_sync_path([], pos)
 
 func set_movement_target_unit(target: GlobeUnit) -> void:
 	movement_target_unit = target
@@ -757,12 +772,21 @@ func _process(delta: float) -> void:
 				if path_update_timer >= 2.0:
 					path_update_timer = 0.0
 					var p = get_parent()
-					if unit_type.capitalize() != "Air" and p and p.get("map_data") != null and p.map_data.has_method("find_path"):
-						current_path = p.map_data.find_path(current_position, movement_target_unit.current_position.normalized() * radius, unit_type)
-						if current_path.size() > 0:
-							target_position = current_path.pop_front()
-					else:
-						target_position = movement_target_unit.current_position.normalized() * radius
+					var should_calc = not multiplayer.has_multiplayer_peer() or multiplayer.is_server()
+					if should_calc:
+						if unit_type.capitalize() != "Air" and p and p.get("map_data") != null and p.map_data.has_method("find_path"):
+							var target_pos_norm = movement_target_unit.current_position.normalized() * radius
+							var new_path = p.map_data.find_path(current_position, target_pos_norm, unit_type)
+							if multiplayer.has_multiplayer_peer():
+								rpc("apply_sync_path", new_path, target_pos_norm)
+							else:
+								apply_sync_path(new_path, target_pos_norm)
+						else:
+							var target_pos_norm = movement_target_unit.current_position.normalized() * radius
+							if multiplayer.has_multiplayer_peer():
+								rpc("apply_sync_path", [], target_pos_norm)
+							else:
+								apply_sync_path([], target_pos_norm)
 		else:
 			movement_target_unit = null
 			if current_position != null:

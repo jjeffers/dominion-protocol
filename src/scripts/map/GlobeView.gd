@@ -174,7 +174,8 @@ func _ready() -> void:
 
 	
 	if NetworkManager:
-		NetworkManager.unit_target_synced.connect(_on_unit_target_synced)
+		NetworkManager.unit_move_requested.connect(_on_unit_move_requested)
+		NetworkManager.unit_path_synced.connect(_on_unit_path_synced)
 		NetworkManager.air_strike_synced.connect(_on_air_strike_synced)
 		NetworkManager.strategic_bombing_synced.connect(_on_strategic_bombing_synced)
 		NetworkManager.air_redeploy_synced.connect(_on_air_redeploy_synced)
@@ -322,8 +323,26 @@ func start_deployment(unit_type: String, cost: float) -> void:
 	deployment_ghost.visible = true
 	_update_city_highlights(true)
 
-func _on_unit_target_synced(unit_name: String, target_pos: Vector3, enemy_target_name: String) -> void:
-	print("GlobeView handling _on_unit_target_synced for ", unit_name, " enemy: ", enemy_target_name)
+func _on_unit_move_requested(unit_name: String, target_pos: Vector3, enemy_target_name: String) -> void:
+	if not multiplayer.is_server():
+		return
+		
+	var unit: Node3D = null
+	for u in units_list:
+		if not is_instance_valid(u):
+			continue
+		if u.name == unit_name:
+			unit = u
+			break
+			
+	if unit:
+		var new_path = []
+		if unit.get("unit_type") != "Air" and map_data and map_data.has_method("find_path"):
+			new_path = map_data.find_path(unit.current_position, target_pos, unit.get("unit_type"))
+		NetworkManager.rpc("sync_unit_path", unit_name, new_path, target_pos, enemy_target_name)
+
+func _on_unit_path_synced(unit_name: String, path: Array, target_pos: Vector3, enemy_target_name: String) -> void:
+	print("GlobeView handling _on_unit_path_synced for ", unit_name, " enemy: ", enemy_target_name)
 	var unit: Node3D = null
 	for u in units_list:
 		if not is_instance_valid(u):
@@ -350,7 +369,13 @@ func _on_unit_target_synced(unit_name: String, target_pos: Vector3, enemy_target
 		else:
 			# Manual coordinate movement
 			# We DO NOT clear the target here. If they are engaged, they should keep shooting the enemy while retreating!
-			unit.set_target(target_pos)
+			pass
+			
+		# Enforce explicitly routed absolute trajectory across all network nodes
+		if unit.has_method("apply_sync_path"):
+			unit.apply_sync_path(path, target_pos)
+		else:
+			unit.set("target_position", target_pos)
 			
 		var u_type = unit.get("unit_type")
 		if (u_type == "Infantry" or u_type == "Armor") and target_pos != null:
