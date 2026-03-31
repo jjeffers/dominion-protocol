@@ -830,8 +830,19 @@ func _do_update_diplomacy_ui() -> void:
 	var countries_list = []
 	for c_name in scenario_data["countries"].keys():
 		var c_data = scenario_data["countries"][c_name]
-		var num_cities = c_data.get("cities", []).size()
-		var num_oil = c_data.get("oil", []).size()
+		var num_cities = 0
+		var num_oil = 0
+		
+		# Accurately reflect assets un-occupied by hostile forces
+		for city in c_data.get("cities", []):
+			var owner = globe_view._get_city_faction(city) if globe_view and globe_view.has_method("_get_city_faction") else "neutral"
+			if owner == "neutral" or c_data.get("opinions", {}).get(owner, 0.0) >= 50.0:
+				num_cities += 1
+				
+		for oil_node in c_data.get("oil", []):
+			var owner = globe_view._get_city_faction(oil_node) if globe_view and globe_view.has_method("_get_city_faction") else "neutral"
+			if owner == "neutral" or c_data.get("opinions", {}).get(owner, 0.0) >= 50.0:
+				num_oil += 1
 		
 		if num_cities > 0 or num_oil > 0:
 			var op = c_data.get("opinions", {}).get(local_faction, 0.0)

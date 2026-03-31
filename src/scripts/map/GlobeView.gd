@@ -1239,17 +1239,26 @@ func _process_diplomacy() -> void:
 					if c_data.has("cities") and c_data["cities"].has(region_city_name):
 						c_name = country
 						break
+					elif c_data.has("oil") and c_data["oil"].has(region_city_name):
+						c_name = country
+						break
 							
 			if c_name != "":
 				var is_neutral = true
 				var c_data = active_scenario["countries"][c_name]
+				
 				if c_data.has("cities") and active_scenario.has("factions"):
 					for city in c_data["cities"]:
-						for f_name in active_scenario["factions"].keys():
-							if active_scenario["factions"][f_name].has("cities") and city in active_scenario["factions"][f_name]["cities"]:
-								is_neutral = false
-								break
-						if not is_neutral:
+						var f_owner = _get_city_faction(city)
+						if f_owner != "neutral" and f_owner != "":
+							is_neutral = false
+							break
+							
+				if is_neutral and c_data.has("oil") and active_scenario.has("factions"):
+					for oil_node in c_data["oil"]:
+						var f_owner = _get_city_faction(oil_node)
+						if f_owner != "neutral" and f_owner != "":
+							is_neutral = false
 							break
 							
 				if is_neutral:
@@ -1702,6 +1711,26 @@ func sync_oil_capture(oil_id: String, new_faction: String, old_faction: String) 
 			
 	# Emit event if something UI-wise needs to know, otherwise we just silently redraw borders
 	_generate_faction_borders()
+	
+	var c_name = ""
+	if active_scenario.has("countries"):
+		for country in active_scenario["countries"].keys():
+			var c_data = active_scenario["countries"][country]
+			if c_data.has("oil") and c_data["oil"].has(oil_id):
+				c_name = country
+				break
+
+	if c_name != "" and multiplayer.has_multiplayer_peer() and multiplayer.is_server():
+		if old_faction == "neutral":
+			var op = active_scenario["countries"][c_name].get("opinions", {}).get(new_faction, 0.0)
+			if op < 50.0:
+				sync_diplomatic_penalty(c_name, new_faction, 100.0, "Captured Neutral Oil", true)
+		else:
+			_evaluate_country_alignment(c_name, new_faction)
+			
+	var main_node = get_node_or_null("/root/Main")
+	if main_node and main_node.has_method("_update_diplomacy_ui"):
+		main_node._update_diplomacy_ui()
 
 func _update_camera() -> void:
 	var t = Transform3D.IDENTITY

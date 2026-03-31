@@ -300,7 +300,12 @@ func _log_target_purchase() -> void:
 		if main_scene and main_scene.scenario_data.has("factions") and main_scene.scenario_data["factions"].has(faction_name):
 			col = main_scene.scenario_data["factions"][faction_name].get("color", "#cccccc")
 
-		var fac = "[outline_size=2][outline_color=#dddddd][color=" + col + "]" + faction_name + "[/color][/outline_color][/outline_size]"
+		var fac = faction_name
+		if globe_view and globe_view.has_method("_get_fac_color_rich"):
+			fac = globe_view._get_fac_color_rich(faction_name)
+		else:
+			fac = "[outline_size=2][outline_color=#dddddd][color=" + col + "]" + faction_name + "[/color][/outline_color][/outline_size]"
+
 		var msg = fac + " AI Command: Authorizing funds for " + target_purchase + " production."
 		
 		if target_peer_id != -1:
@@ -974,8 +979,10 @@ func _handle_nuke_ops() -> void:
 						var enemy_country = globe_view.map_data.get_region(enemy_t_id)
 						var is_in_own_borders = false
 						if enemy_country != "" and globe_view.active_scenario.has("countries") and globe_view.active_scenario["countries"].has(enemy_country):
-							if globe_view._get_city_faction(globe_view.active_scenario["countries"][enemy_country].get("cities", [""])[0]) == faction_name:
-								is_in_own_borders = true
+							var c_cities = globe_view.active_scenario["countries"][enemy_country].get("cities", [])
+							if c_cities.size() > 0:
+								if globe_view._get_city_faction(c_cities[0]) == faction_name:
+									is_in_own_borders = true
 						
 						if is_in_own_borders:
 							score += 10.0 # Good, clearing own borders
