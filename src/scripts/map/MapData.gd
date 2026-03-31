@@ -173,81 +173,81 @@ func _build_pathfinding_graphs() -> void:
 	naval_astar = AStar3D.new()
 	
 	var total_tiles = _quad_data.size() / TILE_STRUCT_SIZE
+	var added_to_graph = {}
 	
 	# Pass 1: Add Points
 	for i in range(total_tiles):
 		var pos = get_centroid(i)
 		var terrain = get_terrain(i)
+		var is_ocean = (terrain == "OCEAN" or terrain == "LAKE")
 		
-		# Naval AStar includes OCEAN
-		if terrain == "OCEAN" or terrain == "LAKE":
-			naval_astar.add_point(i, pos)
+		var should_add = true
+		if is_ocean:
+			should_add = false
+			var rem = i % (RESOLUTION * RESOLUTION)
+			var y = rem / RESOLUTION
+			var x = rem % RESOLUTION
 			
-		# Land AStar includes ALL tiles (allows SEA TRANSPORT)
-		land_astar.add_point(i, pos)
-		var weight = 1.0
-		match terrain:
-			"FOREST", "JUNGLE": weight = 2.0
-			"MOUNTAINS", "RUINS": weight = 3.0
-			"WASTELAND": weight = 4.0
-		land_astar.set_point_weight_scale(i, weight)
+			if x % 3 == 0 or y % 3 == 0:
+				# Continuous wireframe
+				should_add = true
+			else:
+				var neighbors = get_neighbors(i)
+				for n in neighbors:
+					var nt = get_terrain(n)
+					if nt != "OCEAN" and nt != "LAKE":
+						should_add = true # Coastal
+						break
+				
+				# 1-Tile Buffer around coasts to bridge any jagged shapes to the wireframe safely
+				if not should_add:
+					for n in neighbors:
+						var n_neighbors = get_neighbors(n)
+						for nn in n_neighbors:
+							var nnt = get_terrain(nn)
+							if nnt != "OCEAN" and nnt != "LAKE":
+								should_add = true
+								break
+						if should_add:
+							break
+						
+		if should_add:
+			added_to_graph[i] = true
+			if is_ocean:
+				naval_astar.add_point(i, pos)
+				
+			land_astar.add_point(i, pos)
+			if not is_ocean:
+				var weight = 1.0
+				match terrain:
+					"FOREST", "JUNGLE": weight = 2.0
+					"MOUNTAINS", "RUINS": weight = 3.0
+					"WASTELAND": weight = 4.0
+				land_astar.set_point_weight_scale(i, weight)
 
+	var added_tiles = added_to_graph.keys()
+	
 	# Pass 2: Connect Edges
-	for i in range(total_tiles):
+	for i in added_tiles:
 		var terrain = get_terrain(i)
 		var is_ocean = (terrain == "OCEAN" or terrain == "LAKE")
+		
+		# Universally connect ANY adjacent nodes mathematically present in the graphs!
+		# No BFS needed since our decimation creates a continuously traversable geometry
 		var neighbors = get_neighbors(i)
-		
 		for n in neighbors:
-			if n <= i: continue # Avoid double connecting
-			
-			var n_terrain = get_terrain(n)
-			var n_is_ocean = (n_terrain == "OCEAN" or n_terrain == "LAKE")
-			
-			if is_ocean and n_is_ocean:
-				naval_astar.connect_points(i, n, true)
+			if n > i and added_to_graph.has(n):
+				var n_terrain = get_terrain(n)
+				var n_is_ocean = (n_terrain == "OCEAN" or n_terrain == "LAKE")
 				
-			# Land AStar unconditionally connects all tiles, allowing land-to-sea movement
-			land_astar.connect_points(i, n, true)
-			
-		# Connect Intra-face Diagonals
-		var face = i / (RESOLUTION * RESOLUTION)
-		var rem = i % (RESOLUTION * RESOLUTION)
-		var y = rem / RESOLUTION
-		var x = rem % RESOLUTION
-		
-#		if y < RESOLUTION - 1:
-#			if x < RESOLUTION - 1:
-#				var n_diag1 = face * (RESOLUTION * RESOLUTION) + (y + 1) * RESOLUTION + (x + 1)
-#				if n_diag1 > i and n_diag1 < total_tiles:
-#					var n_terrain = get_terrain(n_diag1)
-#					var n_is_ocean = (n_terrain == "OCEAN" or n_terrain == "LAKE")
-#					
-#					var n_adj1 = face * (RESOLUTION * RESOLUTION) + y * RESOLUTION + (x + 1)
-#					var n_adj2 = face * (RESOLUTION * RESOLUTION) + (y + 1) * RESOLUTION + x
-#					var is_adj1_ocean = (get_terrain(n_adj1) == "OCEAN" or get_terrain(n_adj1) == "LAKE")
-#					var is_adj2_ocean = (get_terrain(n_adj2) == "OCEAN" or get_terrain(n_adj2) == "LAKE")
-#					
-#					if is_ocean and n_is_ocean and is_adj1_ocean and is_adj2_ocean:
-#						naval_astar.connect_points(i, n_diag1, true)
-#					land_astar.connect_points(i, n_diag1, true)
-#					
-#			if x > 0:
-#				var n_diag2 = face * (RESOLUTION * RESOLUTION) + (y + 1) * RESOLUTION + (x - 1)
-#				if n_diag2 > i and n_diag2 < total_tiles:
-#					var n_terrain = get_terrain(n_diag2)
-#					var n_is_ocean = (n_terrain == "OCEAN" or n_terrain == "LAKE")
-#					
-#					var n_adj1 = face * (RESOLUTION * RESOLUTION) + y * RESOLUTION + (x - 1)
-#					var n_adj2 = face * (RESOLUTION * RESOLUTION) + (y + 1) * RESOLUTION + x
-#					var is_adj1_ocean = (get_terrain(n_adj1) == "OCEAN" or get_terrain(n_adj1) == "LAKE")
-#					var is_adj2_ocean = (get_terrain(n_adj2) == "OCEAN" or get_terrain(n_adj2) == "LAKE")
-#					
-#					if is_ocean and n_is_ocean and is_adj1_ocean and is_adj2_ocean:
-#						naval_astar.connect_points(i, n_diag2, true)
-#					land_astar.connect_points(i, n_diag2, true)
+				# Land constraints: Land cannot cross oceanic channels (unless allowed, but keeping original logic)
+				if (not is_ocean) or (not n_is_ocean):
+					land_astar.connect_points(i, n, true)
+				else:
+					land_astar.connect_points(i, n, true)
+					naval_astar.connect_points(i, n, true)
 	
-	print("MapData: Built AStar3D pathfinding graphs for ", total_tiles, " tiles.")
+	print("MapData: Built AStar3D pathfinding decimated graphs for ", added_tiles.size(), " tiles.")
 
 func _build_mock_minimal_data() -> void:
 	var mock_tiles = 100
@@ -312,6 +312,14 @@ func find_path(start_pos: Vector3, end_pos: Vector3, unit_type: String) -> Array
 	if start_id == -1 or end_id == -1:
 		return []
 		
+	# Prevent Naval units from overriding the AStar end_pos if the actual click is on Land/Beach
+	if u_type in ["Cruiser", "Submarine"]:
+		var true_end_id = land_astar.get_closest_point(end_pos)
+		if true_end_id != -1:
+			var true_terrain = get_terrain(true_end_id)
+			if true_terrain != "OCEAN" and true_terrain != "LAKE":
+				return [] # Path rejected: Naval target must strictly be water
+				
 	var nearest_valid_end = astar.get_point_position(end_id)
 	if end_pos.distance_to(nearest_valid_end) > 0.024:
 		return []

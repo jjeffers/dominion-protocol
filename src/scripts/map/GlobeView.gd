@@ -917,6 +917,7 @@ func _generate_mesh() -> void:
 var _violation_log_cooldowns: Dictionary = {}
 var active_captures: Dictionary = {} # Tracks 10-second city capture holds { "CityName": { "faction": string, "time": float } }
 var active_oil_captures: Dictionary = {} # Tracks 30-second oil holds { "OilTile": { "faction": string, "time": float } }
+var _fow_timer: float = 0.0
 
 func _process(delta: float) -> void:
 	if not camera:
@@ -943,34 +944,41 @@ func _process(delta: float) -> void:
 	# We dynamically hide them if they rotate out of hemispheric front-view.
 	var cam_pos = camera.global_position.normalized()
 	
+	_fow_timer -= delta
+	var update_fow = false
+	if _fow_timer <= 0.0:
+		update_fow = true
+		_fow_timer = 0.20
+	
 	# Compute friendly vision anchors for Fog of War
 	var local_faction = _get_local_faction()
 			
-	friendly_unit_positions.clear()
-	friendly_air_bubbles.clear()
+	if update_fow:
+		friendly_unit_positions.clear()
+		friendly_air_bubbles.clear()
+			
+		if local_faction != "":
+			for u in units_list:
+				if not is_instance_valid(u):
+					continue
+				if u.get("faction_name") == local_faction and u.get("is_dead") != true:
+					friendly_unit_positions.append(u.global_position)
+					if u.get("unit_type") == "Air" and u.get("is_air_ready") == true:
+						var tile_id = _get_tile_from_vector3(u.global_position)
+						var air_range = 30.0 * _get_tile_width(tile_id)
+						friendly_air_bubbles.append({
+							"pos": u.global_position,
+							"range": air_range
+						})
 		
-	if local_faction != "":
-		for u in units_list:
-			if not is_instance_valid(u):
-				continue
-			if u.get("faction_name") == local_faction and u.get("is_dead") != true:
-				friendly_unit_positions.append(u.global_position)
-				if u.get("unit_type") == "Air" and u.get("is_air_ready") == true:
-					var tile_id = _get_tile_from_vector3(u.global_position)
-					var air_range = 30.0 * _get_tile_width(tile_id)
-					friendly_air_bubbles.append({
-						"pos": u.global_position,
-						"range": air_range
-					})
-	
-	# Populate friendly_city_positions for Fog of War
-	friendly_city_positions.clear() # Clear previous frame's positions
-	if local_faction != "" and active_scenario.has("factions") and active_scenario["factions"].has(local_faction):
-		var faction_cities = active_scenario["factions"][local_faction].get("cities", [])
-		for city_node in city_nodes: # Iterate through existing city nodes
-			var city_name = city_node.name # Assuming city_node.name holds the city name
-			if city_name in faction_cities:
-				friendly_city_positions.append(city_node.global_position) # Use global_position of the city node
+		# Populate friendly_city_positions for Fog of War
+		friendly_city_positions.clear() # Clear previous frame's positions
+		if local_faction != "" and active_scenario.has("factions") and active_scenario["factions"].has(local_faction):
+			var faction_cities = active_scenario["factions"][local_faction].get("cities", [])
+			for city_node in city_nodes: # Iterate through existing city nodes
+				var city_name = city_node.name # Assuming city_node.name holds the city name
+				if city_name in faction_cities:
+					friendly_city_positions.append(city_node.global_position) # Use global_position of the city node
 	
 	var valid_nodes: Array[Node3D] = []
 	for node in cullable_nodes:
@@ -987,23 +995,28 @@ func _process(delta: float) -> void:
 			
 		# Fog of War Distance Culling (only applies if we have a faction and node is an enemy unit)
 		if is_visible and local_faction != "" and node.get("faction_name") != null and node.get("faction_name") != local_faction:
-			is_visible = false
-			# 6x unit widths = 0.036 distance
-			var vision_range = 0.036
-			for f_pos in friendly_unit_positions:
-				if node.global_position.distance_to(f_pos) <= vision_range:
-					is_visible = true
-					break
-			if not is_visible:
-				for c_pos in friendly_city_positions:
-					if node.global_position.distance_to(c_pos) <= vision_range:
-						is_visible = true
+			if update_fow:
+				var fow_visible = false
+				# 6x unit widths = 0.036 distance
+				var vision_range = 0.036
+				for f_pos in friendly_unit_positions:
+					if node.global_position.distance_to(f_pos) <= vision_range:
+						fow_visible = true
 						break
-			if not is_visible:
-				for bubble in friendly_air_bubbles:
-					if node.global_position.distance_to(bubble.pos) <= bubble.range:
-						is_visible = true
-						break
+				if not fow_visible:
+					for c_pos in friendly_city_positions:
+						if node.global_position.distance_to(c_pos) <= vision_range:
+							fow_visible = true
+							break
+				if not fow_visible:
+					for bubble in friendly_air_bubbles:
+						if node.global_position.distance_to(bubble.pos) <= bubble.range:
+							fow_visible = true
+							break
+				node.set_meta("last_fow_visible", fow_visible)
+				
+			if not node.get_meta("last_fow_visible", false):
+				is_visible = false
 			
 		if is_visible and (current_air_operation_mode == "REDEPLOY" or current_air_operation_mode == "STRATEGIC_BOMBING" or deploying_unit_type != ""):
 			if node in units_list and node != selected_unit:

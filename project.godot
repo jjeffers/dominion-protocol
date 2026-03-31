@@ -11,7 +11,9 @@ config_version=5
 [application]
 
 config/name="Dominion Protocol"
-config/version="v0.9.2"
+config/version="v0.9.3"
+run/main_scene="res://src/scenes/MainMenu.tscn"
+run/max_fps=60
 run/main_scene="res://src/scenes/MainMenu.tscn"
 config/features=PackedStringArray("4.6", "Forward Plus")
 

@@ -910,3 +910,5 @@ func execute_async_setup(lobby_node: Node) -> void:
 		ConsoleManager.log_message("    GLOBAL CONFLICT AUTHORIZED    ")
 		ConsoleManager.log_message("==================================\n")
 		post_news_event("GLOBAL CONFLICT AUTHORIZED", [])
+
+	_update_economy_ui()
