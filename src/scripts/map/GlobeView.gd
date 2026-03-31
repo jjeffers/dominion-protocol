@@ -2022,8 +2022,9 @@ func _instantiate_scenario(scenario_data: Dictionary, progress_callback: Callabl
 							break
 					
 					var assigned = false
+					var adjacent_regions = {}
+					
 					if o_reg != "":
-						var adjacent_regions = {}
 						# Scan all tiles belonging to the oil region to find its neighbors
 						for t_id in map_data._region_map.keys():
 							if map_data._region_map[t_id] == o_reg:
@@ -2032,23 +2033,41 @@ func _instantiate_scenario(scenario_data: Dictionary, progress_callback: Callabl
 										var r = map_data._region_map[n]
 										if r != "" and r != o_reg and r != "WILDERNESS":
 											adjacent_regions[r] = true
-											
-						var possible_owners = []
-						if scenario_data.has("countries"):
-							for c_name in scenario_data["countries"].keys():
-								var is_neutral = true
-								if scenario_data.has("factions"):
-									for f_name in scenario_data["factions"].keys():
-										for city in scenario_data["countries"][c_name].get("cities", []):
-											if faction_regions[f_name].has(city):
-												is_neutral = false
-												break
-										if not is_neutral: break
-								if is_neutral:
+					else:
+						# Off-shore oceanic asset. Execute radial BFS to find closest coastal landmass boundaries.
+						var visited = {o_tile: true}
+						var queue = [o_tile]
+						for depth in range(12): # Max recursive projection search radius for deep oceanic platforms
+							var next_queue = []
+							for q_tile in queue:
+								for n in map_data.get_neighbors(q_tile):
+									if not visited.has(n):
+										visited[n] = true
+										next_queue.append(n)
+										if map_data._region_map.has(n):
+											var r = map_data._region_map[n]
+											if r != "" and r != "WILDERNESS":
+												adjacent_regions[r] = true
+							if adjacent_regions.size() > 0:
+								break # Halts outward momentum once the closest contiguous shores are struck
+							queue = next_queue
+
+					var possible_owners = []
+					if scenario_data.has("countries"):
+						for c_name in scenario_data["countries"].keys():
+							var is_neutral = true
+							if scenario_data.has("factions"):
+								for f_name in scenario_data["factions"].keys():
 									for city in scenario_data["countries"][c_name].get("cities", []):
-										if adjacent_regions.has(city):
-											if not possible_owners.has("COU_" + c_name):
-												possible_owners.append("COU_" + c_name)
+										if faction_regions[f_name].has(city):
+											is_neutral = false
+											break
+									if not is_neutral: break
+							if is_neutral:
+								for city in scenario_data["countries"][c_name].get("cities", []):
+									if adjacent_regions.has(city):
+										if not possible_owners.has("COU_" + c_name):
+											possible_owners.append("COU_" + c_name)
 												
 						if possible_owners.size() > 0:
 							var chosen = possible_owners[randi() % possible_owners.size()]

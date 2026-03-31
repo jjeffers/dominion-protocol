@@ -453,6 +453,13 @@ func _host_generate_scenario() -> void:
 		if c_json.parse(FileAccess.open(path, FileAccess.READ).get_as_text()) == OK:
 			c_dict = c_json.data
 			
+	var city_neighbors = {}
+	if FileAccess.file_exists("res://src/data/city_land_neighbors.json"):
+		var n_file = FileAccess.open("res://src/data/city_land_neighbors.json", FileAccess.READ)
+		var n_json = JSON.new()
+		if n_json.parse(n_file.get_as_text()) == OK:
+			city_neighbors = n_json.data
+			
 	var spath = "res://src/data/scenarios/initial_test.json"
 	if scenario_data.is_empty() and FileAccess.file_exists(spath):
 		var s_json = JSON.new()
@@ -483,26 +490,39 @@ func _host_generate_scenario() -> void:
 					f["cities"].append(chosen_center)
 					reserved.append(chosen_center)
 					
-					# Attempt to find 1 to 2 nearby cities to attach to this faction
-					var c_lat = deg_to_rad(c_dict[chosen_center].get("latitude", 0.0))
-					var c_lon = deg_to_rad(c_dict[chosen_center].get("longitude", 0.0))
-					var c_pos = Vector3(cos(c_lat)*cos(c_lon), sin(c_lat), cos(c_lat)*sin(c_lon))
-					
-					var neighbors = []
-					for other in available:
-						if other == chosen_center: continue
-						var o_lat = deg_to_rad(c_dict[other].get("latitude", 0.0))
-						var o_lon = deg_to_rad(c_dict[other].get("longitude", 0.0))
-						var o_pos = Vector3(cos(o_lat)*cos(o_lon), sin(o_lat), cos(o_lat)*sin(o_lon))
-						# Check direct chord distance
-						if c_pos.distance_to(o_pos) < 0.2: 
-							neighbors.append(other)
+					# Attempt to find 1 to 2 contiguous or nearby cities to attach to this faction
+					var count_to_add = min(randi() % 2 + 1, available.size() - 1)
+					if count_to_add > 0:
+						var c_lat = deg_to_rad(c_dict[chosen_center].get("latitude", 0.0))
+						var c_lon = deg_to_rad(c_dict[chosen_center].get("longitude", 0.0))
+						var c_pos = Vector3(cos(c_lat)*cos(c_lon), sin(c_lat), cos(c_lat)*sin(c_lon))
+						
+						var distance_map = []
+						for other in available:
+							if other == chosen_center: continue
 							
-					neighbors.shuffle()
-					var count = min(randi() % 2 + 1, neighbors.size())
-					for i in range(count):
-						f["cities"].append(neighbors[i])
-						reserved.append(neighbors[i])
+							var is_neighbor = false
+							if city_neighbors.has(chosen_center) and other in city_neighbors[chosen_center]:
+								is_neighbor = true
+								
+							var o_lat = deg_to_rad(c_dict[other].get("latitude", 0.0))
+							var o_lon = deg_to_rad(c_dict[other].get("longitude", 0.0))
+							var o_pos = Vector3(cos(o_lat)*cos(o_lon), sin(o_lat), cos(o_lat)*sin(o_lon))
+							var dist = c_pos.distance_to(o_pos)
+							
+							# Heavily prefer topological land neighbors by reducing their effective distance score
+							if is_neighbor:
+								dist *= 0.1
+								
+							distance_map.append({"city": other, "dist": dist})
+							
+						distance_map.sort_custom(func(a, b): return a["dist"] < b["dist"])
+						
+						var count = min(count_to_add, distance_map.size())
+						for i in range(count):
+							var selected = distance_map[i]["city"]
+							f["cities"].append(selected)
+							reserved.append(selected)
 						
 			# Enforce Capitol Assignment
 			if f.has("cities") and f["cities"].size() > 0:
@@ -572,13 +592,7 @@ func _host_generate_scenario() -> void:
 			if best != "":
 				temp_countries[best]["cities"].append(c_name)
 				
-		# Load land neighbors for connectivity checks
-		var city_neighbors = {}
-		if FileAccess.file_exists("res://src/data/city_land_neighbors.json"):
-			var n_file = FileAccess.open("res://src/data/city_land_neighbors.json", FileAccess.READ)
-			var n_json = JSON.new()
-			if n_json.parse(n_file.get_as_text()) == OK:
-				city_neighbors = n_json.data
+		# city_neighbors array already loaded above for faction assignment checks
 
 		var final_countries_count = 0
 		for temp_key in temp_countries.keys():

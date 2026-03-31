@@ -678,8 +678,12 @@ func take_damage(amount: float, attacker_name: String = "Unknown", is_raw: bool 
 		clear_combat_target()
 		
 		if ConsoleManager != null and (NetworkManager == null or NetworkManager.is_host):
+			var display_name = faction_name
+			var parent_map = get_parent()
+			if parent_map and parent_map.has_method("_get_fac_abbr"):
+				display_name = parent_map._get_fac_abbr(faction_name)
 			var col = "#" + base_faction_color.to_html(false)
-			var fac = "[outline_size=2][outline_color=#dddddd][color=" + col + "]" + faction_name + "[/color][/outline_color][/outline_size]"
+			var fac = "[outline_size=2][outline_color=#dddddd][color=" + col + "]" + display_name + "[/color][/outline_color][/outline_size]"
 			ConsoleManager.log_message(fac + " " + unit_type + " destroyed")
 		
 		if path_immediate_mesh:
