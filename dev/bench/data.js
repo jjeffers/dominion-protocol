@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1774999158158,
+  "lastUpdate": 1774999352954,
   "repoUrl": "https://github.com/jjeffers/dominion-protocol",
   "entries": {
     "Godot Memory Profile": [
@@ -750,6 +750,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "Client Peak Node Count",
             "value": 648,
+            "unit": "Nodes"
+          },
+          {
+            "name": "Client Peak Resource Count",
+            "value": 38,
+            "unit": "Resources"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jdjeffers@protonmail.com",
+            "name": "James Jeffers",
+            "username": "jjeffers"
+          },
+          "committer": {
+            "email": "jdjeffers@protonmail.com",
+            "name": "James Jeffers",
+            "username": "jjeffers"
+          },
+          "distinct": true,
+          "id": "c77e0fe84bca6af66d95338530c0b1ccaa6ab26f",
+          "message": "Fix UI diplomacy asset evaluator handling blank states as inherently neutral",
+          "timestamp": "2026-03-31T19:14:49-04:00",
+          "tree_id": "af1c3eb1d054921c488629d4c0aeb121b3c059e1",
+          "url": "https://github.com/jjeffers/dominion-protocol/commit/c77e0fe84bca6af66d95338530c0b1ccaa6ab26f"
+        },
+        "date": 1774999352124,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Host Peak Static Memory",
+            "value": 624,
+            "unit": "MB"
+          },
+          {
+            "name": "Host Peak Node Count",
+            "value": 831,
+            "unit": "Nodes"
+          },
+          {
+            "name": "Host Peak Resource Count",
+            "value": 39,
+            "unit": "Resources"
+          },
+          {
+            "name": "Client Peak Static Memory",
+            "value": 624,
+            "unit": "MB"
+          },
+          {
+            "name": "Client Peak Node Count",
+            "value": 829,
             "unit": "Nodes"
           },
           {
