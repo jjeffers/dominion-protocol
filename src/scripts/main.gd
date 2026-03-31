@@ -836,12 +836,12 @@ func _do_update_diplomacy_ui() -> void:
 		# Accurately reflect assets un-occupied by hostile forces
 		for city in c_data.get("cities", []):
 			var owner = globe_view._get_city_faction(city) if globe_view and globe_view.has_method("_get_city_faction") else "neutral"
-			if owner == "neutral" or c_data.get("opinions", {}).get(owner, 0.0) >= 50.0:
+			if owner == "neutral" or owner == "" or c_data.get("opinions", {}).get(owner, 0.0) >= 50.0:
 				num_cities += 1
 				
 		for oil_node in c_data.get("oil", []):
 			var owner = globe_view._get_city_faction(oil_node) if globe_view and globe_view.has_method("_get_city_faction") else "neutral"
-			if owner == "neutral" or c_data.get("opinions", {}).get(owner, 0.0) >= 50.0:
+			if owner == "neutral" or owner == "" or c_data.get("opinions", {}).get(owner, 0.0) >= 50.0:
 				num_oil += 1
 		
 		if num_cities > 0 or num_oil > 0:
