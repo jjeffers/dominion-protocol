@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1774916601944,
+  "lastUpdate": 1774916689676,
   "repoUrl": "https://github.com/jjeffers/dominion-protocol",
   "entries": {
     "Godot Memory Profile": [
@@ -318,6 +318,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "Client Peak Node Count",
             "value": 754,
+            "unit": "Nodes"
+          },
+          {
+            "name": "Client Peak Resource Count",
+            "value": 37,
+            "unit": "Resources"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jdjeffers@protonmail.com",
+            "name": "James Jeffers",
+            "username": "jjeffers"
+          },
+          "committer": {
+            "email": "jdjeffers@protonmail.com",
+            "name": "James Jeffers",
+            "username": "jjeffers"
+          },
+          "distinct": true,
+          "id": "537a6ac921ea91617ef34dd769031ef657583aa6",
+          "message": "fix: resolve submarine test suite regression from pathing refactor",
+          "timestamp": "2026-03-30T20:17:01-04:00",
+          "tree_id": "e1b5238c4e160a9666395fd2be609b212336e431",
+          "url": "https://github.com/jjeffers/dominion-protocol/commit/537a6ac921ea91617ef34dd769031ef657583aa6"
+        },
+        "date": 1774916689001,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Host Peak Static Memory",
+            "value": 928,
+            "unit": "MB"
+          },
+          {
+            "name": "Host Peak Node Count",
+            "value": 821,
+            "unit": "Nodes"
+          },
+          {
+            "name": "Host Peak Resource Count",
+            "value": 38,
+            "unit": "Resources"
+          },
+          {
+            "name": "Client Peak Static Memory",
+            "value": 927,
+            "unit": "MB"
+          },
+          {
+            "name": "Client Peak Node Count",
+            "value": 823,
             "unit": "Nodes"
           },
           {
