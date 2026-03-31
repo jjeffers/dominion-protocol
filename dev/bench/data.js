@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1774999352954,
+  "lastUpdate": 1775000114905,
   "repoUrl": "https://github.com/jjeffers/dominion-protocol",
   "entries": {
     "Godot Memory Profile": [
@@ -804,6 +804,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "Client Peak Node Count",
             "value": 829,
+            "unit": "Nodes"
+          },
+          {
+            "name": "Client Peak Resource Count",
+            "value": 38,
+            "unit": "Resources"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jdjeffers@protonmail.com",
+            "name": "James Jeffers",
+            "username": "jjeffers"
+          },
+          "committer": {
+            "email": "jdjeffers@protonmail.com",
+            "name": "James Jeffers",
+            "username": "jjeffers"
+          },
+          "distinct": true,
+          "id": "5251d422262a296aa5ca8022d8930d8dd0cfdf58",
+          "message": "Fix oceanic oil hub allocation defection and BFS coastal projection",
+          "timestamp": "2026-03-31T19:27:59-04:00",
+          "tree_id": "a668cf7b5afbc4396c1a7d2b3543b6cef4a943a2",
+          "url": "https://github.com/jjeffers/dominion-protocol/commit/5251d422262a296aa5ca8022d8930d8dd0cfdf58"
+        },
+        "date": 1775000114023,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Host Peak Static Memory",
+            "value": 625,
+            "unit": "MB"
+          },
+          {
+            "name": "Host Peak Node Count",
+            "value": 800,
+            "unit": "Nodes"
+          },
+          {
+            "name": "Host Peak Resource Count",
+            "value": 39,
+            "unit": "Resources"
+          },
+          {
+            "name": "Client Peak Static Memory",
+            "value": 625,
+            "unit": "MB"
+          },
+          {
+            "name": "Client Peak Node Count",
+            "value": 798,
             "unit": "Nodes"
           },
           {
