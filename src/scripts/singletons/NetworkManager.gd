@@ -231,6 +231,7 @@ func claim_faction(faction_name: String):
 	if not is_host:
 		return
 		
+	faction_name = faction_name.strip_edges()
 	var sender_id = multiplayer.get_remote_sender_id()
 	
 	# Verify faction isn't already taken

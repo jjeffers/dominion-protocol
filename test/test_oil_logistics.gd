@@ -118,3 +118,48 @@ func test_armor_movement_shortage_penalty():
 	
 	assert_true(abs(distance_shortage - expected_shortage_dist) <= margin_of_error, 
 		"Armor movement distance should be reduced by roughly 66% (1/3rd speed) during an oil shortage.")
+
+func test_oil_capture_unit_restrictions():
+	var oil_node = Node3D.new()
+	oil_node.name = "TOP_1_1"
+	mock_globe.add_child(oil_node)
+	oil_node.position = Vector3(1, 0, 0)
+	mock_globe.oil_nodes.append(oil_node)
+	
+	var sea_unit = load("res://src/scripts/map/GlobeUnit.gd").new()
+	sea_unit.name = "TestSub"
+	sea_unit.faction_name = "Blue"
+	sea_unit.unit_type = "Submarine"
+	mock_globe.add_child(sea_unit)
+	sea_unit.current_position = Vector3(1, 0, 0)
+	sea_unit.global_position = Vector3(1, 0, 0)
+	mock_globe.units_list.append(sea_unit)
+	
+	# Test 1: Sea unit alone cannot capture
+	for i in range(35):
+		mock_globe._process_oil_captures()
+		
+	assert_false(mock_globe.active_scenario["factions"]["Blue"].get("oil", []).has("TOP_1_1"), "Sea units cannot capture oil resources")
+	
+	# Clean up sea unit
+	mock_globe.units_list.clear()
+	sea_unit.queue_free()
+	
+	var land_unit = load("res://src/scripts/map/GlobeUnit.gd").new()
+	land_unit.name = "TestArmor"
+	land_unit.faction_name = "Red"
+	land_unit.unit_type = "Armor"
+	mock_globe.add_child(land_unit)
+	land_unit.current_position = Vector3(1, 0, 0)
+	land_unit.global_position = Vector3(1, 0, 0)
+	mock_globe.units_list.append(land_unit)
+	
+	# Test 2: Land unit alone CAN capture
+	for i in range(35):
+		mock_globe._process_oil_captures()
+		
+	assert_true(mock_globe.active_scenario["factions"]["Red"].get("oil", []).has("TOP_1_1"), "Land units can capture oil resources")
+	
+	# Cleanup
+	land_unit.queue_free()
+	oil_node.queue_free()

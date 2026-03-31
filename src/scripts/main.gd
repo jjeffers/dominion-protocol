@@ -106,6 +106,8 @@ func _ready() -> void:
 		# Ensure GlobeView explicitly relies on the scenario definitions to draw features
 		globe_view._instantiate_scenario(scenario_data)
 		
+		_focus_camera_on_capitol()
+		
 		if not multiplayer.has_multiplayer_peer() or multiplayer.is_server():
 			_spawn_tactical_ais()
 
@@ -246,6 +248,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.physical_keycode == KEY_ESCAPE:
 			if purchase_menu.visible:
 				purchase_menu.hide()
+				get_viewport().set_input_as_handled()
 		elif event.physical_keycode == KEY_N:
 			if purchase_menu.visible:
 				purchase_menu.hide()
@@ -401,6 +404,11 @@ func get_faction_name(f_id: String) -> String:
 	if scenario_data and scenario_data.has("factions") and scenario_data["factions"].has(f_id):
 		return scenario_data["factions"][f_id].get("display_name", f_id)
 	return f_id
+
+func get_faction_abbr(f_id: String) -> String:
+	if scenario_data and scenario_data.has("factions") and scenario_data["factions"].has(f_id):
+		return scenario_data["factions"][f_id].get("abbreviation", get_faction_name(f_id))
+	return f_id
 	
 var active_cities: Array[String] = []
 var active_regions: Array[String] = []
@@ -444,6 +452,9 @@ func _spawn_tactical_ais() -> void:
 			if p.has("faction") and p["faction"] != "":
 				if not p.get("name", "").begins_with("[BOT]"):
 					human_factions.append(p["faction"])
+				
+	print("SPAWN_BOTS DEBUG: human_factions array: ", human_factions)
+	print("SPAWN_BOTS DEBUG: scenario keys array: ", scenario_data["factions"].keys())
 				
 	for fac in scenario_data["factions"].keys():
 		if not (fac in human_factions):
@@ -888,6 +899,8 @@ func execute_async_setup(lobby_node: Node) -> void:
 	
 	await globe_view._instantiate_scenario(scenario_data, update_cb)
 	
+	_focus_camera_on_capitol()
+	
 	lobby_node.update_progress(95.0, "Spawning AI Commanders...")
 	await get_tree().process_frame
 	if not multiplayer.has_multiplayer_peer() or multiplayer.is_server():
@@ -912,3 +925,24 @@ func execute_async_setup(lobby_node: Node) -> void:
 		post_news_event("GLOBAL CONFLICT AUTHORIZED", [])
 
 	_update_economy_ui()
+
+func _focus_camera_on_capitol() -> void:
+	var local_id = multiplayer.get_unique_id() if multiplayer.has_multiplayer_peer() else 0
+	var local_fac = ""
+	var nm = get_node_or_null("/root/NetworkManager")
+	if nm and nm.players.has(local_id):
+		local_fac = nm.players[local_id].get("faction", "")
+		
+	if local_fac != "" and scenario_data.has("factions") and scenario_data["factions"].has(local_fac):
+		var fac_data = scenario_data["factions"][local_fac]
+		if fac_data.has("capitol") and fac_data["capitol"] != "":
+			var cap_name = fac_data["capitol"]
+			var path = "res://src/data/city_data.json"
+			if FileAccess.file_exists(path):
+				var c_json = JSON.new()
+				if c_json.parse(FileAccess.open(path, FileAccess.READ).get_as_text()) == OK:
+					if c_json.data.has(cap_name):
+						var lat = deg_to_rad(c_json.data[cap_name].get("latitude", 0.0))
+						var lon = deg_to_rad(c_json.data[cap_name].get("longitude", 0.0))
+						globe_view.set_focus(lon, lat)
+						globe_view.target_zoom = globe_view.min_zoom

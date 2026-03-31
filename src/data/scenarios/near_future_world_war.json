@@ -1,0 +1,61 @@
+{
+	"cold_war_minutes": 0.0,
+	"factions": {
+		"Faction 1": {
+			"display_name": "(to be renamed at start using faction name generator)",
+			"color": "#0000FF",
+			"cities": [],
+			"oil_stored": 500.0,
+			"money": 100.0,
+			"units": []
+		},
+		"Faction 2": {
+			"display_name": "(to be renamed at start using faction name generator)",
+			"color": "#FF0000",
+			"cities": [],
+			"oil_stored": 500.0,
+			"money": 100.0,
+			"units": []
+		}
+	},
+	"name": "Near Future World War",
+	"neutral_cities": [
+		"London",
+		"Paris",
+		"Luxembourg",
+		"Brussels",
+		"Marseille",
+		"Amsterdam",
+		"Bordeaux",
+		"Hamburg",
+		"Berlin",
+		"Munich",
+		"Prague",
+		"Königsberg",
+		"Athens",
+		"Geneva",
+		"Sevastopol",
+		"Tunis"
+	],
+	"neutral_oil": [
+		"North Slope",
+		"Siberia",
+		"Volga-Urals 1",
+		"Volga-Urals 2",
+		"Texas / Mid-Con",
+		"Baku / Caucasus",
+		"Gulf of Mexico 1",
+		"Gulf of Mexico 2",
+		"Kuwait Hub",
+		"Iranian Hub",
+		"Saudi Hub",
+		"Libyan Hub",
+		"Oman / UAE",
+		"Indonesia",
+		"Iraq / Basra",
+		"Central Asia",
+		"Venezuela",
+		"Brazil / Pre-Salt",
+		"West Africa"
+	]
+}

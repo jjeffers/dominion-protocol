@@ -80,6 +80,17 @@ func _get_fac_color_hex(fac_key: String) -> String:
 		return active_scenario["factions"][fac_key].get("color", "#CCCCCC")
 	return "#CCCCCC"
 
+func _get_fac_abbr(fac_key: String) -> String:
+	var main_node = get_node_or_null("/root/Main")
+	if main_node and main_node.has_method("get_faction_abbr"):
+		return main_node.get_faction_abbr(fac_key)
+	return fac_key
+
+func _get_fac_color_rich(fac_key: String) -> String:
+	var col = _get_fac_color_hex(fac_key)
+	var abbr = _get_fac_abbr(fac_key)
+	return "[outline_size=2][outline_color=#dddddd][color=" + col + "]" + abbr + "[/color][/outline_color][/outline_size]"
+
 func _get_standard_unit_name(faction: String, type: String) -> String:
 	var f = faction.capitalize()
 	if f == "":
@@ -419,7 +430,7 @@ func _on_air_strike_requested(sender_id: int, unit_name: String, target_unit_nam
 	if NetworkManager.players.has(sender_id):
 		attacker_player_name = NetworkManager.players[sender_id].get("name", "Unknown")
 		
-	ConsoleManager.log_message("\n[outline_size=2][outline_color=#dddddd][color=cyan]AIR STRIKE REQUESTED:[/color][/outline_color][/outline_size] [color=yellow]" + attacker_player_name + " (" + attacker_faction + ")[/color] targeting [outline_size=2][outline_color=#dddddd][color=red]" + target_unit_name + "[/color][/outline_color][/outline_size]")
+	ConsoleManager.log_message("\n[outline_size=2][outline_color=#dddddd][color=cyan]AIR STRIKE REQUESTED:[/color][/outline_color][/outline_size] [color=yellow]" + attacker_player_name + "[/color] (" + _get_fac_color_rich(attacker_faction) + ") targeting [outline_size=2][outline_color=#dddddd][color=red]" + target_unit_name + "[/color][/outline_color][/outline_size]")
 		
 	var valid_counters = []
 	var total_interception_chance = 0.0
@@ -471,7 +482,7 @@ func _on_air_strike_requested(sender_id: int, unit_name: String, target_unit_nam
 			if NetworkManager.players[pid].get("faction", "") == counter_faction:
 				counter_player = NetworkManager.players[pid].get("name", "Unknown")
 				break
-		ConsoleManager.log_message(str("  -> Intercepted by ", counter_name, " ([color=yellow]", counter_player, " - ", counter_faction, "[/color]). Ready: ", c_ready))
+		ConsoleManager.log_message(str("  -> Intercepted by ", counter_name, " ([color=yellow]", counter_player, "[/color] - ", _get_fac_color_rich(counter_faction), "). Ready: ", c_ready))
 		
 		# Roll interception outcome
 		var roll = randf()
@@ -572,7 +583,7 @@ func _on_strategic_bombing_requested(sender_id: int, unit_name: String, target_c
 	if target_tile == -1: return
 	var target_pos = map_data.get_centroid(target_tile).normalized() * radius
 		
-	ConsoleManager.log_message("\n[outline_size=2][outline_color=#dddddd][color=cyan]STRATEGIC BOMBING REQUESTED:[/color][/outline_color][/outline_size] [color=yellow]" + attacker_player_name + " (" + attacker_faction + ")[/color] targeting [outline_size=2][outline_color=#dddddd][color=red]" + target_city + "[/color][/outline_color][/outline_size]")
+	ConsoleManager.log_message("\n[outline_size=2][outline_color=#dddddd][color=cyan]STRATEGIC BOMBING REQUESTED:[/color][/outline_color][/outline_size] [color=yellow]" + attacker_player_name + "[/color] (" + _get_fac_color_rich(attacker_faction) + ") targeting [outline_size=2][outline_color=#dddddd][color=red]" + target_city + "[/color][/outline_color][/outline_size]")
 		
 	var valid_counters = []
 	var total_interception_chance = 0.0
@@ -1117,6 +1128,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			deployment_ghost.visible = false
 			_update_city_highlights(false)
 			canceled_something = true
+			var main_node = get_node_or_null("/root/MainScene")
+			if main_node and main_node.has_method("refund_purchase"):
+				main_node.refund_purchase()
 		if is_deploying_foreign_aid:
 			is_deploying_foreign_aid = false
 			if foreign_aid_bracket: foreign_aid_bracket.visible = false
@@ -1227,12 +1241,15 @@ func _process_diplomacy() -> void:
 						break
 							
 			if c_name != "":
-				var is_neutral = false
+				var is_neutral = true
 				var c_data = active_scenario["countries"][c_name]
-				if c_data.has("cities"):
+				if c_data.has("cities") and active_scenario.has("factions"):
 					for city in c_data["cities"]:
-						if active_scenario.has("neutral_cities") and active_scenario["neutral_cities"].has(city):
-							is_neutral = true
+						for f_name in active_scenario["factions"].keys():
+							if active_scenario["factions"][f_name].has("cities") and city in active_scenario["factions"][f_name]["cities"]:
+								is_neutral = false
+								break
+						if not is_neutral:
 							break
 							
 				if is_neutral:
@@ -1306,9 +1323,7 @@ func _evaluate_country_alignment(country_name: String, triggering_faction: Strin
 			if active_scenario.has("factions") and active_scenario["factions"].has(loves_faction) and not active_scenario["factions"][loves_faction].get("eliminated", false):
 				print("DIPLOMACY: ", country_name, " has joined the ", loves_faction, " faction due to high opinion!")
 				if ConsoleManager and ConsoleManager.has_method("local_log_message"):
-					var col = _get_fac_color_hex(loves_faction)
-					var fac_name = active_scenario["factions"][loves_faction].get("display_name", loves_faction) if (active_scenario.has("factions") and active_scenario["factions"].has(loves_faction)) else loves_faction
-					var f_str = "[color=" + col + "]" + fac_name + "[/color]"
+					var f_str = _get_fac_color_rich(loves_faction)
 					ConsoleManager.local_log_message("SYSTEM: " + country_name + " has joined the " + f_str + " alliance!")
 				if get_node_or_null("/root/NetworkManager") and NetworkManager.is_host:
 					if c_data.has("cities"):
@@ -1347,9 +1362,7 @@ func _evaluate_country_alignment(country_name: String, triggering_faction: Strin
 			if best_fac != "" and active_scenario.has("factions") and active_scenario["factions"].has(best_fac):
 				print("DIPLOMACY: ", country_name, " has joined the ", best_fac, " faction in response to aggression!")
 				if ConsoleManager and ConsoleManager.has_method("local_log_message"):
-					var col = _get_fac_color_hex(best_fac)
-					var fac_name = active_scenario["factions"][best_fac].get("display_name", best_fac) if (active_scenario.has("factions") and active_scenario["factions"].has(best_fac)) else best_fac
-					var f_str = "[color=" + col + "]" + fac_name + "[/color]"
+					var f_str = _get_fac_color_rich(best_fac)
 					ConsoleManager.local_log_message("SYSTEM: " + country_name + " has joined the " + f_str + " alliance!")
 				if get_node_or_null("/root/NetworkManager") and NetworkManager.is_host:
 					if best_op < 50.0:
@@ -1374,8 +1387,7 @@ func sync_diplomatic_penalty(country_name: String, faction: String, penalty: flo
 	c_data["opinions"][faction] = current_opinion - penalty
 	
 	if ConsoleManager and log_reason == "Invasion":
-		var col = _get_fac_color_hex(faction)
-		var f_str = "[outline_size=2][outline_color=#dddddd][color=" + col + "]" + faction + "[/color][/outline_color][/outline_size]"
+		var f_str = _get_fac_color_rich(faction)
 		var should_log = (current_opinion == 0.0) or (current_opinion > -99.0 and int(abs(current_opinion)) % 10 == 0)
 		
 		var cooldown_key = faction + "_" + country_name
@@ -1385,7 +1397,7 @@ func sync_diplomatic_penalty(country_name: String, faction: String, penalty: flo
 			
 			var main_node = get_node_or_null("/root/Main")
 			if main_node and main_node.has_method("post_news_event"):
-				main_node.post_news_event(faction + " violated the neutrality of " + country_name + "!", [faction])
+				main_node.post_news_event(_get_fac_abbr(faction) + " violated the neutrality of " + country_name + "!", [])
 			
 	# Suppressed localized console messages about basic alignment deteriorations per user request.
 	# Major defection announcements remain managed inside `_evaluate_country_alignment()`.
@@ -1444,7 +1456,7 @@ func _process_city_captures() -> void:
 				continue
 			if u.get("is_dead") != true:
 				var dist = city_node.position.distance_to(u.position) / radius
-				if dist <= 0.01:
+				if dist <= 0.015:
 					var fac = u.get("faction_name")
 					if u.get("unit_type") in ["Infantry", "Armor"]:
 						if not land_factions.has(fac): land_factions.append(fac)
@@ -1480,7 +1492,15 @@ func _process_city_captures() -> void:
 								if op < 50.0:
 									rpc("sync_diplomatic_penalty", c_name, capturing_faction, 100.0, "Captured Neutral City")
 								break
-					rpc("sync_city_capture", city_node.name, capturing_faction, current_owner)
+								
+					var final_city_owner = "neutral"
+					if active_scenario.has("factions"):
+						for f_name in active_scenario["factions"].keys():
+							if active_scenario["factions"][f_name].has("cities") and city_node.name in active_scenario["factions"][f_name]["cities"]:
+								final_city_owner = f_name
+								break
+								
+					rpc("sync_city_capture", city_node.name, capturing_faction, final_city_owner)
 			else:
 				# Reset progress if contested or already owned
 				active_captures.erase(city_node.name)
@@ -1506,7 +1526,7 @@ func _process_oil_captures() -> void:
 			if not is_instance_valid(u): continue
 			if u.get("is_dead") != true:
 				var dist = oil_node.position.distance_to(u.position) / radius
-				if dist <= 0.01:
+				if dist <= 0.015:
 					var fac = u.get("faction_name")
 					if u.get("unit_type") in ["Infantry", "Armor"]:
 						if not land_factions.has(fac): land_factions.append(fac)
@@ -1530,7 +1550,15 @@ func _process_oil_captures() -> void:
 					
 				if active_oil_captures[tile_id]["time"] >= 30.0:
 					active_oil_captures.erase(tile_id)
-					rpc("sync_oil_capture", tile_id, capturing_faction, current_owner)
+					
+					var final_oil_owner = "neutral"
+					if active_scenario.has("factions"):
+						for f_name in active_scenario["factions"].keys():
+							if active_scenario["factions"][f_name].has("oil") and tile_id in active_scenario["factions"][f_name]["oil"]:
+								final_oil_owner = f_name
+								break
+								
+					rpc("sync_oil_capture", tile_id, capturing_faction, final_oil_owner)
 			else:
 				active_oil_captures.erase(tile_id)
 		else:
@@ -1541,8 +1569,8 @@ func sync_city_capture(city_name: String, new_faction: String, old_faction: Stri
 	print("City Capture: ", city_name, " captured by ", new_faction, " from ", old_faction)
 	var network_manager = get_node_or_null("/root/NetworkManager")
 	if network_manager and network_manager.is_host:
-		var old_str = old_faction if old_faction != "neutral" else "neutral forces"
-		var alert_str = city_name + " was captured by " + new_faction + " from " + old_str + "."
+		var old_str = _get_fac_color_rich(old_faction) if old_faction != "neutral" else "neutral forces"
+		var alert_str = city_name + " was captured by " + _get_fac_color_rich(new_faction) + " from " + old_str + "."
 		ConsoleManager.log_message(alert_str)
 		
 	if network_manager and multiplayer.has_multiplayer_peer():
@@ -1641,8 +1669,8 @@ func sync_oil_capture(oil_id: String, new_faction: String, old_faction: String) 
 	print("Oil Capture: ", oil_id, " captured by ", new_faction, " from ", old_faction)
 	var network_manager = get_node_or_null("/root/NetworkManager")
 	if network_manager and network_manager.is_host:
-		var old_str = old_faction if old_faction != "neutral" else "neutral forces"
-		var alert_str = "An oil hub was captured by " + new_faction + " from " + old_str + "."
+		var old_str = _get_fac_color_rich(old_faction) if old_faction != "neutral" else "neutral forces"
+		var alert_str = "An oil hub was captured by " + _get_fac_color_rich(new_faction) + " from " + old_str + "."
 		ConsoleManager.log_message(alert_str)
 	
 	# Remove old ownership
@@ -1679,10 +1707,8 @@ func sync_nuke_purchase(faction: String, cost: float) -> void:
 		fac_data["money"] = money - cost
 		fac_data["nukes"] = fac_data.get("nukes", 0) + 1
 		if ConsoleManager:
-			var col = _get_fac_color_hex(faction)
-			var fac = "[outline_size=2][outline_color=#dddddd][color=" + col + "]" + faction + "[/color][/outline_color][/outline_size]"
 			# Print to all consoles universally since everyone dreads a nuke
-			ConsoleManager.log_message("SYSTEM: " + fac + " has acquired a Nuclear Weapon.")
+			ConsoleManager.log_message("SYSTEM: " + _get_fac_color_rich(faction) + " has acquired a Nuclear Weapon.")
 		# Ping local economy UI to refresh
 		var main_node = get_node_or_null("/root/Main")
 		if main_node and main_node.has_method("_update_economy_ui"):
@@ -1748,14 +1774,13 @@ func sync_foreign_aid(country_name: String, faction: String) -> void:
 		var new_op = min(100.0, current_op + shift)
 		c_data["opinions"][faction] = new_op
 	
-	var col = _get_fac_color_hex(faction)
-	var fac_str = "[outline_size=2][outline_color=#dddddd][color=" + col + "]" + faction + "[/color][/outline_color][/outline_size]"
+	var fac_str = _get_fac_color_rich(faction)
 	if ConsoleManager and ConsoleManager.has_method("local_log_message"):
 		ConsoleManager.local_log_message("SYSTEM: " + fac_str + " provided Foreign Aid to " + country_name + ".")
 	
 	var main_node = get_node_or_null("/root/Main")
 	if main_node and main_node.has_method("post_news_event"):
-		main_node.post_news_event(faction + " provided Foreign Aid to " + country_name, [faction])
+		main_node.post_news_event(_get_fac_abbr(faction) + " provided Foreign Aid to " + country_name, [faction])
 	
 	_evaluate_country_alignment(country_name, faction)
 	if main_node and main_node.has_method("_update_economy_ui"):
@@ -1796,7 +1821,7 @@ func sync_unit_purchase(city_name: String, unit_type: String, faction: String, c
 					break
 
 		if should_log:
-			ConsoleManager.local_log_message(fac + " deployed " + unit_type + " in " + city_name)
+			ConsoleManager.local_log_message(_get_fac_color_rich(fac) + " deployed " + unit_type + " in " + city_name)
 	
 	# Universally enforce native deploy locks across host and all clients internally
 	city_cooldowns[city_name] = 300.0

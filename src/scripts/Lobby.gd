@@ -16,30 +16,201 @@ var main_scene_path: String = "res://src/scenes/main.tscn"
 var scenario_data: Dictionary = {}
 var faction_buttons: Dictionary = {}
 var money_spinboxes: Dictionary = {}
+var available_scenarios: Array[String] = []
+var scenario_dropdown: OptionButton
+var scenario_label: Label
+var available_colors: Array[Color] = [
+	Color.RED, Color.BLUE, Color.GOLD, Color.GREEN, Color.BLACK, 
+	Color.PURPLE, Color.ORANGE, Color.YELLOW, Color.CYAN, Color.MAGENTA, 
+	Color.WHITE, Color.GRAY
+]
 
 func _ready():
+	# Build the Scenario Header UI
+	var vbox = $CenterContainer/VBoxContainer
+	
+	var scenario_hbox = HBoxContainer.new()
+	scenario_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	scenario_hbox.add_theme_constant_override("separation", 20)
+	
+	var slabel = Label.new()
+	slabel.text = "Scenario:"
+	slabel.add_theme_font_size_override("font_size", 48)
+	scenario_hbox.add_child(slabel)
+	
+	scenario_label = Label.new()
+	scenario_label.add_theme_font_size_override("font_size", 48)
+	scenario_label.self_modulate = Color(0.7, 0.7, 1.0)
+	scenario_hbox.add_child(scenario_label)
+	
+	scenario_dropdown = OptionButton.new()
+	scenario_dropdown.add_theme_font_size_override("font_size", 42)
+	scenario_dropdown.get_popup().add_theme_font_size_override("font_size", 42)
+	scenario_dropdown.item_selected.connect(_on_scenario_selected)
+	scenario_hbox.add_child(scenario_dropdown)
+	
+	vbox.add_child(scenario_hbox)
+	vbox.move_child(scenario_hbox, 3) # Insert right above faction lists
+	
+	_load_available_scenarios()
+	
 	if GameStateManager != null and not GameStateManager.current_loaded_state.is_empty():
 		scenario_data = GameStateManager.current_loaded_state.duplicate(true)
+		_build_faction_ui()
 	else:
-		var spath = "res://src/data/scenarios/initial_test.json"
-		if FileAccess.file_exists(spath):
-			var s_json = JSON.new()
-			if s_json.parse(FileAccess.open(spath, FileAccess.READ).get_as_text()) == OK:
-				scenario_data = s_json.data
+		if NetworkManager.is_host:
+			_load_scenario_index(0)
+		else:
+			rpc_id(1, "request_scenario_sync")
+	
+	start_btn.pressed.connect(_on_start_game)
+	
+	NetworkManager.players_updated.connect(_update_ui)
+	NetworkManager.game_started.connect(_on_game_started)
+	NetworkManager.initial_countries_received.connect(_on_initial_countries_received)
+
+	var args = OS.get_cmdline_args()
+	for arg in args:
+		if arg.begins_with("--faction="):
+			var parts = arg.split("=")
+			if parts.size() > 1:
+				var fac = parts[1].replace("\"", "").replace("'", "").strip_edges()
+				if NetworkManager.is_host or multiplayer.has_multiplayer_peer() and multiplayer.get_unique_id() != 0:
+					_on_join_faction(fac)
+				else:
+					NetworkManager.connection_succeeded.connect(func(): _on_join_faction(fac))
+		if arg.begins_with("--scenario="):
+			var parts = arg.split("=")
+			if parts.size() > 1 and NetworkManager.is_host:
+				var target_s = parts[1].replace("\"", "").replace("'", "").strip_edges()
+				for i in range(available_scenarios.size()):
+					if target_s.to_lower() in available_scenarios[i].get_file().to_lower():
+						scenario_dropdown.select(i)
+						_load_scenario_index(i)
+						break
+		if arg == "--auto-start":
+			auto_start = true
+
+func _load_available_scenarios():
+	available_scenarios.clear()
+	scenario_dropdown.clear()
+	
+	var dir = DirAccess.open("res://src/data/scenarios/")
+	if dir:
+		dir.list_dir_begin()
+		var file_name = dir.get_next()
+		while file_name != "":
+			if not dir.current_is_dir() and file_name.ends_with(".json"):
+				available_scenarios.append("res://src/data/scenarios/" + file_name)
+			file_name = dir.get_next()
 			
+	available_scenarios.sort()
+	
+	for path in available_scenarios:
+		var disp_name = path.get_file()
+		var file = FileAccess.open(path, FileAccess.READ)
+		var json = JSON.new()
+		if json.parse(file.get_as_text()) == OK and json.data.has("name"):
+			disp_name = json.data["name"]
+		scenario_dropdown.add_item(disp_name)
+			
+func _on_scenario_selected(idx: int) -> void:
+	if NetworkManager.is_host:
+		_load_scenario_index(idx)
+
+func _load_scenario_index(idx: int) -> void:
+	if idx < 0 or idx >= available_scenarios.size():
+		return
+		
+	var path = available_scenarios[idx]
+	if FileAccess.file_exists(path):
+		var file = FileAccess.open(path, FileAccess.READ)
+		var json = JSON.new()
+		if json.parse(file.get_as_text()) == OK:
+			scenario_data = json.data.duplicate(true)
+			_process_scenario_defaults()
+			_build_faction_ui()
+			rpc("sync_scenario", scenario_data)
+
+func _process_scenario_defaults() -> void:
+	if not scenario_data.has("factions"):
+		return
+		
+	var used_colors = []
+	for f in scenario_data["factions"].values():
+		if f.has("color") and f["color"] != "":
+			used_colors.append(Color(f["color"]))
+			
+	for fac_key in scenario_data["factions"].keys():
+		var fac = scenario_data["factions"][fac_key]
+		var d_name = fac.get("display_name", "")
+		
+		# Generate name if explicitly asked or missing
+		if d_name == "" or "(to be renamed" in d_name or fac_key.begins_with("Faction"):
+			fac["display_name"] = FactionNameGenerator.generate_faction_name()
+			
+		var final_d_name = fac.get("display_name", fac_key)
+		if not fac.has("abbreviation") or fac["abbreviation"] == "":
+			fac["abbreviation"] = FactionNameGenerator.generate_faction_acronym(final_d_name)
+			
+		if not fac.has("color") or fac["color"] == "":
+			var picked = Color.WHITE
+			for c in available_colors:
+				if not c in used_colors:
+					picked = c
+					break
+			used_colors.append(picked)
+			fac["color"] = "#" + picked.to_html(false)
+			
+		if not fac.has("money"):
+			fac["money"] = 100.0
+
+@rpc("any_peer", "call_local", "reliable")
+func request_scenario_sync() -> void:
+	if NetworkManager.is_host:
+		var sender_id = multiplayer.get_remote_sender_id()
+		rpc_id(sender_id, "sync_scenario", scenario_data)
+
+@rpc("authority", "call_local", "reliable")
+func sync_scenario(s_data: Dictionary) -> void:
+	scenario_data = s_data
+	_build_faction_ui()
+
+func _build_faction_ui():
 	for child in faction_button_container.get_children():
 		child.queue_free()
 		
+	faction_buttons.clear()
+	money_spinboxes.clear()
+	
+	var s_name = scenario_data.get("name", "Unknown Scenario")
+	scenario_dropdown.visible = NetworkManager.is_host
+	scenario_label.visible = not NetworkManager.is_host
+	scenario_label.text = s_name
+	
+	if NetworkManager.is_host:
+		for i in range(scenario_dropdown.item_count):
+			if scenario_dropdown.get_item_text(i) == s_name:
+				scenario_dropdown.select(i)
+				break
+				
 	if scenario_data.has("factions"):
 		for fac_key in scenario_data["factions"].keys():
 			var fac = scenario_data["factions"][fac_key]
-			
 			var vbox = VBoxContainer.new()
 			vbox.add_theme_constant_override("separation", 10)
 			
 			var btn = Button.new()
 			var d_name = fac.get("display_name", fac_key)
-			btn.text = "Join " + d_name + " (" + fac_key + ")"
+			var oil_reserves = fac.get("oil_stored", 0)
+			if fac.has("oil"):
+				oil_reserves += fac["oil"].size() * 500
+				
+			var oil_text = ""
+			if oil_reserves > 0:
+				oil_text = " [Oil: " + str(oil_reserves) + "]"
+				
+			btn.text = "Join " + d_name + " (" + fac_key + ")" + oil_text
 			btn.add_theme_font_size_override("font_size", 54)
 			btn.custom_minimum_size = Vector2(300, 80)
 			
@@ -55,7 +226,6 @@ func _ready():
 			
 			var money_hbox = HBoxContainer.new()
 			money_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
-			
 			var money_label = Label.new()
 			money_label.text = "Starting Money:"
 			money_label.add_theme_font_size_override("font_size", 48)
@@ -65,13 +235,9 @@ func _ready():
 			money_spin.min_value = 0
 			money_spin.max_value = 99999
 			money_spin.step = 10
-			var starting_money = fac.get("money", 0.0)
-			if fac.has("oil"):
-				starting_money += fac["oil"].size() * 50.0
-			money_spin.value = starting_money
+			money_spin.value = fac.get("money", 100.0)
 			money_spin.add_theme_font_size_override("font_size", 48)
 			money_spin.get_line_edit().add_theme_font_size_override("font_size", 48)
-			# We'll update the editable state in _update_ui()
 			money_spin.value_changed.connect(func(val): _on_money_changed(fac_key, val))
 			money_spinboxes[fac_key] = money_spin
 			money_hbox.add_child(money_spin)
@@ -80,22 +246,6 @@ func _ready():
 			faction_button_container.add_child(vbox)
 			
 	_update_ui()
-	
-	start_btn.pressed.connect(_on_start_game)
-	
-	NetworkManager.players_updated.connect(_update_ui)
-	NetworkManager.game_started.connect(_on_game_started)
-	NetworkManager.initial_countries_received.connect(_on_initial_countries_received)
-
-	var args = OS.get_cmdline_args()
-	for arg in args:
-		if arg.begins_with("--faction="):
-			var parts = arg.split("=")
-			if parts.size() > 1:
-				var fac = parts[1]
-				_on_join_faction(fac)
-		if arg == "--auto-start":
-			auto_start = true
 
 func _update_ui():
 	# Only host can start game
@@ -139,7 +289,6 @@ func _update_ui():
 		# If auto-starting is queued, wait until the client (at least 2 players total) connects and claims a faction
 		if auto_start and all_ready and NetworkManager.players.size() >= 2:
 			_on_start_game()
-
 
 func _on_join_faction(fac: String):
 	NetworkManager.rpc_id(1, "claim_faction", fac)
@@ -268,12 +417,69 @@ func _host_generate_scenario() -> void:
 		if s_json.parse(FileAccess.open(spath, FileAccess.READ).get_as_text()) == OK:
 			scenario_data = s_json.data
 			
+	# Dynamically allocate cities to factions that don't have them
+	if scenario_data.has("factions") and not c_dict.is_empty():
+		var all_cities_arr = c_dict.keys()
+		var reserved = []
+		if scenario_data.has("neutral_cities"):
+			reserved.append_array(scenario_data["neutral_cities"])
+		for f in scenario_data["factions"].values():
+			if f.has("cities") and f["cities"].size() > 0:
+				reserved.append_array(f["cities"])
+				
+		for f_id in scenario_data["factions"].keys():
+			var f = scenario_data["factions"][f_id]
+			if not f.has("cities") or f["cities"].size() == 0:
+				f["cities"] = []
+				var available = []
+				for c in all_cities_arr:
+					if not c in reserved:
+						available.append(c as String)
+				
+				if available.size() > 0:
+					var chosen_center = available[randi() % available.size()]
+					f["cities"].append(chosen_center)
+					reserved.append(chosen_center)
+					
+					# Attempt to find 1 to 2 nearby cities to attach to this faction
+					var c_lat = deg_to_rad(c_dict[chosen_center].get("latitude", 0.0))
+					var c_lon = deg_to_rad(c_dict[chosen_center].get("longitude", 0.0))
+					var c_pos = Vector3(cos(c_lat)*cos(c_lon), sin(c_lat), cos(c_lat)*sin(c_lon))
+					
+					var neighbors = []
+					for other in available:
+						if other == chosen_center: continue
+						var o_lat = deg_to_rad(c_dict[other].get("latitude", 0.0))
+						var o_lon = deg_to_rad(c_dict[other].get("longitude", 0.0))
+						var o_pos = Vector3(cos(o_lat)*cos(o_lon), sin(o_lat), cos(o_lat)*sin(o_lon))
+						# Check direct chord distance
+						if c_pos.distance_to(o_pos) < 0.2: 
+							neighbors.append(other)
+							
+					neighbors.shuffle()
+					var count = min(randi() % 2 + 1, neighbors.size())
+					for i in range(count):
+						f["cities"].append(neighbors[i])
+						reserved.append(neighbors[i])
+						
+			# Enforce Capitol Assignment
+			if f.has("cities") and f["cities"].size() > 0:
+				if not f.has("capitol") or f["capitol"] == "":
+					f["capitol"] = f["cities"][0]
+	
+	# Finally push the fully hydrated faction payload down to all connected clients
+	rpc("sync_scenario", scenario_data)
+			
 	var active_cities = []
 	if scenario_data.has("factions"):
 		for f in scenario_data["factions"].values():
 			if f.has("cities"): active_cities.append_array(f["cities"])
-	if scenario_data.has("neutral_cities"):
-		active_cities.append_array(scenario_data["neutral_cities"])
+			
+	# We intentionally bypass appending neutral_cities to active_cities here
+	# so that they are dumped into the unaligned array and grouped into
+	# actual, formal dynamic countries which will render political borders natively.
+	# if scenario_data.has("neutral_cities"):
+	# 	active_cities.append_array(scenario_data["neutral_cities"])
 		
 	var all_cities = c_dict.keys()
 	var unaligned = []

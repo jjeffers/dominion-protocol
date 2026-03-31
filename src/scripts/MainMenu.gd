@@ -86,6 +86,7 @@ func _load_config():
 		host_port_input.text = str(last_host_port)
 		join_port_input.text = str(last_port)
 		player_name_input.text = last_name
+		NetworkManager.local_player_name = last_name
 
 
 func _save_config():
