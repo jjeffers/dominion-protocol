@@ -580,10 +580,13 @@ func set_target(pos: Vector3) -> void:
 				apply_sync_path(new_path, pos)
 	else:
 		if should_calc:
+			# If there's no pathing map context, we're either an Air unit or in isolated Headless Unit Testing.
+			# Synthesize a linear tracking point so the physical engine evaluates test movements locally.
+			var mock_path: Array = [pos]
 			if multiplayer.has_multiplayer_peer():
-				rpc("apply_sync_path", [], pos)
+				rpc("apply_sync_path", mock_path, pos)
 			else:
-				apply_sync_path([], pos)
+				apply_sync_path(mock_path, pos)
 
 func set_movement_target_unit(target: GlobeUnit) -> void:
 	movement_target_unit = target
