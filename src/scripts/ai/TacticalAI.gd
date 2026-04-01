@@ -76,7 +76,9 @@ func _evaluate_state() -> void:
 			_handle_production()
 			_handle_air_ops()
 			_handle_nuke_ops()
-			if owned_units.size() >= 3 or (aggression_factor > 0.8 and owned_units.size() > 0):
+			
+			var enemy_visible = _is_any_enemy_visible()
+			if owned_units.size() >= 3 or (aggression_factor > 0.8 and owned_units.size() > 0) or (not enemy_visible and owned_units.size() > 0):
 				current_state = AIState.ATTACKING
 				
 		AIState.ATTACKING:
@@ -104,16 +106,34 @@ func _refresh_owned_units() -> void:
 	if is_instance_valid(target_city) and target_city.name in own_cities:
 		target_city = null
 		
-	# Automatically calculate rally point near our average city position or unit position
+	# Automatically calculate rally point near our target city, or fallback to average position
 	if rally_point == Vector3.ZERO:
-		var sum_pos = Vector3.ZERO
-		var count = 0
-		for cn in globe_view.city_nodes:
-			if is_instance_valid(cn) and cn.name in own_cities:
-				sum_pos += cn.global_position
-				count += 1
-		if count > 0:
-			rally_point = (sum_pos / float(count)).normalized() * globe_view.radius
+		if not is_instance_valid(target_city):
+			target_city = _find_high_value_target()
+			
+		if is_instance_valid(target_city):
+			var best_rally = Vector3.ZERO
+			var min_dist = INF
+			for cn in globe_view.city_nodes:
+				if is_instance_valid(cn) and cn.name in own_cities:
+					var dist = cn.global_position.distance_to(target_city.global_position)
+					if dist < min_dist:
+						min_dist = dist
+						best_rally = cn.global_position
+			
+			if best_rally != Vector3.ZERO:
+				rally_point = best_rally
+			else:
+				rally_point = target_city.global_position
+		else:
+			var sum_pos = Vector3.ZERO
+			var count = 0
+			for cn in globe_view.city_nodes:
+				if is_instance_valid(cn) and cn.name in own_cities:
+					sum_pos += cn.global_position
+					count += 1
+			if count > 0:
+				rally_point = (sum_pos / float(count)).normalized() * globe_view.radius
 
 func _handle_production() -> void:
 	var main_scene = get_node_or_null("/root/Main")
@@ -384,8 +404,9 @@ func _find_high_value_target() -> Node3D:
 			
 		var t_faction = globe_view._get_city_faction(t.name)
 		if t_faction == "neutral":
-			# Huge penalty for targeting neutral neutral cities to avoid the -100 opinion penalty
-			dist *= 10.0
+			# Moderate penalty for targeting neutral cities to avoid the -100 opinion penalty,
+			# but small enough that the AI will still secure local borders instead of marching across the world.
+			dist *= 2.5
 			
 		# Structural noise generation (10% variance) breaks deterministic array cycling permanently
 		dist *= randf_range(0.9, 1.1)
@@ -761,6 +782,13 @@ func _is_enemy_visible_to_faction(enemy: Node3D) -> bool:
 			if c_node and c_node.global_position.distance_to(e_pos) <= vision_range:
 				return true
 
+	return false
+
+func _is_any_enemy_visible() -> bool:
+	for enemy in globe_view.units_list:
+		if is_instance_valid(enemy) and not enemy.get("is_dead") and enemy.get("faction_name") != faction_name:
+			if _is_enemy_visible_to_faction(enemy):
+				return true
 	return false
 
 func _process_unit_repair(u: Node3D) -> bool:
