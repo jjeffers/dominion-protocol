@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775045439055,
+  "lastUpdate": 1775045455989,
   "repoUrl": "https://github.com/jjeffers/dominion-protocol",
   "entries": {
     "Godot Memory Profile": [
@@ -966,6 +966,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "Client Peak Node Count",
             "value": 818,
+            "unit": "Nodes"
+          },
+          {
+            "name": "Client Peak Resource Count",
+            "value": 38,
+            "unit": "Resources"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jdjeffers@protonmail.com",
+            "name": "James Jeffers",
+            "username": "jjeffers"
+          },
+          "committer": {
+            "email": "jdjeffers@protonmail.com",
+            "name": "James Jeffers",
+            "username": "jjeffers"
+          },
+          "distinct": true,
+          "id": "647680a48ac9b8b03aba35b04fd40d21e7eb8b4f",
+          "message": "Version v0.10.0",
+          "timestamp": "2026-04-01T08:03:23-04:00",
+          "tree_id": "de9cea29a621073c09eccb2f9789b305fd2b421b",
+          "url": "https://github.com/jjeffers/dominion-protocol/commit/647680a48ac9b8b03aba35b04fd40d21e7eb8b4f"
+        },
+        "date": 1775045455672,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Host Peak Static Memory",
+            "value": 624,
+            "unit": "MB"
+          },
+          {
+            "name": "Host Peak Node Count",
+            "value": 816,
+            "unit": "Nodes"
+          },
+          {
+            "name": "Host Peak Resource Count",
+            "value": 39,
+            "unit": "Resources"
+          },
+          {
+            "name": "Client Peak Static Memory",
+            "value": 625,
+            "unit": "MB"
+          },
+          {
+            "name": "Client Peak Node Count",
+            "value": 814,
             "unit": "Nodes"
           },
           {
