@@ -1832,9 +1832,6 @@ func sync_unit_purchase(city_name: String, unit_type: String, faction: String, c
 	print("Unit Purchase: ", faction, " bought ", unit_type, " at ", city_name, " for ", cost)
 	
 	if ConsoleManager:
-		var col = _get_fac_color_hex(faction)
-		var fac = "[color=" + col + "]" + faction + "[/color]"
-
 		var local_fac = _get_local_faction()
 		var should_log = true
 
@@ -1862,7 +1859,7 @@ func sync_unit_purchase(city_name: String, unit_type: String, faction: String, c
 					break
 
 		if should_log:
-			ConsoleManager.local_log_message(_get_fac_color_rich(fac) + " deployed " + unit_type + " in " + city_name)
+			ConsoleManager.local_log_message(_get_fac_color_rich(faction) + " deployed " + unit_type + " in " + city_name)
 	
 	# Universally enforce native deploy locks across host and all clients internally
 	city_cooldowns[city_name] = 300.0
@@ -2025,9 +2022,11 @@ func _instantiate_scenario(scenario_data: Dictionary, progress_callback: Callabl
 					var adjacent_regions = {}
 					
 					if o_reg != "":
+						adjacent_regions[o_reg] = true
 						# Scan all tiles belonging to the oil region to find its neighbors
 						for t_id in map_data._region_map.keys():
 							if map_data._region_map[t_id] == o_reg:
+
 								for n in map_data.get_neighbors(t_id):
 									if map_data._region_map.has(n):
 										var r = map_data._region_map[n]
