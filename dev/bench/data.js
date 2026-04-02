@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775139870795,
+  "lastUpdate": 1775147106973,
   "repoUrl": "https://github.com/jjeffers/dominion-protocol",
   "entries": {
     "Godot Memory Profile": [
@@ -1128,6 +1128,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "Client Peak Node Count",
             "value": 794,
+            "unit": "Nodes"
+          },
+          {
+            "name": "Client Peak Resource Count",
+            "value": 38,
+            "unit": "Resources"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jdjeffers@protonmail.com",
+            "name": "James Jeffers",
+            "username": "jjeffers"
+          },
+          "committer": {
+            "email": "jdjeffers@protonmail.com",
+            "name": "James Jeffers",
+            "username": "jjeffers"
+          },
+          "distinct": true,
+          "id": "09ddcb279f5147aec9f2e485a6213b5503efd48c",
+          "message": "Restrict 'FORCE THREATENS' news events to only trigger for visible enemies",
+          "timestamp": "2026-04-02T12:16:18-04:00",
+          "tree_id": "b4b94a07093c7a87f607062d20666639b6b4a826",
+          "url": "https://github.com/jjeffers/dominion-protocol/commit/09ddcb279f5147aec9f2e485a6213b5503efd48c"
+        },
+        "date": 1775147106084,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Host Peak Static Memory",
+            "value": 783,
+            "unit": "MB"
+          },
+          {
+            "name": "Host Peak Node Count",
+            "value": 832,
+            "unit": "Nodes"
+          },
+          {
+            "name": "Host Peak Resource Count",
+            "value": 39,
+            "unit": "Resources"
+          },
+          {
+            "name": "Client Peak Static Memory",
+            "value": 783,
+            "unit": "MB"
+          },
+          {
+            "name": "Client Peak Node Count",
+            "value": 830,
             "unit": "Nodes"
           },
           {
