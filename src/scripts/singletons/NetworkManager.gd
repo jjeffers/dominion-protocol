@@ -188,9 +188,21 @@ func _update_window_title():
 	if players.has(id):
 		var fac = players[id]["faction"]
 		var disp_name = players[id]["name"]
-		if fac == "":
-			fac = "Unassigned"
-		DisplayServer.window_set_title("Dominion Protocol " + GAME_VERSION + " - %s [%s]" % [disp_name, fac])
+		
+		var full_fac_name = fac
+		if fac != "":
+			var main_node = get_node_or_null("/root/Main")
+			if main_node and main_node.has_method("get_faction_name"):
+				full_fac_name = main_node.get_faction_name(fac)
+			else:
+				var lobby_node = get_node_or_null("/root/Lobby")
+				if lobby_node and "scenario_data" in lobby_node and lobby_node.scenario_data.has("factions") and lobby_node.scenario_data["factions"].has(fac):
+					full_fac_name = lobby_node.scenario_data["factions"][fac].get("display_name", fac)
+					
+		if full_fac_name == "":
+			full_fac_name = "Unassigned"
+			
+		DisplayServer.window_set_title("Dominion Protocol " + GAME_VERSION + " - %s [%s]" % [disp_name, full_fac_name])
 	else:
 		DisplayServer.window_set_title("Dominion Protocol " + GAME_VERSION + " - Player %d" % id)
 
