@@ -150,11 +150,13 @@ func set_terrain(tile_id: int, new_terrain: String) -> void:
 	_terrain_overrides[tile_id] = new_terrain
 	
 	if land_astar and land_astar.has_point(tile_id):
-		var weight = 1.0
+		var weight = 3.0
 		match new_terrain:
-			"FOREST", "JUNGLE": weight = 2.0
-			"MOUNTAINS", "RUINS": weight = 3.0
-			"WASTELAND": weight = 4.0
+			"FOREST", "JUNGLE", "DESERT": weight = 6.0
+			"RUINS": weight = 9.0
+			"WASTELAND": weight = 15.0
+			"MOUNTAINS": weight = 30.0
+			"OCEAN", "LAKE": weight = 1.0
 		land_astar.set_point_weight_scale(tile_id, weight)
 
 ## Returns the sovereign Region string
@@ -218,12 +220,15 @@ func _build_pathfinding_graphs() -> void:
 				
 			land_astar.add_point(i, pos)
 			if not is_ocean:
-				var weight = 1.0
+				var weight = 3.0
 				match terrain:
-					"FOREST", "JUNGLE": weight = 2.0
-					"MOUNTAINS", "RUINS": weight = 3.0
-					"WASTELAND": weight = 4.0
+					"FOREST", "JUNGLE", "DESERT": weight = 6.0
+					"RUINS": weight = 9.0
+					"WASTELAND": weight = 15.0
+					"MOUNTAINS": weight = 30.0
 				land_astar.set_point_weight_scale(i, weight)
+			else:
+				land_astar.set_point_weight_scale(i, 1.0)
 
 	var added_tiles = added_to_graph.keys()
 	
