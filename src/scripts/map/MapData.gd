@@ -251,6 +251,39 @@ func _build_pathfinding_graphs() -> void:
 				else:
 					land_astar.connect_points(i, n, true)
 					naval_astar.connect_points(i, n, true)
+					
+		# Connect diagonal nodes mathematically present on the same face
+		var face = i / (RESOLUTION * RESOLUTION)
+		var rem = i % (RESOLUTION * RESOLUTION)
+		var ix = rem % RESOLUTION
+		var iy = rem / RESOLUTION
+		
+		var dirs = [
+			Vector2(-1, -1), Vector2(1, -1),
+			Vector2(-1, 1), Vector2(1, 1)
+		]
+		for d in dirs:
+			var nx = ix + int(d.x)
+			var ny = iy + int(d.y)
+			if nx >= 0 and nx < RESOLUTION and ny >= 0 and ny < RESOLUTION:
+				var diag_id = face * (RESOLUTION * RESOLUTION) + ny * RESOLUTION + nx
+				if diag_id > i and added_to_graph.has(diag_id):
+					var diag_terrain = get_terrain(diag_id)
+					var diag_is_ocean = (diag_terrain == "OCEAN" or diag_terrain == "LAKE")
+					
+					var n1_id = face * (RESOLUTION * RESOLUTION) + ny * RESOLUTION + ix
+					var n2_id = face * (RESOLUTION * RESOLUTION) + iy * RESOLUTION + nx
+					var t1 = get_terrain(n1_id)
+					var t2 = get_terrain(n2_id)
+					
+					if (not is_ocean) or (not diag_is_ocean):
+						land_astar.connect_points(i, diag_id, true)
+					else:
+						land_astar.connect_points(i, diag_id, true)
+						
+						# Naval constraint: Forbid cutting corners around land tiles
+						if (t1 == "OCEAN" or t1 == "LAKE") and (t2 == "OCEAN" or t2 == "LAKE"):
+							naval_astar.connect_points(i, diag_id, true)
 	
 	print("MapData: Built AStar3D pathfinding decimated graphs for ", added_tiles.size(), " tiles.")
 
@@ -331,50 +364,8 @@ func find_path(start_pos: Vector3, end_pos: Vector3, unit_type: String) -> Array
 		
 	var path_ids = astar.get_id_path(start_id, end_id)
 	
-	var smoothed_ids: Array[int] = []
-	if path_ids.size() > 0:
-		smoothed_ids.append(path_ids[0])
-		
-	var i = 0
-	while i < path_ids.size() - 1:
-		var pulled = false
-		if i + 2 < path_ids.size():
-			var p1 = path_ids[i]
-			var p3 = path_ids[i+2]
-			var face1 = p1 / (RESOLUTION * RESOLUTION)
-			var face3 = p3 / (RESOLUTION * RESOLUTION)
-			
-			if face1 == face3:
-				var rem1 = p1 % (RESOLUTION * RESOLUTION)
-				var rem3 = p3 % (RESOLUTION * RESOLUTION)
-				var x1 = rem1 % RESOLUTION
-				var y1 = rem1 / RESOLUTION
-				var x3 = rem3 % RESOLUTION
-				var y3 = rem3 / RESOLUTION
-				
-				if abs(x1 - x3) == 1 and abs(y1 - y3) == 1:
-					var n1 = face1 * (RESOLUTION * RESOLUTION) + y1 * RESOLUTION + x3
-					var n2 = face1 * (RESOLUTION * RESOLUTION) + y3 * RESOLUTION + x1
-					
-					var valid_bridge = true
-					if u_type in ["Cruiser", "Submarine"]:
-						var t1 = get_terrain(n1)
-						var t2 = get_terrain(n2)
-						if (t1 != "OCEAN" and t1 != "LAKE") or (t2 != "OCEAN" and t2 != "LAKE"):
-							# Forbid cutting corners around land tiles
-							valid_bridge = false
-					
-					if valid_bridge:
-						smoothed_ids.append(p3)
-						i += 2
-						pulled = true
-						
-		if not pulled:
-			smoothed_ids.append(path_ids[i+1])
-			i += 1
-
 	var path: Array[Vector3] = []
-	for id in smoothed_ids:
+	for id in path_ids:
 		path.append(astar.get_point_position(id))
 		
 	if path.size() > 1:
