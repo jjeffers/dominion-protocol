@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775136449211,
+  "lastUpdate": 1775139870795,
   "repoUrl": "https://github.com/jjeffers/dominion-protocol",
   "entries": {
     "Godot Memory Profile": [
@@ -1074,6 +1074,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "Client Peak Node Count",
             "value": 806,
+            "unit": "Nodes"
+          },
+          {
+            "name": "Client Peak Resource Count",
+            "value": 38,
+            "unit": "Resources"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jdjeffers@protonmail.com",
+            "name": "James Jeffers",
+            "username": "jjeffers"
+          },
+          "committer": {
+            "email": "jdjeffers@protonmail.com",
+            "name": "James Jeffers",
+            "username": "jjeffers"
+          },
+          "distinct": true,
+          "id": "dd7691b5a8513d35ec945948315ec1117cda88c1",
+          "message": "Fix: Natively generate diagonal edges in AStar3D routing graphs",
+          "timestamp": "2026-04-02T10:16:49-04:00",
+          "tree_id": "90bd2552eed23af5da7683b2e0c667328446944b",
+          "url": "https://github.com/jjeffers/dominion-protocol/commit/dd7691b5a8513d35ec945948315ec1117cda88c1"
+        },
+        "date": 1775139870033,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Host Peak Static Memory",
+            "value": 777,
+            "unit": "MB"
+          },
+          {
+            "name": "Host Peak Node Count",
+            "value": 796,
+            "unit": "Nodes"
+          },
+          {
+            "name": "Host Peak Resource Count",
+            "value": 39,
+            "unit": "Resources"
+          },
+          {
+            "name": "Client Peak Static Memory",
+            "value": 778,
+            "unit": "MB"
+          },
+          {
+            "name": "Client Peak Node Count",
+            "value": 794,
             "unit": "Nodes"
           },
           {
