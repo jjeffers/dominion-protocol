@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775045455989,
+  "lastUpdate": 1775136449211,
   "repoUrl": "https://github.com/jjeffers/dominion-protocol",
   "entries": {
     "Godot Memory Profile": [
@@ -1020,6 +1020,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "Client Peak Node Count",
             "value": 814,
+            "unit": "Nodes"
+          },
+          {
+            "name": "Client Peak Resource Count",
+            "value": 38,
+            "unit": "Resources"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jdjeffers@protonmail.com",
+            "name": "James Jeffers",
+            "username": "jjeffers"
+          },
+          "committer": {
+            "email": "jdjeffers@protonmail.com",
+            "name": "James Jeffers",
+            "username": "jjeffers"
+          },
+          "distinct": true,
+          "id": "fcb6c731ebaf956813b5fc4242c4e48c1cc594ca",
+          "message": "Fix: Adjust tactical AI AStar weights to prioritize Sea Transport",
+          "timestamp": "2026-04-02T09:19:18-04:00",
+          "tree_id": "a3beb48ad6792ca933972a9a004e1e13a95b4146",
+          "url": "https://github.com/jjeffers/dominion-protocol/commit/fcb6c731ebaf956813b5fc4242c4e48c1cc594ca"
+        },
+        "date": 1775136448741,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Host Peak Static Memory",
+            "value": 624,
+            "unit": "MB"
+          },
+          {
+            "name": "Host Peak Node Count",
+            "value": 808,
+            "unit": "Nodes"
+          },
+          {
+            "name": "Host Peak Resource Count",
+            "value": 39,
+            "unit": "Resources"
+          },
+          {
+            "name": "Client Peak Static Memory",
+            "value": 623,
+            "unit": "MB"
+          },
+          {
+            "name": "Client Peak Node Count",
+            "value": 806,
             "unit": "Nodes"
           },
           {
