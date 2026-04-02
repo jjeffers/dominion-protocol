@@ -40,7 +40,7 @@
 - Recovery only continues if the unit is not engaged in combat and the unit is stationary.
 
 ### Movement
-- The base rate of movement on land will be 1 unit width per 10 seconds.
+- The base rate of movement on land will be 2 unit widths per 10 seconds.
 - A land unit may not overlap the center tile of another unit, where the center tile is the center of the unit's 3x3 bounding box.
 - A land unit may move onto ocean terrain: the unit becomes seaborne, which is indicated by it's status "MOVING" becomes "SEA TRANSPORT", and the base movement rate becomes 1.5.
 

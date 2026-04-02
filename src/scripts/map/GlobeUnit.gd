@@ -93,7 +93,7 @@ func clear_path() -> void:
 var path_update_timer: float = 0.0
 
 # 1 tile roughly equals 0.006 units. Move 1 width per 10 seconds.
-var speed_units_per_sec: float = 0.0006
+var speed_units_per_sec: float = 0.0012
 var current_terrain_modifier: float = 1.0
 var is_seaborne: bool = false
 

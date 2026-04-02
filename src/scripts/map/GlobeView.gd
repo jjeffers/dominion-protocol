@@ -439,7 +439,7 @@ func _on_air_strike_requested(sender_id: int, unit_name: String, target_unit_nam
 	for u in units_list:
 		if is_instance_valid(u) and u != attacker and u != target and u.get("unit_type") == "Air":
 			if u.get("faction_name") != attacker_faction:
-				var ops_radius = 30.0 * _get_tile_width(_get_tile_from_vector3(u.current_position))
+				var ops_radius = 37.5 * _get_tile_width(_get_tile_from_vector3(u.current_position))
 				var dist = u.current_position.distance_to(target.current_position)
 				if dist <= ops_radius:
 					valid_counters.append(u)
@@ -591,7 +591,7 @@ func _on_strategic_bombing_requested(sender_id: int, unit_name: String, target_c
 	
 	for u in units_list:
 		if is_instance_valid(u) and u != attacker and u.get("unit_type") == "Air" and u.get("faction_name") != attacker_faction:
-			var ops_radius = 30.0 * _get_tile_width(_get_tile_from_vector3(u.current_position))
+			var ops_radius = 37.5 * _get_tile_width(_get_tile_from_vector3(u.current_position))
 			var dist = u.current_position.distance_to(target_pos)
 			if dist <= ops_radius:
 				valid_counters.append(u)
@@ -977,7 +977,7 @@ func _process(delta: float) -> void:
 					friendly_unit_positions.append(u.global_position)
 					if u.get("unit_type") == "Air" and u.get("is_air_ready") == true:
 						var tile_id = _get_tile_from_vector3(u.global_position)
-						var air_range = 30.0 * _get_tile_width(tile_id)
+						var air_range = 37.5 * _get_tile_width(tile_id)
 						friendly_air_bubbles.append({
 							"pos": u.global_position,
 							"range": air_range
@@ -2554,7 +2554,7 @@ func _update_city_highlights(active: bool, is_redeploy: bool = false, is_strateg
 							if target_tile != -1:
 								var target_pos = map_data.get_centroid(target_tile).normalized() * radius
 								var distance = attacker_pos.distance_to(target_pos)
-								var ops_radius = 30.0 * _get_tile_width(_get_tile_from_vector3(attacker_pos))
+								var ops_radius = 37.5 * _get_tile_width(_get_tile_from_vector3(attacker_pos))
 								if distance <= ops_radius:
 									is_valid = true
 				else:
@@ -2904,7 +2904,7 @@ func _handle_click(screen_pos: Vector2, is_left_click: bool) -> void:
 					return
 					
 				var dist = selected_unit.current_position.distance_to(hit_point.normalized() * radius)
-				var ops_radius = 30.0 * _get_tile_width(_get_tile_from_vector3(selected_unit.current_position))
+				var ops_radius = 37.5 * _get_tile_width(_get_tile_from_vector3(selected_unit.current_position))
 				
 				if current_air_operation_mode == "AIRSTRIKE":
 					if dist <= ops_radius:
