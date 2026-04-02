@@ -196,8 +196,13 @@ func _update_window_title():
 				full_fac_name = main_node.get_faction_name(fac)
 			else:
 				var lobby_node = get_node_or_null("/root/Lobby")
-				if lobby_node and "scenario_data" in lobby_node and lobby_node.scenario_data.has("factions") and lobby_node.scenario_data["factions"].has(fac):
+				if lobby_node and lobby_node.has_method("_get_faction_display_name"):
+					full_fac_name = lobby_node._get_faction_display_name(fac)
+				elif lobby_node and "scenario_data" in lobby_node and lobby_node.scenario_data.has("factions") and lobby_node.scenario_data["factions"].has(fac):
 					full_fac_name = lobby_node.scenario_data["factions"][fac].get("display_name", fac)
+					
+		if "(to be renamed" in full_fac_name:
+			full_fac_name = fac
 					
 		if full_fac_name == "":
 			full_fac_name = "Unassigned"

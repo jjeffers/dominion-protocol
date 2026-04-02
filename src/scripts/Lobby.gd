@@ -204,6 +204,7 @@ func request_scenario_sync() -> void:
 func sync_scenario(s_data: Dictionary) -> void:
 	scenario_data = s_data
 	_build_faction_ui()
+	NetworkManager._update_window_title()
 
 func _build_faction_ui():
 	for child in faction_button_container.get_children():
