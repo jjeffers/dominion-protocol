@@ -1,12 +1,13 @@
 extends Control
 
 @onready var player_list = $CenterContainer/VBoxContainer/PlayerList
-@onready var faction_button_container = $CenterContainer/VBoxContainer/HBoxContainer
+@onready var faction_button_container = $CenterContainer/VBoxContainer/ScrollContainer/FactionListContainer
 @onready var start_btn = $CenterContainer/VBoxContainer/StartGameBtn
 @onready var status_label = $CenterContainer/VBoxContainer/StatusLabel
 @onready var loading_bar = $CenterContainer/VBoxContainer/LoadingBar
 
 var auto_start: bool = false
+var expected_players: int = 2
 var is_loading_game: bool = false
 var is_transitioning: bool = false
 var is_host_generated_countries: bool = false
@@ -16,6 +17,7 @@ var main_scene_path: String = "res://src/scenes/main.tscn"
 var scenario_data: Dictionary = {}
 var faction_buttons: Dictionary = {}
 var money_spinboxes: Dictionary = {}
+var oil_spinboxes: Dictionary = {}
 var available_scenarios: Array[String] = []
 var scenario_dropdown: OptionButton
 var scenario_label: Label
@@ -107,6 +109,7 @@ func _ready():
 	NetworkManager.initial_countries_received.connect(_on_initial_countries_received)
 
 	var args = OS.get_cmdline_args()
+	var pending_added_factions = 0
 	for arg in args:
 		if arg.begins_with("--faction="):
 			var parts = arg.split("=")
@@ -125,8 +128,22 @@ func _ready():
 						scenario_dropdown.select(i)
 						_load_scenario_index(i)
 						break
+		if arg.begins_with("--add-factions="):
+			var parts = arg.split("=")
+			if parts.size() > 1 and NetworkManager.is_host:
+				pending_added_factions = parts[1].replace("\"", "").replace("'", "").strip_edges().to_int()
+		if arg.begins_with("--expected-players="):
+			var parts = arg.split("=")
+			if parts.size() > 1 and NetworkManager.is_host:
+				var val_str = parts[1].replace("\"", "").replace("'", "").strip_edges()
+				expected_players = val_str.to_int()
+				print("Lobby parsed --expected-players -> ", expected_players)
 		if arg == "--auto-start":
 			auto_start = true
+			
+	if pending_added_factions > 0 and NetworkManager.is_host:
+		for i in range(pending_added_factions):
+			_on_add_faction()
 
 func _load_available_scenarios():
 	available_scenarios.clear()
@@ -193,6 +210,10 @@ func _process_scenario_defaults() -> void:
 			
 		if not fac.has("money"):
 			fac["money"] = 100.0
+		if not fac.has("oil_stored"):
+			fac["oil_stored"] = 500.0
+		if not fac.has("is_required"):
+			fac["is_required"] = true
 
 @rpc("any_peer", "call_local", "reliable")
 func request_scenario_sync() -> void:
@@ -212,6 +233,7 @@ func _build_faction_ui():
 		
 	faction_buttons.clear()
 	money_spinboxes.clear()
+	oil_spinboxes.clear()
 	
 	var s_name = scenario_data.get("name", "Unknown Scenario")
 	scenario_dropdown.visible = NetworkManager.is_host
@@ -227,53 +249,90 @@ func _build_faction_ui():
 	if scenario_data.has("factions"):
 		for fac_key in scenario_data["factions"].keys():
 			var fac = scenario_data["factions"][fac_key]
-			var vbox = VBoxContainer.new()
-			vbox.add_theme_constant_override("separation", 10)
-			
-			var btn = Button.new()
-			var d_name = _get_faction_display_name(fac_key)
-			var oil_reserves = fac.get("oil_stored", 0)
-			if fac.has("oil"):
-				oil_reserves += fac["oil"].size() * 500
-				
-			var oil_text = ""
-			if oil_reserves > 0:
-				oil_text = " [Oil: " + str(oil_reserves) + "]"
-				
-			btn.text = "Join " + d_name + " (" + fac_key + ")" + oil_text
-			btn.add_theme_font_size_override("font_size", 54)
-			btn.custom_minimum_size = Vector2(300, 80)
+			var hbox = HBoxContainer.new()
+			hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+			hbox.add_theme_constant_override("separation", 15)
 			
 			var c_val = fac.get("color", "#FFFFFF")
+			var mod_color = Color.WHITE
 			if typeof(c_val) == TYPE_STRING:
-				btn.modulate = Color(c_val)
+				mod_color = Color(c_val)
 			elif typeof(c_val) == TYPE_ARRAY and c_val.size() >= 3:
-				btn.modulate = Color(c_val[0], c_val[1], c_val[2])
-				
-			btn.pressed.connect(func(): _on_join_faction(fac_key))
-			faction_buttons[fac_key] = btn
-			vbox.add_child(btn)
+				mod_color = Color(c_val[0], c_val[1], c_val[2])
 			
-			var money_hbox = HBoxContainer.new()
-			money_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
-			var money_label = Label.new()
-			money_label.text = "Starting Money:"
-			money_label.add_theme_font_size_override("font_size", 48)
-			money_hbox.add_child(money_label)
+			var c_rect = ColorRect.new()
+			c_rect.custom_minimum_size = Vector2(40, 40)
+			c_rect.color = mod_color
+			hbox.add_child(c_rect)
+			
+			var name_lbl = Label.new()
+			var d_name = _get_faction_display_name(fac_key)
+			name_lbl.text = d_name + " (" + fac_key + ")"
+			name_lbl.add_theme_font_size_override("font_size", 48)
+			name_lbl.custom_minimum_size = Vector2(400, 0)
+			hbox.add_child(name_lbl)
+			
+			var money_lbl = Label.new()
+			money_lbl.text = " Money:"
+			money_lbl.add_theme_font_size_override("font_size", 40)
+			hbox.add_child(money_lbl)
 			
 			var money_spin = SpinBox.new()
 			money_spin.min_value = 0
 			money_spin.max_value = 99999
 			money_spin.step = 10
 			money_spin.value = fac.get("money", 100.0)
-			money_spin.add_theme_font_size_override("font_size", 48)
-			money_spin.get_line_edit().add_theme_font_size_override("font_size", 48)
+			money_spin.add_theme_font_size_override("font_size", 36)
+			money_spin.get_line_edit().add_theme_font_size_override("font_size", 36)
 			money_spin.value_changed.connect(func(val): _on_money_changed(fac_key, val))
 			money_spinboxes[fac_key] = money_spin
-			money_hbox.add_child(money_spin)
-			vbox.add_child(money_hbox)
+			hbox.add_child(money_spin)
 			
-			faction_button_container.add_child(vbox)
+			var oil_lbl = Label.new()
+			var base_oil = fac.get("oil_stored", 500.0)
+			if fac.has("oil"):
+				base_oil += fac["oil"].size() * 500
+			oil_lbl.text = " Oil:"
+			oil_lbl.add_theme_font_size_override("font_size", 40)
+			hbox.add_child(oil_lbl)
+			
+			var oil_spin = SpinBox.new()
+			oil_spin.min_value = 0
+			oil_spin.max_value = 99999
+			oil_spin.step = 10
+			oil_spin.value = base_oil
+			oil_spin.add_theme_font_size_override("font_size", 36)
+			oil_spin.get_line_edit().add_theme_font_size_override("font_size", 36)
+			oil_spin.value_changed.connect(func(val): _on_oil_changed(fac_key, val))
+			oil_spinboxes[fac_key] = oil_spin
+			hbox.add_child(oil_spin)
+			
+			var btn = Button.new()
+			btn.text = "Join"
+			btn.add_theme_font_size_override("font_size", 42)
+			btn.custom_minimum_size = Vector2(150, 60)
+			btn.modulate = mod_color
+			btn.pressed.connect(func(): _on_join_faction(fac_key))
+			faction_buttons[fac_key] = btn
+			hbox.add_child(btn)
+			
+			if NetworkManager.is_host and not fac.get("is_required", false):
+				var rm_btn = Button.new()
+				rm_btn.text = "X"
+				rm_btn.add_theme_font_size_override("font_size", 42)
+				rm_btn.modulate = Color.RED
+				rm_btn.pressed.connect(func(): _on_remove_faction(fac_key))
+				hbox.add_child(rm_btn)
+			
+			faction_button_container.add_child(hbox)
+			
+		if NetworkManager.is_host and scenario_data.get("additional_factions", "no") in ["yes", "true", true]:
+			var add_btn = Button.new()
+			add_btn.text = "Add Faction"
+			add_btn.add_theme_font_size_override("font_size", 48)
+			add_btn.custom_minimum_size = Vector2(300, 80)
+			add_btn.pressed.connect(_on_add_faction)
+			faction_button_container.add_child(add_btn)
 			
 	_update_ui()
 
@@ -312,12 +371,22 @@ func _update_ui():
 	for fac_key in money_spinboxes.keys():
 		money_spinboxes[fac_key].editable = NetworkManager.is_host
 	
+	for fac_key in oil_spinboxes.keys():
+		oil_spinboxes[fac_key].editable = NetworkManager.is_host
+	
 	# Host can start anytime, empty slots will be played by AI bots
 	if NetworkManager.is_host:
-		start_btn.disabled = false
+		var all_req_joined = true
+		if scenario_data.has("factions"):
+			for fac_key in scenario_data["factions"].keys():
+				if scenario_data["factions"][fac_key].get("is_required", false):
+					if not taken_factions.has(fac_key):
+						all_req_joined = false
+						break
+		start_btn.disabled = not all_req_joined
 		
-		# If auto-starting is queued, wait until the client (at least 2 players total) connects and claims a faction
-		if auto_start and all_ready and NetworkManager.players.size() >= 2:
+		# If auto-starting is queued, wait until the client (expected_players total) connects and claims a faction
+		if auto_start and all_ready and NetworkManager.players.size() >= expected_players and all_req_joined:
 			_on_start_game()
 
 func _on_join_faction(fac: String):
@@ -334,6 +403,78 @@ func sync_faction_money(fac_key: String, money: float) -> void:
 		scenario_data["factions"][fac_key]["money"] = money
 		if money_spinboxes.has(fac_key):
 			money_spinboxes[fac_key].set_value_no_signal(money)
+
+func _on_oil_changed(fac_key: String, val: float) -> void:
+	if NetworkManager.is_host:
+		scenario_data["factions"][fac_key]["oil_stored"] = val
+		rpc("sync_faction_oil", fac_key, val)
+
+@rpc("authority", "call_local", "reliable")
+func sync_faction_oil(fac_key: String, oil: float) -> void:
+	if scenario_data.has("factions") and scenario_data["factions"].has(fac_key):
+		scenario_data["factions"][fac_key]["oil_stored"] = oil
+		if oil_spinboxes.has(fac_key):
+			oil_spinboxes[fac_key].set_value_no_signal(oil)
+
+func _on_add_faction() -> void:
+	if not NetworkManager.is_host or not scenario_data.has("factions"):
+		return
+		
+	var facs = scenario_data["factions"]
+	var f_count = facs.size()
+	var new_key = "Faction " + str(f_count + 1)
+	while facs.has(new_key):
+		f_count += 1
+		new_key = "Faction " + str(f_count + 1)
+		
+	var used_colors = []
+	for f in facs.values():
+		if f.has("color") and f["color"] != "":
+			used_colors.append(Color(f["color"]))
+			
+	var picked = Color.WHITE
+	for c in available_colors:
+		var already_used = false
+		for uc in used_colors:
+			if c.is_equal_approx(uc):
+				already_used = true
+				break
+		if not already_used:
+			picked = c
+			break
+			
+	var last_money = 100.0
+	var last_oil = 500.0
+	if facs.size() > 0:
+		var last_fac = facs[facs.keys()[-1]]
+		last_money = last_fac.get("money", 100.0)
+		last_oil = last_fac.get("oil_stored", 500.0)
+		
+	facs[new_key] = {
+		"display_name": "(to be renamed at start using faction name generator)",
+		"color": "#" + picked.to_html(false),
+		"cities": [],
+		"money": last_money,
+		"oil_stored": last_oil,
+		"units": [],
+		"is_required": false
+	}
+	
+	rpc("sync_scenario", scenario_data)
+
+func _on_remove_faction(fac_key: String) -> void:
+	if not NetworkManager.is_host or not scenario_data.has("factions"):
+		return
+	if scenario_data["factions"].has(fac_key):
+		scenario_data["factions"].erase(fac_key)
+		
+		# If any players had this faction, switch them to unassigned
+		for id in NetworkManager.players.keys():
+			if NetworkManager.players[id]["faction"] == fac_key:
+				NetworkManager.players[id]["faction"] = ""
+		NetworkManager._sync_players_to_all()
+				
+		rpc("sync_scenario", scenario_data)
 
 var _game_started_rpc_sent = false
 

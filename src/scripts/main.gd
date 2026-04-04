@@ -736,8 +736,7 @@ func _update_economy_ui() -> void:
 	var credits = 0.0
 	var my_cities = 0
 	var my_color = "#FFFFFF"
-	var enemy_cities = 0
-	var enemy_color = "#FFFFFF"
+	var enemy_factions_data = []
 	var total_cities = active_cities.size()
 	if globe_view and globe_view.get("city_nodes"):
 		total_cities = globe_view.city_nodes.size()
@@ -746,8 +745,8 @@ func _update_economy_ui() -> void:
 	var oil_cons = 0
 	var oil_stor = 0
 	
-	if local_faction != "" and scenario_data.has("factions"):
-		if scenario_data["factions"].has(local_faction):
+	if scenario_data.has("factions"):
+		if local_faction != "" and scenario_data["factions"].has(local_faction):
 			var fac_data = scenario_data["factions"][local_faction]
 			credits = fac_data.get("money", 0.0)
 			nukes = fac_data.get("nukes", 0)
@@ -763,16 +762,32 @@ func _update_economy_ui() -> void:
 				my_cities = count
 				my_color = f_data.get("color", "#FFFFFF")
 			elif not f_data.get("eliminated", false):
-				enemy_cities += count
-				enemy_color = f_data.get("color", "#FFFFFF")
+				enemy_factions_data.append({
+					"key": fac,
+					"count": count,
+					"color": f_data.get("color", "#FFFFFF")
+				})
 				
-	var neutral_cities_count = total_cities - (my_cities + enemy_cities)
+	enemy_factions_data.sort_custom(func(a, b): return a["key"] < b["key"])
+				
+	var total_controlled = my_cities
+	for ef in enemy_factions_data:
+		total_controlled += ef["count"]
+		
+	var neutral_cities_count = total_cities - total_controlled
 	if neutral_cities_count < 0: neutral_cities_count = 0
 			
 	if credits_label:
 		credits_label.text = "Credits: %.0f (P - Buy)" % floor(credits)
 	if cities_label:
-		cities_label.text = "[center]Cities: [outline_size=2][outline_color=#dddddd][color=%s]%d[/color][/outline_color][/outline_size] / [outline_size=2][outline_color=#dddddd][color=%s]%d[/color][/outline_color][/outline_size] / [color=#AAAAAA]%d[/color][/center]" % [my_color, my_cities, enemy_color, enemy_cities, neutral_cities_count]
+		var city_parts = []
+		if local_faction != "":
+			city_parts.append("[outline_size=2][outline_color=#dddddd][color=%s]%d[/color][/outline_color][/outline_size]" % [my_color, my_cities])
+		for ef in enemy_factions_data:
+			city_parts.append("[outline_size=2][outline_color=#dddddd][color=%s]%d[/color][/outline_color][/outline_size]" % [ef["color"], ef["count"]])
+		city_parts.append("[color=#AAAAAA]%d[/color]" % neutral_cities_count)
+		
+		cities_label.text = "[center]Cities: " + " / ".join(city_parts) + "[/center]"
 	
 	if oil_label:
 		if oil_stor <= 0:
