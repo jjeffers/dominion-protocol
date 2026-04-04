@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775155169332,
+  "lastUpdate": 1775333449342,
   "repoUrl": "https://github.com/jjeffers/dominion-protocol",
   "entries": {
     "Godot Memory Profile": [
@@ -1344,6 +1344,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "Client Peak Node Count",
             "value": 806,
+            "unit": "Nodes"
+          },
+          {
+            "name": "Client Peak Resource Count",
+            "value": 38,
+            "unit": "Resources"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jdjeffers@protonmail.com",
+            "name": "James Jeffers",
+            "username": "jjeffers"
+          },
+          "committer": {
+            "email": "jdjeffers@protonmail.com",
+            "name": "James Jeffers",
+            "username": "jjeffers"
+          },
+          "distinct": true,
+          "id": "19cd68c7301827c068b47f4e04033bd6072d682b",
+          "message": "chore(version): bump version to v0.10.1",
+          "timestamp": "2026-04-04T16:03:26-04:00",
+          "tree_id": "45b8281487325761fa2736ca13992a0d628867d8",
+          "url": "https://github.com/jjeffers/dominion-protocol/commit/19cd68c7301827c068b47f4e04033bd6072d682b"
+        },
+        "date": 1775333448499,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Host Peak Static Memory",
+            "value": 781,
+            "unit": "MB"
+          },
+          {
+            "name": "Host Peak Node Count",
+            "value": 852,
+            "unit": "Nodes"
+          },
+          {
+            "name": "Host Peak Resource Count",
+            "value": 39,
+            "unit": "Resources"
+          },
+          {
+            "name": "Client Peak Static Memory",
+            "value": 781,
+            "unit": "MB"
+          },
+          {
+            "name": "Client Peak Node Count",
+            "value": 850,
             "unit": "Nodes"
           },
           {
