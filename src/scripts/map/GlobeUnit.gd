@@ -605,8 +605,14 @@ func set_combat_target(target: GlobeUnit) -> void:
 	if is_engaged and is_instance_valid(combat_target) and not combat_target.is_dead:
 		return
 		
+	var was_engaged = is_engaged
 	combat_target = target
 	is_engaged = true
+	
+	if not was_engaged and unit_type.capitalize() == "Infantry":
+		target_position = current_position
+		current_path.clear()
+		
 	if sprite and sprite.material_override is ShaderMaterial:
 		sprite.set_instance_shader_parameter("is_engaged", true)
 	# Reset timer so attacker has to wait 5 seconds for their first swing
@@ -872,7 +878,8 @@ func _process(delta: float) -> void:
 								is_retreating = true
 								
 						if not is_retreating:
-							in_motion = false
+							if unit_type.capitalize() == "Infantry":
+								in_motion = false
 					
 					# Calculate direction to target in local space
 					var to_target = (combat_target.current_position - current_position).normalized()
