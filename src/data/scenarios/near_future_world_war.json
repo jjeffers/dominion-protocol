@@ -18,44 +18,6 @@
 			"units": []
 		}
 	},
-	"name": "Near Future World War",
-	"neutral_cities": [
-		"London",
-		"Paris",
-		"Luxembourg",
-		"Brussels",
-		"Marseille",
-		"Amsterdam",
-		"Bordeaux",
-		"Hamburg",
-		"Berlin",
-		"Munich",
-		"Prague",
-		"Königsberg",
-		"Athens",
-		"Geneva",
-		"Sevastopol",
-		"Tunis"
-	],
-	"neutral_oil": [
-		"North Slope",
-		"Siberia",
-		"Volga-Urals 1",
-		"Volga-Urals 2",
-		"Texas / Mid-Con",
-		"Baku / Caucasus",
-		"Gulf of Mexico 1",
-		"Gulf of Mexico 2",
-		"Kuwait Hub",
-		"Iranian Hub",
-		"Saudi Hub",
-		"Libyan Hub",
-		"Oman / UAE",
-		"Indonesia",
-		"Iraq / Basra",
-		"Central Asia",
-		"Venezuela",
-		"Brazil / Pre-Salt",
-		"West Africa"
-	]
+	"additional_factions": "yes",
+	"name": "Near Future World War"
 }

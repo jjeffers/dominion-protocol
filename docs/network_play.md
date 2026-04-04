@@ -16,9 +16,15 @@ This document outlines the technical development requirements for implementing n
 
 ## Lobby System
 Once a player has successfully connected to the host, they will enter the game lobby.
-- **Faction Selection**: The lobby will display a list of available factions for the current scenario. Players must be able to select and join a faction.
-- **Current Scenario**: For the time being, the game uses the "initial test" scenario exclusively.
-  - This scenario features exactly two factions: **Blue** and **Red**.
+- **Scenario Selection**: The lobby will display a list of available factions for the current scenario.
+- **Faction Createion and Assignment**: The players must be able to select and join a faction.
+  - The lobby will display a list of available factions for the current scenario. Players must be able to select and join a faction.
+  - The list of factions is a vertically stacked group of faction slots. Each slot has a color swatch, a faction name, starting money, starting oil, and a button to join the faction.
+  - The host may create additional factions if the scenario allows it (there will be an attribute in the scenario setup, "additional-factions: yes" or "additional-factions: no").
+  - A button labelled "Add Faction" is clickable by the host if additional factions are allowed.
+  - Clicking the "Add Faction" button adds a new faction with the same initial starting resources as the last faction listed in the scenrio.
+  - A button labelled "Remove Faction" near the liste faction is clickable by the host if there are more factions than required by the scenario.
+
 - **Game Start Condition**: The game host is only permitted to start the game once a player has successfully joined each of the required factions.
 
 ## In-Game Synchronization

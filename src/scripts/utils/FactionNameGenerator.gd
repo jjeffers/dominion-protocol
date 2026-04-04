@@ -4,16 +4,15 @@ extends RefCounted
 const ADJECTIVES = [
 	"Free", "Central", "Global", "United", "Allied", "Sovereign", "Democratic",
 	"Supreme", "Independent", "People's", "Sacred", "Progressive", "Mutual",
-	"Federated", "Territorial", "Imperial", "Colonial", "Strategic", "Solar",
-	"Stellar", "Galactic", "Outer", "Inner", "Holy", "Prosperous", "Harmonious",
-	"Iron", "Golden", "Crimson", "Azure", "Emerald", "Eternal", "New", "Grand",
-	"Universal"
+	"Federated", "Territorial", "Imperial", "Colonial", "Strategic", "Continental",
+	"Regional", "Hemispheric", "Transnational", "National", "Holy", "Prosperous", "Harmonious",
+	"Iron", "Golden", "Crimson", "Azure", "Emerald", "Eternal", "New", "Grand"
 ]
 
 const NOUNS = [
-	"States", "Nations", "Territories", "Colonies", "Systems", "Planets", 
-	"Earth", "Sectors", "Zones", "Worlds", "Stars", "Moons", "Realms",
-	"Frontier", "Expanse", "Starsystems"
+	"States", "Nations", "Territories", "Colonies", "Zones", "Provinces",
+	"Regions", "Districts", "Blocs", "Enclaves", "Republics", "Democracies",
+	"Frontier", "Realms", "Cantons", "Commonwealths"
 ]
 
 const IDEOLOGY_NOUNS = [
