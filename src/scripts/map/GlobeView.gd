@@ -4163,11 +4163,40 @@ func sync_nuke_launch(target_pos: Vector3, launching_faction: String) -> void:
 	if main_node and main_node.has_method("post_news_event"):
 		main_node.post_news_event(alert_msg, [])
 	
+	var start_pos = target_pos
+	var cap_name = ""
+	if active_scenario.has("factions") and active_scenario["factions"].has(launching_faction):
+		cap_name = active_scenario["factions"][launching_faction].get("capitol", "")
+		
+	if cap_name != "":
+		for cn in city_nodes:
+			if is_instance_valid(cn) and cn.name == cap_name:
+				start_pos = cn.global_position
+				break
+
+	start_pos = start_pos.normalized() * radius
+	target_pos = target_pos.normalized() * radius
+
+	var dist_dot = start_pos.normalized().dot(target_pos.normalized())
+	dist_dot = clampf(dist_dot, -1.0, 1.0)
+	var angle = acos(dist_dot)
+	var fraction = angle / PI
+	
+	var travel_time = lerp(5.0, 30.0, fraction)
+	
 	if nuke_alert_sfx and nuke_alert_sfx.stream:
 		nuke_alert_sfx.play()
+		
+	var anim_script = load("res://src/scripts/map/NukeLaunchAnimation.gd")
+	if anim_script:
+		var anim_node = anim_script.new()
+		add_child(anim_node)
+		var fac_color = Color(1.0, 0.5, 0.0)
+		if active_scenario.has("factions") and active_scenario["factions"].has(launching_faction) and active_scenario["factions"][launching_faction].has("color"):
+			fac_color = Color(active_scenario["factions"][launching_faction]["color"])
+		anim_node.init_animation(start_pos, target_pos, radius, travel_time, fac_color)
 	
-	# Wait for visual impact roughly 5 seconds (not exact visually, but mechanically delays destruction)
-	var timer = get_tree().create_timer(5.0)
+	var timer = get_tree().create_timer(travel_time)
 	timer.timeout.connect(func(): _process_nuke_impact(target_pos, launching_faction))
 
 func _process_nuke_impact(target_pos: Vector3, launching_faction: String = "") -> void:
