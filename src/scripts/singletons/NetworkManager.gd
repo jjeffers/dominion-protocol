@@ -122,7 +122,17 @@ func sync_unit_positions(pos_dict: Dictionary) -> void:
 				if dev > 0.05:
 					unit.current_position = host_pos
 				elif dev > 0.002: # Relaxed from 0.0001 to prevent backwards rubber-banding on typical ping rates
-					unit.current_position = unit.current_position.lerp(host_pos, 0.5)
+					var should_lerp = true
+					if unit.get("is_moving") and unit.get("target_position") != null:
+						var my_dist = unit.current_position.distance_to(unit.target_position)
+						var host_dist = host_pos.distance_to(unit.target_position)
+						# If we are closer to the immediate target than the delayed host packet, 
+						# we are accurately predicting ahead of the network latency. Do not snap backwards.
+						if my_dist < host_dist:
+							should_lerp = false
+					
+					if should_lerp:
+						unit.current_position = unit.current_position.lerp(host_pos, 0.5)
 
 func _on_connected_ok():
 	print("Connected to server successfully! Self ID: ", multiplayer.get_unique_id())
