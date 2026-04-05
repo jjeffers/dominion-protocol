@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775395304556,
+  "lastUpdate": 1775398550904,
   "repoUrl": "https://github.com/jjeffers/dominion-protocol",
   "entries": {
     "Godot Memory Profile": [
@@ -1722,6 +1722,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "Client Peak Node Count",
             "value": 839,
+            "unit": "Nodes"
+          },
+          {
+            "name": "Client Peak Resource Count",
+            "value": 39,
+            "unit": "Resources"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jdjeffers@protonmail.com",
+            "name": "James Jeffers",
+            "username": "jjeffers"
+          },
+          "committer": {
+            "email": "jdjeffers@protonmail.com",
+            "name": "James Jeffers",
+            "username": "jjeffers"
+          },
+          "distinct": true,
+          "id": "42b71934cc4b283d91a32c7ed1f8294414b31560",
+          "message": "Fix active movement network jitter",
+          "timestamp": "2026-04-05T10:08:02-04:00",
+          "tree_id": "87f668b3646edcd23df20615ce299a64ee88e689",
+          "url": "https://github.com/jjeffers/dominion-protocol/commit/42b71934cc4b283d91a32c7ed1f8294414b31560"
+        },
+        "date": 1775398550062,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Host Peak Static Memory",
+            "value": 746,
+            "unit": "MB"
+          },
+          {
+            "name": "Host Peak Node Count",
+            "value": 833,
+            "unit": "Nodes"
+          },
+          {
+            "name": "Host Peak Resource Count",
+            "value": 40,
+            "unit": "Resources"
+          },
+          {
+            "name": "Client Peak Static Memory",
+            "value": 748,
+            "unit": "MB"
+          },
+          {
+            "name": "Client Peak Node Count",
+            "value": 831,
             "unit": "Nodes"
           },
           {
