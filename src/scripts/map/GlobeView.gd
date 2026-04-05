@@ -921,6 +921,21 @@ func _generate_mesh() -> void:
 			mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 			mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR
 			mat.albedo_texture = tex
+			
+			var detail_tex = load("res://src/assets/detail_grain.png") as Texture2D
+			if detail_tex:
+				# Use Nearest neighbor on the target detail texture to keep the grid sharp
+				detail_tex.resource_local_to_scene = true 
+				
+				mat.detail_enabled = true
+				mat.detail_albedo = detail_tex
+				mat.detail_blend_mode = BaseMaterial3D.BLEND_MODE_MUL
+				# Tile the detail grid over the globe rapidly
+				mat.uv2_scale = Vector3(100, 100, 100)
+				mat.uv2_triplanar = true
+				mat.detail_uv_layer = BaseMaterial3D.DETAIL_UV_2
+				
+			mesh_instance.material_override = mat
 			mesh_instance.material_override = mat
 		else:
 			push_error("GlobeView: Failed to load biome_map.png image")
