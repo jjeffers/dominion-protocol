@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775393853716,
+  "lastUpdate": 1775393871629,
   "repoUrl": "https://github.com/jjeffers/dominion-protocol",
   "entries": {
     "Godot Memory Profile": [
@@ -1565,6 +1565,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "Client Peak Resource Count",
             "value": 38,
+            "unit": "Resources"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jdjeffers@protonmail.com",
+            "name": "James Jeffers",
+            "username": "jjeffers"
+          },
+          "committer": {
+            "email": "jdjeffers@protonmail.com",
+            "name": "James Jeffers",
+            "username": "jjeffers"
+          },
+          "distinct": true,
+          "id": "f7b28a0164cca82e1f38a9c42e9c9ebe843c5c7c",
+          "message": "Enhance globe rendering with CRT noise detail and triplanar mapping",
+          "timestamp": "2026-04-05T08:49:39-04:00",
+          "tree_id": "55895fc357d09ff40ce3f70f3105ff62764953f1",
+          "url": "https://github.com/jjeffers/dominion-protocol/commit/f7b28a0164cca82e1f38a9c42e9c9ebe843c5c7c"
+        },
+        "date": 1775393870735,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Host Peak Static Memory",
+            "value": 747,
+            "unit": "MB"
+          },
+          {
+            "name": "Host Peak Node Count",
+            "value": 849,
+            "unit": "Nodes"
+          },
+          {
+            "name": "Host Peak Resource Count",
+            "value": 40,
+            "unit": "Resources"
+          },
+          {
+            "name": "Client Peak Static Memory",
+            "value": 748,
+            "unit": "MB"
+          },
+          {
+            "name": "Client Peak Node Count",
+            "value": 847,
+            "unit": "Nodes"
+          },
+          {
+            "name": "Client Peak Resource Count",
+            "value": 39,
             "unit": "Resources"
           }
         ]
