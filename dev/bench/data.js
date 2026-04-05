@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775393873513,
+  "lastUpdate": 1775395304556,
   "repoUrl": "https://github.com/jjeffers/dominion-protocol",
   "entries": {
     "Godot Memory Profile": [
@@ -1668,6 +1668,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "Client Peak Node Count",
             "value": 799,
+            "unit": "Nodes"
+          },
+          {
+            "name": "Client Peak Resource Count",
+            "value": 39,
+            "unit": "Resources"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jdjeffers@protonmail.com",
+            "name": "James Jeffers",
+            "username": "jjeffers"
+          },
+          "committer": {
+            "email": "jdjeffers@protonmail.com",
+            "name": "James Jeffers",
+            "username": "jjeffers"
+          },
+          "distinct": true,
+          "id": "0758eba4c3cef2b672d3813dedfb9e9235adcadf",
+          "message": "Add distance-scaled atomic launch delay and dynamic ICBM flare animation trail",
+          "timestamp": "2026-04-05T09:12:19-04:00",
+          "tree_id": "09bcdbaf700ebfab59340a88764fdb986d0ffc55",
+          "url": "https://github.com/jjeffers/dominion-protocol/commit/0758eba4c3cef2b672d3813dedfb9e9235adcadf"
+        },
+        "date": 1775395304295,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Host Peak Static Memory",
+            "value": 748,
+            "unit": "MB"
+          },
+          {
+            "name": "Host Peak Node Count",
+            "value": 841,
+            "unit": "Nodes"
+          },
+          {
+            "name": "Host Peak Resource Count",
+            "value": 40,
+            "unit": "Resources"
+          },
+          {
+            "name": "Client Peak Static Memory",
+            "value": 748,
+            "unit": "MB"
+          },
+          {
+            "name": "Client Peak Node Count",
+            "value": 839,
             "unit": "Nodes"
           },
           {
