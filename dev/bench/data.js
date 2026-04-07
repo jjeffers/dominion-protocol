@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775398550904,
+  "lastUpdate": 1775600028987,
   "repoUrl": "https://github.com/jjeffers/dominion-protocol",
   "entries": {
     "Godot Memory Profile": [
@@ -1781,6 +1781,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "Client Peak Resource Count",
             "value": 39,
+            "unit": "Resources"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jdjeffers@protonmail.com",
+            "name": "James Jeffers",
+            "username": "jjeffers"
+          },
+          "committer": {
+            "email": "jdjeffers@protonmail.com",
+            "name": "James Jeffers",
+            "username": "jjeffers"
+          },
+          "distinct": true,
+          "id": "ba9afd04f530bafe13f67194dd7a75d81d6e8920",
+          "message": "Enhance global map with high-res NOAA Great Lakes bathymetry data",
+          "timestamp": "2026-04-07T18:04:08-04:00",
+          "tree_id": "9b50c37fd4e9bda3556a9d1f55e57b9654f22aa5",
+          "url": "https://github.com/jjeffers/dominion-protocol/commit/ba9afd04f530bafe13f67194dd7a75d81d6e8920"
+        },
+        "date": 1775600028697,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Host Peak Static Memory",
+            "value": 747,
+            "unit": "MB"
+          },
+          {
+            "name": "Host Peak Node Count",
+            "value": 805,
+            "unit": "Nodes"
+          },
+          {
+            "name": "Host Peak Resource Count",
+            "value": 41,
+            "unit": "Resources"
+          },
+          {
+            "name": "Client Peak Static Memory",
+            "value": 746,
+            "unit": "MB"
+          },
+          {
+            "name": "Client Peak Node Count",
+            "value": 803,
+            "unit": "Nodes"
+          },
+          {
+            "name": "Client Peak Resource Count",
+            "value": 40,
             "unit": "Resources"
           }
         ]
