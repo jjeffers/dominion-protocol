@@ -1035,6 +1035,14 @@ func _process(delta: float) -> void:
 		if TEC_MODIFIERS[u_type].has(effective_terrain):
 			current_terrain_modifier = TEC_MODIFIERS[u_type][effective_terrain]["movement"]
 			
+		if current_terrain_modifier <= 0.0 and p and p.has_method("_get_tile_from_vector3"):
+			var target_tile = p._get_tile_from_vector3(target_position)
+			var target_terr = p.map_data.get_terrain(target_tile)
+			if p.get("city_tile_cache") != null and p.city_tile_cache.has(target_tile):
+				target_terr = "DOCKS" if (target_terr == "OCEAN" or target_terr == "LAKE") else "CITY"
+			if TEC_MODIFIERS[u_type].has(target_terr) and TEC_MODIFIERS[u_type][target_terr]["movement"] > 0.0:
+				current_terrain_modifier = TEC_MODIFIERS[u_type][target_terr]["movement"]
+			
 		if p and p.get("active_scenario") and p.active_scenario.has("factions"):
 			var f_data = p.active_scenario["factions"].get(faction_name)
 			if f_data and f_data.get("oil_shortage", false):

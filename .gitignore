@@ -27,3 +27,4 @@ client.log
 *.log
 node_modules
 dp_mac.zip
+tmp/

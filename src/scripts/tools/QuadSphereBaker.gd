@@ -284,7 +284,28 @@ func _sample_terrain(centroid: Vector3, img: Image, img_w: int, img_h: int, mask
 	# Sample Landmask First
 	var mask_px = clamp(int(u_base * mask_w), 0, mask_w - 1)
 	var mask_py = clamp(int(v_north * mask_h), 0, mask_h - 1)
-	var is_land = mask.get_pixel(mask_px, mask_py).v > 0.5
+	var is_land = true
+	var lat_deg = rad_to_deg(lat)
+	var lon_deg = rad_to_deg(lon)
+	
+	var check_radius = 0
+	if lat_deg > 8.0 and lat_deg < 10.5 and lon_deg > -80.5 and lon_deg < -79.0:
+		check_radius = 4
+	elif lat_deg > 29.0 and lat_deg < 32.0 and lon_deg > 31.5 and lon_deg < 33.5:
+		check_radius = 4
+		
+	if check_radius > 0:
+		for dy in range(-check_radius, check_radius + 1):
+			for dx in range(-check_radius, check_radius + 1):
+				var test_px = clamp(mask_px + dx, 0, mask_w - 1)
+				var test_py = clamp(mask_py + dy, 0, mask_h - 1)
+				if mask.get_pixel(test_px, test_py).v < 0.5:
+					is_land = false
+					break
+			if not is_land:
+				break
+	else:
+		is_land = mask.get_pixel(mask_px, mask_py).v > 0.5
 	
 	if not is_land:
 		return ["OCEAN", 0.0]
